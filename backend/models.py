@@ -198,3 +198,12 @@ class WebhookEvent(Base):
     type = Column(String, nullable=False)
     processed = Column(Boolean, default=False, nullable=False)
     received_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Session(Base):
+    """Server-side auth session — opaque token stored in an httpOnly cookie."""
+    __tablename__ = "sessions"
+    token = Column(String, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
