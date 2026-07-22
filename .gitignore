@@ -1,6 +1,23 @@
+# Secrets — never commit real keys
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
 # macOS
 .DS_Store
 
 # Design-tool artifacts
 .thumbnail
 **/.thumbnail
+
+# Local data / logs
+*.log
+*.db
+*.sqlite
+*.sqlite3
