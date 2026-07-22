@@ -1,0 +1,6 @@
+# macOS
+.DS_Store
+
+# Design-tool artifacts
+.thumbnail
+**/.thumbnail
