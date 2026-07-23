@@ -1,6 +1,9 @@
 """PromoSlot API — application entry point."""
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  (ensure models are registered on Base)
 from .config import settings
@@ -8,6 +11,8 @@ from .db import Base, engine
 from .routers import (
     auth, connect, deals, health, notifications, proofs, review, reviews, webhooks,
 )
+
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 
 # Create tables for local/dev. (Production will use migrations.)
 Base.metadata.create_all(bind=engine)
@@ -34,11 +39,18 @@ app.include_router(reviews.router)
 app.include_router(notifications.router)
 
 
-@app.get("/", tags=["root"])
-def root():
+@app.get("/api", tags=["root"])
+def api_info():
     return {
         "service": "PromoSlot API",
         "version": app.version,
         "status": "ok",
         "stripe_configured": settings.stripe_configured,
     }
+
+
+# Serve the front end same-origin as the API (so session cookies just work).
+# Mounted LAST so all explicit API routes above take precedence; everything else
+# (index.html, JS, assets) is served from the frontend/ directory.
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
