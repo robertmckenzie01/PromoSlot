@@ -5,9 +5,16 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from .models import (
-    ConnectedAccount, Deal, DealStatus, Notification, Payment, Proof, User, Verification,
+    ConnectedAccount, Deal, DealStatus, Notification, Payment, Proof, Transfer, User,
+    Verification,
 )
 from .stripe_client import stripe
+
+
+def fee_and_net(amount: int, fee_percent: int) -> tuple:
+    """Split an amount (pence) into (platform_fee, net_to_owner)."""
+    fee = amount * fee_percent // 100
+    return fee, amount - fee
 
 
 def _g(obj, *path):
@@ -132,3 +139,88 @@ def verify_delivery(db: Session, deal: Deal, reviewer: User, decision: str,
     db.commit()
     db.refresh(deal)
     return v
+
+
+def create_deal_payout(db: Session, deal: Deal, destination: str) -> Transfer:
+    """Move funds to the platform owner via a REAL Stripe Transfer.
+
+    The deal is marked PAID only because stripe.Transfer.create() actually
+    succeeded (money moved from the platform balance to the connected account).
+    Caller must have already verified funded + verified + not paid + destination
+    payout-enabled. Raises on Stripe failure so the caller leaves the deal unpaid.
+    """
+    fee, net = fee_and_net(deal.amount_total, deal.fee_percent)
+
+    tr = stripe.Transfer.create(
+        amount=net,
+        currency=deal.currency,
+        destination=destination,
+        # Draw specifically from this deal's charge (correct availability/timing).
+        source_transaction=deal.charge_id,
+        transfer_group=f"deal_{deal.id}",
+        metadata={"deal_id": str(deal.id), "promoslot": "deal_payout"},
+    )
+
+    deal.transfer_id = tr.id
+    deal.paid_at = datetime.utcnow()
+    deal.status = DealStatus.PAID
+    db.add(Transfer(
+        deal_id=deal.id,
+        stripe_transfer_id=tr.id,
+        destination_account=destination,
+        amount=net,
+        currency=deal.currency,
+        status="paid",
+    ))
+    db.add(Notification(user_id=deal.platform_owner_id, type="payout_sent",
+                        body=f"Payout of {deal.currency.upper()} {net/100:.2f} sent for deal #{deal.id} (20% fee applied).",
+                        ref=str(deal.id)))
+    db.add(Notification(user_id=deal.business_id, type="deal_completed",
+                        body=f"Deal #{deal.id} completed — payout released to the platform owner.",
+                        ref=str(deal.id)))
+    db.commit()
+    db.refresh(deal)
+    return tr
+
+
+def refund_deal(db: Session, deal: Deal, reason: str = "requested_by_customer"):
+    """Refund the business via a REAL Stripe Refund on the deal's PaymentIntent.
+
+    Only marks REFUNDED because stripe.Refund.create() actually succeeded.
+    Caller must have ensured the deal is funded and not already paid out.
+    """
+    rf = stripe.Refund.create(
+        payment_intent=deal.payment_intent_id,
+        reason=reason,
+        metadata={"deal_id": str(deal.id), "promoslot": "deal_refund"},
+    )
+    deal.refund_id = rf.id
+    deal.status = DealStatus.REFUNDED
+    db.add(Notification(user_id=deal.business_id, type="deal_refunded",
+                        body=f"Deal #{deal.id} was refunded to you.", ref=str(deal.id)))
+    db.add(Notification(user_id=deal.platform_owner_id, type="deal_refunded",
+                        body=f"Deal #{deal.id} was refunded to the business.", ref=str(deal.id)))
+    db.commit()
+    db.refresh(deal)
+    return rf
+
+
+def confirm_refund_from_charge(db: Session, charge_id: str) -> Optional[Deal]:
+    """Idempotently mark a deal refunded from a charge.refunded webhook.
+
+    Re-verifies with Stripe that the charge is actually refunded before changing
+    state (handles refunds initiated from the Stripe dashboard too).
+    """
+    deal = db.query(Deal).filter_by(charge_id=charge_id).first()
+    if deal is None or deal.status == DealStatus.REFUNDED:
+        return deal
+    try:
+        ch = stripe.Charge.retrieve(charge_id)
+    except Exception:
+        return deal
+    if not getattr(ch, "refunded", False):
+        return deal
+    deal.status = DealStatus.REFUNDED
+    db.commit()
+    db.refresh(deal)
+    return deal
