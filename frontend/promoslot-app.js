@@ -209,12 +209,20 @@ function closeModal(){
 function overlayClick(e){ if(e.target===$("overlay") && !modalLock) closeModal(); }
 
 /* ==================== MARKETPLACE ==================== */
-function allListings(){ return LISTINGS.concat(S.myPlatforms); }
-function allCampaigns(){ return S.myCampaigns.concat(CAMPAIGNS); }
+// Marketplace = real listings/campaigns from the backend + the labelled examples.
+function allListings(){ return LISTINGS.concat(S.marketPlatforms||[]); }
+function allCampaigns(){ return (S.marketCampaigns||[]).concat(CAMPAIGNS); }
+async function loadMarket(){
+  try{ S.marketPlatforms = await PSApi.get("/platforms"); }catch(e){ S.marketPlatforms=[]; }
+  try{ S.marketCampaigns = await PSApi.get("/campaigns"); }catch(e){ S.marketCampaigns=[]; }
+}
 
-function openMarket(tab){
+async function openMarket(tab){
   if(tab && typeof tab==="string") S.marketTab=tab;
-  buildFilters(); renderMarket(true); showView("view-market");
+  showView("view-market");
+  buildFilters(); renderMarket(true);        // skeletons while we fetch
+  await loadMarket();
+  buildFilters(); renderMarketNow();          // real data
 }
 function setMarketTab(tab){
   S.marketTab=tab; resetFilters();
@@ -363,7 +371,9 @@ function renderMarketNow(){
       </div>`;
 }
 function renderMiniMarket(){
-  $("miniMarket").innerHTML=listingCard(LISTINGS[0],0);
+  const reals=(S.marketPlatforms||[]).slice(0,3);
+  const picks = reals.length ? reals : [LISTINGS[0]];
+  $("miniMarket").innerHTML=picks.map((l,i)=>listingCard(l,i)).join("");
 }
 
 /* ==================== LISTING DETAIL ==================== */
@@ -1470,6 +1480,7 @@ function PSBoot(){
   renderMiniMarket();
   syncNav();
   restoreSession();
+  loadMarket().then(renderMiniMarket);  // refresh peek with real listings
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); });
   document.addEventListener("click",e=>{
     const el=e.target.closest("[data-act]");
