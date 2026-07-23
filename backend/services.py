@@ -4,7 +4,9 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from .models import ConnectedAccount, Deal, DealStatus, Notification, Payment
+from .models import (
+    ConnectedAccount, Deal, DealStatus, Notification, Payment, Proof, User, Verification,
+)
 from .stripe_client import stripe
 
 
@@ -98,3 +100,35 @@ def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
     db.commit()
     db.refresh(deal)
     return deal
+
+
+def verify_delivery(db: Session, deal: Deal, reviewer: User, decision: str,
+                    notes: Optional[str] = None) -> Verification:
+    """Record a human reviewer's verification decision on submitted evidence.
+
+    Only ever called from the reviewer-only endpoint, on a funded deal that has
+    real stored proof. Sets verified_at on approval — never by a timer, a step
+    being reached, or a deal party clicking through their own flow.
+    """
+    v = Verification(deal_id=deal.id, reviewer_id=reviewer.id,
+                     decision=decision, notes=notes)
+    db.add(v)
+
+    if decision == "approved":
+        deal.verified_at = datetime.utcnow()
+        deal.status = DealStatus.VERIFIED
+        db.add(Notification(user_id=deal.platform_owner_id, type="deal_verified",
+                            body=f"Deal #{deal.id} delivery verified — payout to follow.",
+                            ref=str(deal.id)))
+        db.add(Notification(user_id=deal.business_id, type="deal_verified",
+                            body=f"Deal #{deal.id} delivery verified by PromoSlot.",
+                            ref=str(deal.id)))
+    else:
+        deal.status = DealStatus.IN_DELIVERY
+        db.add(Notification(user_id=deal.platform_owner_id, type="deal_revision",
+                            body=f"Deal #{deal.id} evidence needs revision before it can be verified.",
+                            ref=str(deal.id)))
+
+    db.commit()
+    db.refresh(deal)
+    return v

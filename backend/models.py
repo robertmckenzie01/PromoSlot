@@ -38,6 +38,9 @@ class User(Base):
     display_name = Column(String)
     is_business = Column(Boolean, default=False, nullable=False)
     is_platform_owner = Column(Boolean, default=False, nullable=False)
+    # Not self-serve: granted out-of-band (scripts/make_reviewer.py). A reviewer
+    # is a human on the PromoSlot side who verifies delivery evidence.
+    is_reviewer = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 

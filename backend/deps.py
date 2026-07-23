@@ -31,3 +31,11 @@ def get_current_user(request: Request, db: DBSession = Depends(get_db)) -> User:
 
 def get_current_user_optional(request: Request, db: DBSession = Depends(get_db)) -> Optional[User]:
     return _user_from_request(request, db)
+
+
+def get_current_reviewer(user: User = Depends(get_current_user)) -> User:
+    """Only a PromoSlot reviewer may verify delivery. Never a deal party."""
+    if not user.is_reviewer:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Reviewer access required")
+    return user

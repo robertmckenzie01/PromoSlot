@@ -25,5 +25,6 @@ class UserOut(BaseModel):
     display_name: Optional[str] = None
     is_business: bool
     is_platform_owner: bool
+    is_reviewer: bool = False
 
     model_config = {"from_attributes": True}

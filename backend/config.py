@@ -17,6 +17,8 @@ class Settings:
     app_base_url: str = os.environ.get("APP_BASE_URL", "http://localhost:8000")
     platform_fee_percent: int = int(os.environ.get("PLATFORM_FEE_PERCENT", "20"))
     database_url: str = os.environ.get("DATABASE_URL", "sqlite:///./promoslot.sqlite3")
+    storage_dir: str = os.environ.get("STORAGE_DIR", "./storage")
+    max_upload_bytes: int = int(os.environ.get("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
 
     @property
     def stripe_configured(self) -> bool:
