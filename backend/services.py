@@ -11,10 +11,28 @@ from .models import (
 from .stripe_client import stripe
 
 
-def fee_and_net(amount: int, fee_percent: int) -> tuple:
-    """Split an amount (pence) into (platform_fee, net_to_owner)."""
-    fee = amount * fee_percent // 100
-    return fee, amount - fee
+def deal_money(listed_price: int, seller_pct: int, buyer_pct: int) -> dict:
+    """Split-fee breakdown, all fees on the agreed/listed price (pence).
+
+    Example ($100 listed, 10% seller / 5% buyer):
+      buyer_fee=500, seller_fee=1000, charge_amount=10500 (business pays $105),
+      net_to_owner=9000 (owner gets $90), platform_take=1500 ($15).
+    """
+    buyer_fee = listed_price * buyer_pct // 100
+    seller_fee = listed_price * seller_pct // 100
+    return {
+        "listed_price": listed_price,
+        "buyer_fee": buyer_fee,             # buyer protection fee, added at funding
+        "seller_fee": seller_fee,           # seller fee, deducted at payout
+        "charge_amount": listed_price + buyer_fee,   # what the business is charged
+        "net_to_owner": listed_price - seller_fee,   # what the owner receives
+        "platform_take": buyer_fee + seller_fee,
+    }
+
+
+def deal_money_for(deal) -> dict:
+    """Breakdown for a specific deal, using the fee rates locked on it."""
+    return deal_money(deal.listed_price, deal.seller_fee_percent, deal.buyer_fee_percent)
 
 
 def _g(obj, *path):
@@ -149,7 +167,8 @@ def create_deal_payout(db: Session, deal: Deal, destination: str) -> Transfer:
     Caller must have already verified funded + verified + not paid + destination
     payout-enabled. Raises on Stripe failure so the caller leaves the deal unpaid.
     """
-    fee, net = fee_and_net(deal.amount_total, deal.fee_percent)
+    m = deal_money_for(deal)
+    net = m["net_to_owner"]
 
     tr = stripe.Transfer.create(
         amount=net,
@@ -173,7 +192,8 @@ def create_deal_payout(db: Session, deal: Deal, destination: str) -> Transfer:
         status="paid",
     ))
     db.add(Notification(user_id=deal.platform_owner_id, type="payout_sent",
-                        body=f"Payout of {deal.currency.upper()} {net/100:.2f} sent for deal #{deal.id} (20% fee applied).",
+                        body=f"Payout of {deal.currency.upper()} {net/100:.2f} sent for deal #{deal.id} "
+                             f"(listed price minus {deal.seller_fee_percent}% seller fee).",
                         ref=str(deal.id)))
     db.add(Notification(user_id=deal.business_id, type="deal_completed",
                         body=f"Deal #{deal.id} completed — payout released to the platform owner.",

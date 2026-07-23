@@ -14,7 +14,7 @@ from ..db import get_db
 from ..deps import get_current_reviewer
 from ..models import ConnectedAccount, Deal, DealStatus, Proof, User
 from ..services import (
-    create_deal_payout, fee_and_net, onboarding_complete, refund_deal,
+    create_deal_payout, deal_money_for, onboarding_complete, refund_deal,
     sync_connected_account, verify_delivery,
 )
 from ..stripe_client import client
@@ -38,7 +38,7 @@ def review_queue(reviewer: User = Depends(get_current_reviewer), db: Session = D
             .order_by(Deal.id.asc()).all())
     return [{"deal_id": d.id, "business_id": d.business_id,
              "platform_owner_id": d.platform_owner_id,
-             "amount_total": d.amount_total, "status": d.status,
+             "listed_price": d.listed_price, "status": d.status,
              "proof_count": db.query(Proof).filter_by(deal_id=d.id).count()} for d in rows]
 
 
@@ -108,7 +108,7 @@ def release_payout(deal_id: int, reviewer: User = Depends(get_current_reviewer),
         raise HTTPException(status_code=409,
                             detail="Platform owner's payouts are not enabled yet (onboarding incomplete)")
 
-    fee, net = fee_and_net(d.amount_total, d.fee_percent)
+    m = deal_money_for(d)
     try:
         tr = create_deal_payout(db, d, ca.stripe_account_id)
     except Exception as e:
@@ -119,9 +119,13 @@ def release_payout(deal_id: int, reviewer: User = Depends(get_current_reviewer),
         "status": d.status,
         "paid": d.paid_at is not None,
         "transfer_id": tr.id,
-        "gross": d.amount_total,
-        "fee": fee,
-        "net_to_owner": net,
+        # Payout breakdown (split-fee)
+        "listed_price": m["listed_price"],
+        "seller_fee_percent": d.seller_fee_percent,
+        "seller_fee": m["seller_fee"],
+        "net_to_owner": m["net_to_owner"],
+        "buyer_fee": m["buyer_fee"],
+        "platform_take": m["platform_take"],
     }
 
 

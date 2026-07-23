@@ -107,9 +107,14 @@ class Deal(Base):
     terms = Column(JSON, default=dict)
     status = Column(String, default=DealStatus.DRAFT, nullable=False, index=True)
 
-    amount_total = Column(Integer, default=0, nullable=False)   # pence, business pays
+    # Split-fee model, all fees calculated on the agreed/listed price (pence):
+    #   business is charged  listed_price + buyer_fee  (buyer_fee_percent)
+    #   owner receives       listed_price - seller_fee (seller_fee_percent)
+    #   PromoSlot take       buyer_fee + seller_fee
+    listed_price = Column(Integer, default=0, nullable=False)  # agreed/listed price
     currency = Column(String, default="gbp", nullable=False)
-    fee_percent = Column(Integer, default=20, nullable=False)
+    seller_fee_percent = Column(Integer, default=10, nullable=False)
+    buyer_fee_percent = Column(Integer, default=5, nullable=False)
 
     # Stripe references (set as real events occur)
     payment_intent_id = Column(String, index=True)

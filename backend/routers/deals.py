@@ -15,6 +15,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import Deal, DealStatus, Payment, User
+from ..services import deal_money_for
 from ..stripe_client import stripe
 
 router = APIRouter(prefix="/deals", tags=["deals"])
@@ -22,20 +23,28 @@ router = APIRouter(prefix="/deals", tags=["deals"])
 
 class DealCreateIn(BaseModel):
     platform_owner_id: int
-    amount_total: int = Field(ge=100, description="Total the business pays, in pence")
+    listed_price: int = Field(ge=100, description="Agreed/listed price, in pence")
     currency: str = "gbp"
     terms: dict = Field(default_factory=dict)
 
 
 def deal_dict(d: Deal) -> dict:
+    m = deal_money_for(d)
     return {
         "id": d.id,
         "business_id": d.business_id,
         "platform_owner_id": d.platform_owner_id,
-        "amount_total": d.amount_total,
         "currency": d.currency,
-        "fee_percent": d.fee_percent,
         "status": d.status,
+        # Split-fee breakdown (all fees on the listed price)
+        "listed_price": d.listed_price,
+        "seller_fee_percent": d.seller_fee_percent,
+        "buyer_fee_percent": d.buyer_fee_percent,
+        "buyer_protection_fee": m["buyer_fee"],
+        "seller_fee": m["seller_fee"],
+        "total_charged": m["charge_amount"],     # what the business pays
+        "net_to_owner": m["net_to_owner"],        # what the owner receives
+        "platform_take": m["platform_take"],
         "business_approved": d.business_approved,
         "owner_approved": d.owner_approved,
         "funded": d.funded_at is not None,
@@ -69,9 +78,10 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
     d = Deal(
         business_id=user.id,
         platform_owner_id=owner.id,
-        amount_total=body.amount_total,
+        listed_price=body.listed_price,
         currency=body.currency.lower(),
-        fee_percent=settings.platform_fee_percent,
+        seller_fee_percent=settings.seller_fee_percent,
+        buyer_fee_percent=settings.buyer_fee_percent,
         terms=body.terms,
         status=DealStatus.AWAITING_APPROVAL,
     )
@@ -125,6 +135,8 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
     if not (d.business_approved and d.owner_approved):
         raise HTTPException(status_code=409, detail="Both parties must approve before funding")
 
+    m = deal_money_for(d)  # listed price + 5% buyer protection fee = amount charged
+
     # Reuse an existing pending PaymentIntent if one was already created.
     if d.payment_intent_id:
         try:
@@ -134,7 +146,7 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
     else:
         try:
             pi = stripe.PaymentIntent.create(
-                amount=d.amount_total,
+                amount=m["charge_amount"],
                 currency=d.currency,
                 # Payment methods (product decision): card + Apple Pay + Google Pay.
                 # Apple/Google Pay are wallets that tokenize into CARD payments, so
@@ -156,7 +168,7 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
         db.add(Payment(
             deal_id=d.id,
             stripe_payment_intent_id=pi.id,
-            amount=d.amount_total,
+            amount=m["charge_amount"],
             currency=d.currency,
             status=pi.status,
         ))
@@ -166,7 +178,12 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
         "deal_id": d.id,
         "client_secret": pi.client_secret,
         "publishable_key": settings.stripe_publishable_key,
-        "amount": d.amount_total,
         "currency": d.currency,
         "status": pi.status,
+        # Checkout line items — shown separately, never folded into one number.
+        "line_items": [
+            {"label": "Listed price", "amount": m["listed_price"]},
+            {"label": f"Buyer protection fee ({d.buyer_fee_percent}%)", "amount": m["buyer_fee"]},
+        ],
+        "total_charged": m["charge_amount"],
     }
