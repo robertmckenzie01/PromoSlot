@@ -153,8 +153,14 @@ function goHome(scrollRoles){
   if(scrollRoles) setTimeout(()=>smoothTo($("roleCards")),80);
 }
 function goHow(){ showView("view-landing"); setTimeout(()=>smoothTo($("sec-how")),80); }
-function openDash(){
-  if(!S.roles.length){ goHome(true); toast("Pick a role to set up your account first"); return; }
+async function openDash(){
+  if(!S.account){ authModal("login"); return; }
+  if(!S.roles.includes(S.activeRole)) S.activeRole=S.roles[0];
+  await loadMine();
+  if(S.activeRole==="biz" && !S.biz){
+    S.biz={company:S.account.display_name||S.account.email,product:"—",industry:"—",target:"",
+      intents:[],countries:[],platforms:[],services:[],sizes:[],budget:0,payMethods:[],duration:"—"};
+  }
   if(S.activeRole==="biz") renderBizDash(); else renderPlatDash();
   showView(S.activeRole==="biz"?"view-bizdash":"view-platdash");
 }
@@ -895,6 +901,17 @@ function defW(){
   };
 }
 function startWizard(kind){
+  // Real accounts required. If not signed in, sign up first (role preselected),
+  // then resume the wizard.
+  if(!S.account){
+    window._afterAuth=()=>startWizard(kind);
+    authModal("signup");
+    setTimeout(()=>{
+      if(kind==="plat"||kind==="both"){ const b=$("au-r-plat"); if(b)b.classList.add("on"); }
+      if(kind==="biz"||kind==="both"){ const b=$("au-r-biz"); if(b)b.classList.add("on"); }
+    },30);
+    return;
+  }
   W={kind,d:defW(),i:0}; lastPct=0;
   if(kind==="biz") W.steps=["b-intent","b-company","b-target","b-budget","b-review"];
   else if(kind==="plat") W.steps=["p-intent","p-reg","p-aud","p-serv","p-review"];
@@ -1091,35 +1108,43 @@ function wizNext(){
   if(step==="p-review"){ finishPlat(); return; }
   W.i++; renderWiz("fwd");
 }
-function finishBiz(){
+async function finishBiz(){
   const d=W.d;
+  // Local business profile for the dashboard view.
   S.biz={company:d.company,product:d.product,industry:d.industry,target:d.target,intents:[...d.intentsB],countries:[...d.countries],platforms:[...d.platforms],services:[...d.services],sizes:[...d.sizes],budget:Number(d.budget)||0,payMethods:[...d.payMethods],duration:d.duration};
   const pays=[];
   if(d.payMethods.has("Fixed payment")) pays.push({type:"fixed",detail:`£75 fixed per approved post`});
   if(d.payMethods.has("Price per view")) pays.push({type:"per-view",detail:`£5 per 1,000 views (14-day measurement)`});
   if(d.payMethods.has("Affiliate commission")) pays.push({type:"affiliate",detail:`${d.commission||12}% commission per referred sale · 30-day cookie`});
   if(d.payMethods.has("Free product")) pays.push({type:"product",detail:"Free product supplied"});
-  const camp={id:"my-c"+(S.myCampaigns.length+1),company:d.company,industry:d.industry,title:`${d.product.split(" ").slice(0,3).join(" ")} — Launch Campaign`,verified:false,rating:null,reviewCount:0,posted:"just now",applicants:0,budget:Number(d.budget)||0,
-    desc:`${d.company} is looking for creators to promote: ${d.product}. ${d.target}.`,
-    platforms:[...d.platforms],niches:[d.industry.includes("Beauty")?"Beauty":d.industry.includes("Fitness")?"Fitness":d.industry.includes("Food")?"Food":d.industry.includes("Fin")?"Finance":d.industry.includes("Gam")?"Gaming":d.industry.includes("parent")||d.industry.includes("Kids")?"Parenting":"Tech"],
-    countries:[...d.countries],services:[...d.services],creatorSizes:[...d.sizes],goals:[...d.intentsB],
-    payment:pays,deliverables:`${[...d.services].slice(0,2).join(" or ")} featuring the product. Content live ≥ 30 days. Draft approval required.`,duration:d.duration,samples:d.payMethods.has("Free product"),
+  const niche=d.industry.includes("Beauty")?"Beauty":d.industry.includes("Fitness")?"Fitness":d.industry.includes("Food")?"Food":d.industry.includes("Fin")?"Finance":d.industry.includes("Gam")?"Gaming":d.industry.includes("parent")||d.industry.includes("Kids")?"Parenting":"Tech";
+  const title=`${d.product.split(" ").slice(0,3).join(" ")} — Launch Campaign`;
+  const payload={title,industry:d.industry,description:`${d.company} is looking for creators to promote: ${d.product}. ${d.target}.`,
+    budget:Number(d.budget)||0,platforms:[...d.platforms],niches:[niche],countries:[...d.countries],services:[...d.services],
+    creator_sizes:[...d.sizes],goals:[...d.intentsB],payment:pays,
+    deliverables:`${[...d.services].slice(0,2).join(" or ")} featuring the product. Content live ≥ 30 days. Draft approval required.`,
+    duration:d.duration,samples:d.payMethods.has("Free product"),
     profile:{product:d.product,target:d.target,payMethods:[...d.payMethods],collabs:"New to PromoSlot"}};
-  S.myCampaigns.unshift(camp);
-  if(!S.roles.includes("biz")) S.roles.push("biz");
+  try{ await PSApi.post("/campaigns",payload); }
+  catch(err){ toast(err.message||"Could not publish campaign"); return; }
+  await loadMine(); authReflect();
   S.activeRole="biz"; setTheme();
-  S.notifications.unshift({ico:"🚀",txt:`Your campaign “${camp.title}” is live in the marketplace`,t:"Just now"});
-  const isBothFlow = W.kind==="both" && !S.roles.includes("plat");
-  wizSuccess("Your business profile is live 🎉",`“${camp.title}” has been published to the marketplace — platform owners can now apply, accept your terms, or counter-offer.`, isBothFlow?"plat":null);
+  const created=S.myCampaigns[0];
+  const isBothFlow = W.kind==="both" && S.account.is_platform_owner && S.myPlatforms.length===0;
+  wizSuccess("Your business profile is live 🎉",`“${created?created.title:title}” has been published to the marketplace — platform owners can now apply, accept your terms, or counter-offer.`, isBothFlow?"plat":null);
 }
-function finishPlat(){
-  const listing=buildMyListing();
-  S.myPlatforms.push(listing);
-  if(!S.roles.includes("plat")) S.roles.push("plat");
+async function finishPlat(){
+  const l=buildMyListing();
+  const payload={name:l.name,platform_type:l.platform,handle:l.handle,brand:l.brand,bio:l.bio,niches:l.niches,
+    audience:l.audience,avg_views:l.avgViews,impressions:l.impressions,engagement_rate:l.er,
+    countries:l.countries,ages:l.ages,interests:l.interests,services:l.services,pricing:l.pricing};
+  try{ await PSApi.post("/platforms",payload); }
+  catch(err){ toast(err.message||"Could not publish listing"); return; }
+  await loadMine(); authReflect();
   S.activeRole="plat"; setTheme();
-  S.notifications.unshift({ico:"📣",txt:`“${listing.name}” is now live in the marketplace`,t:"Just now"});
-  const isBothFlow = W.kind==="both" && !S.roles.includes("biz");
-  wizSuccess("Your listing is live 🎉",`“${listing.name}” is now visible to every business on PromoSlot. Got another audience? You can list each platform you own as its own separate listing.`, isBothFlow?"biz":null, true);
+  const created=S.myPlatforms[0];
+  const isBothFlow = W.kind==="both" && S.account.is_business && S.myCampaigns.length===0;
+  wizSuccess("Your listing is live 🎉",`“${created?created.name:l.name}” is now visible to every business on PromoSlot. Got another audience? You can list each platform you own as its own separate listing.`, isBothFlow?"biz":null, true);
 }
 function confettiBurst(host){
   const colors=["#4f46e5","#7c3aed","#059669","#a5b4fc","#f59e0b","#c7d2fe"];
@@ -1343,15 +1368,26 @@ function toggleNotifs(force){
 /* ==================== REAL AUTH (backend) ==================== */
 function authReflect(){
   const a = S.account;
-  $("nav-login").classList.toggle("hide", !!a);
-  $("nav-cta").classList.toggle("hide", !!a);
-  $("nav-logout").classList.toggle("hide", !a);
-  const chip=$("userChip");
   if(a){
-    chip.classList.remove("hide");
+    const roles=[]; if(a.is_business)roles.push("biz"); if(a.is_platform_owner)roles.push("plat");
+    S.roles=roles;
+    if(!roles.includes(S.activeRole)) S.activeRole=roles[0]||null;
+  } else {
+    S.roles=[]; S.activeRole=null; S.biz=null; S.myPlatforms=[]; S.myCampaigns=[];
+  }
+  syncNav();  // toggles roleSwitch / dashboard / userChip / get-started from S.roles
+  $("nav-login").classList.toggle("hide", !!a);
+  $("nav-logout").classList.toggle("hide", !a);
+  if(a){
+    $("userChip").classList.remove("hide");
     $("userInit").textContent=(a.display_name||a.email||"?").slice(0,1).toUpperCase();
     $("userName").textContent=a.display_name||a.email;
-  } else { chip.classList.add("hide"); }
+  }
+}
+async function loadMine(){
+  if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; return; }
+  try{ S.myPlatforms = S.account.is_platform_owner ? await PSApi.get("/platforms/mine") : []; }catch(e){ S.myPlatforms=[]; }
+  try{ S.myCampaigns = S.account.is_business ? await PSApi.get("/campaigns/mine") : []; }catch(e){ S.myCampaigns=[]; }
 }
 function authModal(mode){
   const isSignup = mode==="signup";
@@ -1384,7 +1420,8 @@ async function doSignup(){
   const btn=$("au-submit"); btn.disabled=true; btn.textContent="Creating…";
   try{
     S.account=await PSApi.signup({email,password,display_name:display_name||null,is_business,is_platform_owner});
-    closeModal(); authReflect(); toast("Account created — you're signed in",true);
+    closeModal(); authReflect(); await loadMine(); authReflect(); toast("Account created — you're signed in",true);
+    _resumeAfterAuth();
   }catch(err){ btn.disabled=false; btn.textContent="Create account"; _authErr(err.message||"Signup failed"); }
 }
 async function doLogin(){
@@ -1393,7 +1430,8 @@ async function doLogin(){
   const btn=$("au-submit"); btn.disabled=true; btn.textContent="Logging in…";
   try{
     S.account=await PSApi.login({email,password});
-    closeModal(); authReflect(); toast("Logged in",true);
+    closeModal(); authReflect(); await loadMine(); authReflect(); toast("Logged in",true);
+    _resumeAfterAuth();
   }catch(err){ btn.disabled=false; btn.textContent="Log in"; _authErr(err.message||"Login failed"); }
 }
 async function doLogout(){
@@ -1401,7 +1439,7 @@ async function doLogout(){
   S.account=null; authReflect(); goHome(); toast("Logged out");
 }
 async function restoreSession(){
-  try{ S.account=await PSApi.me(); }catch(e){ S.account=null; }
+  try{ S.account=await PSApi.me(); await loadMine(); }catch(e){ S.account=null; }
   authReflect();
 }
 

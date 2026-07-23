@@ -68,6 +68,7 @@ class Platform(Base):
     __tablename__ = "platforms"
     id = Column(Integer, primary_key=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    brand = Column(String)                       # owner's brand/display name
     name = Column(String, nullable=False)
     platform_type = Column(String, nullable=False)
     handle = Column(String)
@@ -75,9 +76,11 @@ class Platform(Base):
     niches = Column(JSON, default=list)
     audience = Column(Integer, default=0)
     avg_views = Column(Integer, default=0)
+    impressions = Column(Integer, default=0)
     engagement_rate = Column(Integer, default=0)  # basis points (e.g. 740 = 7.4%)
     services = Column(JSON, default=list)
     pricing = Column(JSON, default=list)
+    meta = Column(JSON, default=dict)            # countries / ages / interests
     verified = Column(Boolean, default=False, nullable=False)  # only by human review
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -90,7 +93,9 @@ class Campaign(Base):
     title = Column(String, nullable=False)
     industry = Column(String)
     description = Column(Text)
-    budget = Column(Integer, default=0)  # pence
+    # Advertised budget in whole pounds (a public figure, never charged). Actual
+    # money moves through Deal.listed_price, which is in pence.
+    budget = Column(Integer, default=0)
     terms = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
