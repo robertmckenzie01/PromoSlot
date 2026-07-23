@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import get_db
 from ..models import WebhookEvent
+from ..services import mark_deal_funded_from_pi
 from ..stripe_client import stripe
 
 router = APIRouter(tags=["webhooks"])
@@ -22,13 +23,15 @@ router = APIRouter(tags=["webhooks"])
 def _dispatch(event, db):
     """Route a verified event to its handler. Returns True if handled.
 
-    Handlers attach in later phases:
+    Handlers (each re-verifies real Stripe state before changing money-state):
       payment_intent.succeeded -> mark deal funded (P3)
-      transfer.*               -> mark deal paid (P5)
-      charge.refunded          -> mark deal refunded (P5)
-    Connected-account status (v2) syncs via live reads in /connect/status;
-    async v2 account events use a v2 event destination (wired when needed).
+      transfer.* / charge.refunded -> P5
+    Connected-account status (v2) syncs via live reads in /connect/status.
     """
+    etype = event["type"]
+    if etype == "payment_intent.succeeded":
+        mark_deal_funded_from_pi(db, event["data"]["object"]["id"])
+        return True
     return False
 
 

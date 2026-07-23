@@ -1,9 +1,11 @@
 """Domain services shared across routers and webhook handlers."""
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from .models import ConnectedAccount
+from .models import ConnectedAccount, Deal, DealStatus, Notification, Payment
+from .stripe_client import stripe
 
 
 def _g(obj, *path):
@@ -58,3 +60,41 @@ def sync_connected_account(db: Session, acct) -> Optional[ConnectedAccount]:
 def onboarding_complete(row: ConnectedAccount) -> bool:
     """A platform owner can only be paid once transfers are active."""
     return bool(row and row.transfers_active)
+
+
+def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
+    """Mark a deal funded — ONLY if Stripe confirms the PaymentIntent succeeded.
+
+    Called from the payment_intent.succeeded webhook. We never trust the event
+    payload alone: we re-retrieve the PaymentIntent from Stripe and require
+    status == 'succeeded'. Idempotent: a deal already funded is left untouched.
+    """
+    deal = db.query(Deal).filter_by(payment_intent_id=pi_id).first()
+    if deal is None or deal.funded_at is not None:
+        return deal
+
+    try:
+        pi = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        return deal
+    if getattr(pi, "status", None) != "succeeded":
+        return deal  # gate: real success only
+
+    deal.funded_at = datetime.utcnow()
+    deal.status = DealStatus.FUNDED
+    deal.charge_id = getattr(pi, "latest_charge", None)
+
+    pay = db.query(Payment).filter_by(stripe_payment_intent_id=pi_id).first()
+    if pay is not None:
+        pay.status = "succeeded"
+
+    # Real event -> real notification for the platform owner.
+    db.add(Notification(
+        user_id=deal.platform_owner_id,
+        type="deal_funded",
+        body=f"Deal #{deal.id} is funded and secured in escrow.",
+        ref=str(deal.id),
+    ))
+    db.commit()
+    db.refresh(deal)
+    return deal
