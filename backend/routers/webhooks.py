@@ -19,6 +19,19 @@ from ..stripe_client import stripe
 router = APIRouter(tags=["webhooks"])
 
 
+def _dispatch(event, db):
+    """Route a verified event to its handler. Returns True if handled.
+
+    Handlers attach in later phases:
+      payment_intent.succeeded -> mark deal funded (P3)
+      transfer.*               -> mark deal paid (P5)
+      charge.refunded          -> mark deal refunded (P5)
+    Connected-account status (v2) syncs via live reads in /connect/status;
+    async v2 account events use a v2 event destination (wired when needed).
+    """
+    return False
+
+
 @router.post("/webhooks/stripe")
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
@@ -45,12 +58,13 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     if db.get(WebhookEvent, event_id):
         return {"received": True, "duplicate": True}
 
-    db.add(WebhookEvent(id=event_id, type=event["type"], processed=False))
+    rec = WebhookEvent(id=event_id, type=event["type"], processed=False)
+    db.add(rec)
     db.commit()
 
-    # P0: verified + recorded only. Money handlers wired in later phases:
-    #   payment_intent.succeeded  -> mark deal funded
-    #   account.updated           -> sync connected-account capabilities
-    #   transfer.created/paid     -> mark deal paid
-    #   charge.refunded           -> mark deal refunded
-    return {"received": True, "type": event["type"], "recorded": True}
+    handled = _dispatch(event, db)
+    if handled:
+        rec.processed = True
+        db.commit()
+
+    return {"received": True, "type": event["type"], "recorded": True, "handled": handled}

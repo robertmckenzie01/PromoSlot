@@ -42,15 +42,21 @@ class User(Base):
 
 
 class ConnectedAccount(Base):
-    """A platform owner's Stripe Express connected account (payout destination)."""
+    """A platform owner's Stripe v2 connected account (payout destination).
+
+    Uses Accounts v2: the payout gate is the recipient's
+    `stripe_balance.stripe_transfers` capability being active. Mirrored here from
+    live Stripe reads / v2 account events — never set optimistically.
+    """
     __tablename__ = "connected_accounts"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     stripe_account_id = Column(String, unique=True, nullable=False, index=True)
-    # Mirrors of Stripe state — updated only from account.updated webhooks.
-    details_submitted = Column(Boolean, default=False, nullable=False)
-    charges_enabled = Column(Boolean, default=False, nullable=False)
-    payouts_enabled = Column(Boolean, default=False, nullable=False)
+    # Can the account receive transfers yet? (stripe_transfers capability active)
+    transfers_active = Column(Boolean, default=False, nullable=False)
+    # Are there still onboarding requirements outstanding?
+    requirements_due = Column(Boolean, default=True, nullable=False)
+    transfers_status = Column(String)  # raw capability status for debugging
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
