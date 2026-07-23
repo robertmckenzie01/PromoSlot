@@ -136,6 +136,13 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
             pi = stripe.PaymentIntent.create(
                 amount=d.amount_total,
                 currency=d.currency,
+                # Payment methods (product decision): card + Apple Pay + Google Pay.
+                # Apple/Google Pay are wallets that tokenize into CARD payments, so
+                # "card" covers all three and they reconcile identically (card rails,
+                # into the platform balance). PayPal is intentionally excluded (it's a
+                # separate rail that would complicate escrow reconciliation).
+                # P7 surfaces the wallet buttons via the Express Checkout / Payment
+                # Element + Apple Pay domain verification — no change to this flow.
                 payment_method_types=["card"],
                 # No transfer_data/on_behalf_of: funds sit in the PLATFORM balance
                 # (the escrow hold). The owner is paid by a later Transfer.

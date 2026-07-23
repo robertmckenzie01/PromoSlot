@@ -5,7 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import models  # noqa: F401  (ensure models are registered on Base)
 from .config import settings
 from .db import Base, engine
-from .routers import auth, connect, deals, health, proofs, review, webhooks
+from .routers import (
+    auth, connect, deals, health, notifications, proofs, review, reviews, webhooks,
+)
 
 # Create tables for local/dev. (Production will use migrations.)
 Base.metadata.create_all(bind=engine)
@@ -28,6 +30,8 @@ app.include_router(connect.router)
 app.include_router(deals.router)
 app.include_router(proofs.router)
 app.include_router(review.router)
+app.include_router(reviews.router)
+app.include_router(notifications.router)
 
 
 @app.get("/", tags=["root"])

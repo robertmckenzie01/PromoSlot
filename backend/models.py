@@ -178,11 +178,16 @@ class Verification(Base):
 
 
 class Review(Base):
-    """A review — only ever attached to a genuinely completed (paid) deal."""
+    """A review — only ever attached to a genuinely completed (paid) deal.
+
+    author_id is the reviewer; reviewee_id is the other party being reviewed.
+    One review per (deal, author).
+    """
     __tablename__ = "reviews"
     id = Column(Integer, primary_key=True)
     deal_id = Column(Integer, ForeignKey("deals.id"), nullable=False, index=True)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reviewee_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     rating = Column(Integer, nullable=False)
     text = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
