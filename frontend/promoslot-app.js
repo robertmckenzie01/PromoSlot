@@ -107,6 +107,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtN = n => n>=1e6 ? (n/1e6).toFixed(1).replace(/\.0$/,"")+"M" : n>=1e3 ? (n/1e3).toFixed(n<1e4?1:0).replace(/\.0$/,"")+"K" : String(n);
 const gbp = n => "£"+Number(n).toLocaleString("en-GB",{maximumFractionDigits:2}).replace(/\.00$/,"");
+const gbpP = pence => "£"+(Number(pence||0)/100).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
 
 function toast(msg,grn){
   const t=document.createElement("div"); t.className="toast"+(grn?" grn":"");
@@ -629,32 +630,127 @@ function sendInboxMsg(id){
 }
 
 /* ==================== DEAL BUILDER ==================== */
-function buyOffer(listingId, priceIdx){
+async function buyOffer(listingId, priceIdx){
   const l=findListing(listingId); const p=l.pricing[priceIdx];
-  const isTime=p.type==="time", isPV=p.type==="per-view", isAff=p.type==="affiliate", isHyb=p.type==="hybrid", isImp=p.type==="per-imp", isCustom=p.type==="custom";
-  const guaranteed = isAff||isCustom ? 0 : p.amount;
-  const deal={
-    id:"D-"+(1040+S.dealSeq++), kind:"buy", with:l.name, withSub:l.brand, plat:l.platform, refId:l.id, example:!!l.example,
-    title:`${p.label} — ${l.name}`, status:"Agreement draft", step:1, myApproved:false, theirApproved:false,
-    funded:false, proofStored:false, verifiedByReviewer:false, paidOut:false,
-    proof:[], measuredViews: 0, log:[{t:"Just now",txt:"Deal created from listing offer"}],
-    terms:{
-      platforms:[l.platform].concat(p.label.includes("Story")?["Instagram"]:[]),
-      deliverables:p.label, posts: p.label.includes("Package")||p.label.includes("+")? "2 posts + 1 placement":"1 post",
-      content:"Product shown in use · brand tag + tracked link in caption · draft approval before posting",
-      pubDate:"Within 10 days of funding", liveFor:isTime?p.detail.match(/\d+ (days|weeks?|month)/)?.[0]||"7 days":"Minimum 30 days",
-      model:PM_LABEL[p.type], guaranteed,
-      performance: isPV? "£8 per 1,000 verified views" : isHyb? "10% commission on tracked sales" : isImp? p.detail.split("·")[0].trim() : isAff? p.detail.split("·")[0].trim() : "None — delivery-based deal",
-      commission: isHyb||isAff ? (isAff?"15% per verified sale · 30-day cookie · £20 min payout":"10% of tracked sales · 30-day cookie") : "n/a",
-      measurement: isPV||isHyb||isImp ? "14 days after publication" : isAff ? "30-day attribution window" : "On delivery approval",
-      cap: isPV? 250 : isHyb? 400 : isImp? 300 : 0,
-      revisions:"1 revision included", usage:"Organic usage · paid-ads rights available for +40%",
-      proofReq:"Published link · analytics screenshot · view/impression count" + (isTime?" · live-duration confirmation":""),
-      cancel:"Free cancellation before funding · after funding, escrow returns to business if delivery conditions unmet"
-    }
-  };
-  S.deals.unshift(deal); closeModal(); renderDeal(deal.id); showView("view-deal");
-  toast("Deal draft created — review the agreement");
+  if(l.example || !/^\d+$/.test(String(l.ownerId))){
+    toast("This is an example listing — buy from a real listing to transact."); return;
+  }
+  if(!S.account){ window._afterAuth=()=>buyOffer(listingId,priceIdx); authModal("login"); return; }
+  if(!S.account.is_business){ toast("Only a business can buy an offer — sign up as a business to fund a deal."); return; }
+  const amount=Number(p.amount)||0;
+  if(amount<=0){ toast("Commission / custom offers — use “Request a quote”."); requestQuote(listingId); return; }
+  const listed_price=Math.round(amount*100); // offer amount is in pounds → pence
+  try{
+    const deal=await PSApi.post("/deals",{platform_owner_id:parseInt(l.ownerId,10),listed_price,currency:"gbp",
+      terms:{offer:p.label,detail:p.detail,deliverables:p.label,platform:l.platform,owner:l.name,listing_id:l.id}});
+    closeModal(); showView("view-deal"); renderRealDeal(deal.id);
+    toast("Deal created — review & approve the agreement",true);
+  }catch(err){ toast(err.message||"Could not create deal"); }
+}
+
+/* ---------- Real deal room (backend-driven) ---------- */
+async function renderRealDeal(dealId){
+  let d;
+  try{ d=await PSApi.get("/deals/"+dealId); }catch(err){ toast(err.message||"Could not load deal"); return; }
+  const meBiz = S.account && S.account.id===d.business_id;
+  const meOwner = S.account && S.account.id===d.platform_owner_id;
+  const bothApproved = d.business_approved && d.owner_approved;
+  const steps=["Agreement","Approval","Funding","Delivery","Verification","Payout"];
+  let cur=1;
+  if(d.business_approved||d.owner_approved) cur=2;
+  if(bothApproved) cur=3; if(d.funded) cur=4; if(d.verified) cur=5; if(d.paid) cur=6;
+  const donePct=Math.min(100,Math.round(((cur-1)/(steps.length-1))*100));
+  const stepper=`<div class="stepper"><div class="stepper-track"><i style="width:${donePct}%"></i></div>${steps.map((s,i)=>{
+    const n=i+1, cls=n<cur?"done":n===cur?"cur":""; return `<div class="step ${cls}"><div class="dot">${n<cur?"✓":n}</div><span>${s}</span></div>`;}).join("")}</div>`;
+  const doc=`<div class="agree-doc">
+    <div class="ad-head"><span>📄 Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</span><span>You ⇄ ${esc((d.terms&&d.terms.owner)||"counterparty")}</span></div>
+    <div class="ad-row"><span class="k">Listed price</span><span class="v">${gbpP(d.listed_price)}</span></div>
+    <div class="ad-row"><span class="k">Buyer protection fee (${d.buyer_fee_percent}%)</span><span class="v">${gbpP(d.buyer_protection_fee)}</span></div>
+    <div class="ad-row"><span class="k">Total charged to business</span><span class="v"><b>${gbpP(d.total_charged)}</b></span></div>
+    <div class="ad-row"><span class="k">Seller fee (${d.seller_fee_percent}%)</span><span class="v">− ${gbpP(d.seller_fee)}</span></div>
+    <div class="ad-row"><span class="k">Owner receives</span><span class="v"><b>${gbpP(d.net_to_owner)}</b></span></div>
+    <div class="ad-row"><span class="k">PromoSlot take</span><span class="v">${gbpP(d.platform_take)}</span></div>
+    ${d.terms&&d.terms.deliverables?`<div class="ad-row"><span class="k">Deliverables</span><span class="v">${esc(d.terms.deliverables)}</span></div>`:""}</div>`;
+  let main;
+  if(!d.funded){
+    main=`<h3 class="deal-h">${bothApproved?"Fund the deal":"Approve the agreement"}</h3>
+    <p class="deal-sub">${bothApproved?"Both parties approved. The business funds the agreed amount into escrow before work starts.":"Both parties approve the same agreement before any money moves."}</p>
+    ${doc}
+    <div class="approve-row">
+      <div class="appr ${d.business_approved?"ok":""}"><b>Business</b><small>funds the deal</small><div class="st">${d.business_approved?'<span class="ok-txt">✓ Approved</span>':(meBiz?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
+      <div class="appr ${d.owner_approved?"ok":""}"><b>Platform owner</b><small>delivers</small><div class="st">${d.owner_approved?'<span class="ok-txt">✓ Approved</span>':(meOwner?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
+    </div>
+    ${bothApproved&&meBiz?`<div id="fundArea"><button class="btn btn-g btn-lg" style="margin-top:16px" onclick="realFund(${d.id})">🔒 Fund ${gbpP(d.total_charged)} into escrow</button></div>`:""}
+    ${bothApproved&&!meBiz?`<div class="note blue" style="margin-top:16px">Waiting for the business to fund ${gbpP(d.total_charged)} into escrow.</div>`:""}`;
+  } else {
+    main=`<h3 class="deal-h">Funded — ${gbpP(d.total_charged)} secured in escrow 🔒</h3>
+    <p class="deal-sub">The money is held by PromoSlot. Next: the platform owner delivers and submits proof, a reviewer verifies, then the owner is paid ${gbpP(d.net_to_owner)} (listed price − ${d.seller_fee_percent}% seller fee).</p>
+    ${doc}
+    <div class="proof-item got"><span class="pi-ico">🔒</span>Escrow funded<span class="ok">✓</span></div>
+    <div class="proof-item ${d.verified?"got":""}"><span class="pi-ico">🔎</span>Delivery verified by a reviewer<span class="ok">${d.verified?"✓":"pending"}</span></div>
+    <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.net_to_owner):"pending"}</span></div>`;
+  }
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="openDash()">← Dashboard</button><h2>Deal ${d.id}</h2>
+      <span class="deal-status status-pill ${d.paid?"st-done":d.funded?"st-escrow":"st-review"}">${esc(d.status)}</span></div>
+    ${stepper}
+    <div class="deal-grid"><div class="deal-main view-anim">${main}</div>
+      <div class="deal-side">
+        <div class="side-card"><h5>Amounts</h5><div class="mini-rows">
+          <div><span>Listed price</span><b>${gbpP(d.listed_price)}</b></div>
+          <div><span>Business pays</span><b>${gbpP(d.total_charged)}</b></div>
+          <div><span>Owner receives</span><b>${gbpP(d.net_to_owner)}</b></div>
+          <div><span>PromoSlot</span><b>${gbpP(d.platform_take)}</b></div>
+        </div></div>
+        <div class="side-card trust-card"><h5>Protected by PromoSlot</h5><p>Escrow-secured funds · verified delivery · payout only on completion.</p></div>
+      </div></div>`;
+}
+async function realApprove(dealId){
+  try{ await PSApi.post(`/deals/${dealId}/approve`); }catch(err){ toast(err.message||"Could not approve"); return; }
+  toast("Your approval is recorded",true); renderRealDeal(dealId);
+}
+function ensureStripeJs(){
+  // The design-tool runtime rebuilds <head>, stripping static external scripts,
+  // so we load Stripe.js dynamically at point of use.
+  if(typeof window.Stripe!=="undefined") return Promise.resolve();
+  if(window._stripeJsPromise) return window._stripeJsPromise;
+  window._stripeJsPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement("script");
+    s.src="https://js.stripe.com/v3/";
+    s.onload=()=>resolve(); s.onerror=()=>reject(new Error("Stripe.js failed to load"));
+    document.head.appendChild(s);
+  });
+  return window._stripeJsPromise;
+}
+async function realFund(dealId){
+  let r;
+  try{ r=await PSApi.post(`/deals/${dealId}/fund`); }catch(err){ toast(err.message||"Could not start funding"); return; }
+  try{ await ensureStripeJs(); }catch(e){ toast("Stripe.js failed to load"); return; }
+  const li=r.line_items.map(x=>`<div class="ad-row"><span class="k">${esc(x.label)}</span><span class="v">${gbpP(x.amount)}</span></div>`).join("");
+  $("fundArea").innerHTML=`
+    <div class="agree-doc" style="margin:14px 0">${li}<div class="ad-row"><span class="k"><b>Total to pay</b></span><span class="v"><b>${gbpP(r.total_charged)}</b></span></div></div>
+    <div id="payment-element" style="margin:12px 0"></div>
+    <div class="hint-err hide" id="pay-err"></div>
+    <button class="btn btn-g btn-lg" id="pay-btn" onclick="realPay()">Pay ${gbpP(r.total_charged)}</button>
+    <p class="mut" style="font-size:12px;margin-top:8px">Test card: 4242 4242 4242 4242 · any future expiry · any CVC.</p>`;
+  if(typeof Stripe==="undefined"){ const e=$("pay-err"); e.textContent="Stripe.js failed to load."; e.classList.remove("hide"); return; }
+  const stripe=Stripe(r.publishable_key);
+  const elements=stripe.elements({clientSecret:r.client_secret});
+  const pe=elements.create("payment");
+  pe.mount("#payment-element");
+  window._stripeCtx={stripe,elements,dealId,total:r.total_charged};
+}
+async function realPay(){
+  const ctx=window._stripeCtx; if(!ctx) return;
+  const btn=$("pay-btn"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Processing…`;
+  const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required"});
+  if(res.error){ btn.disabled=false; btn.textContent="Pay "+gbpP(ctx.total); const e=$("pay-err"); e.textContent=res.error.message; e.classList.remove("hide"); return; }
+  // Reconcile with the backend (real Stripe re-verify; the deal funds only if
+  // Stripe confirms the PaymentIntent succeeded).
+  try{ await PSApi.post(`/deals/${ctx.dealId}/refresh`); }catch(e){}
+  window._stripeCtx=null;
+  toast("Payment successful — escrow funded 🔒",true);
+  renderRealDeal(ctx.dealId);
 }
 function applyCampaign(campId){
   const c=findCampaign(campId);
@@ -1491,7 +1587,7 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout};
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realFund,realPay};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

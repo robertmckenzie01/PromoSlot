@@ -15,7 +15,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import Deal, DealStatus, Payment, User
-from ..services import deal_money_for
+from ..services import deal_money_for, mark_deal_funded_from_pi
 from ..stripe_client import stripe
 
 router = APIRouter(prefix="/deals", tags=["deals"])
@@ -187,3 +187,19 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
         ],
         "total_charged": m["charge_amount"],
     }
+
+
+@router.post("/{deal_id}/refresh")
+def refresh_deal(deal_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Reconcile funding with Stripe after a client-side confirmation.
+
+    In production the payment_intent.succeeded webhook marks the deal funded.
+    This endpoint lets the client trigger the SAME real re-verification (retrieve
+    the PaymentIntent from Stripe; fund only if status == 'succeeded'), which is
+    also a robust fallback if a webhook is delayed. Never simulates funding.
+    """
+    d = _get_party_deal(db, deal_id, user)
+    if d.payment_intent_id and d.funded_at is None:
+        mark_deal_funded_from_pi(db, d.payment_intent_id)
+        db.refresh(d)
+    return deal_dict(d)
