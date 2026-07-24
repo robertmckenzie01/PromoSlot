@@ -18,7 +18,7 @@
   --bg:#f8fafc; --card:#ffffff; --ink:#0f172a; --ink2:#334155; --mut:#64748b; --faint:#94a3b8;
   --line:#e2e8f0; --line2:#cbd5e1;
   --acc:#4f46e5; --acc2:#4338ca; --acc-soft:#eef2ff; --acc-border:#c7d2fe; --acc-ink:#4338ca;
-  --money:#059669; --money-soft:#ecfdf5; --money-border:#a7f3d0;
+  --money:#4f46e5; --money-soft:#eef2ff; --money-border:#c7d2fe;
   --amber:#b45309; --amber-soft:#fffbeb; --amber-border:#fde68a;
   --red:#dc2626; --red-soft:#fef2f2; --red-border:#fecaca;
   --shadow:0 1px 2px rgba(15,23,42,.05),0 6px 22px rgba(15,23,42,.06);
@@ -29,8 +29,8 @@
   --font-b:"Hanken Grotesk",sans-serif;
 }
 body[data-role="plat"]{
-  --acc:#059669; --acc2:#047857; --acc-soft:#ecfdf5; --acc-border:#a7f3d0; --acc-ink:#047857;
-  --bg:#f7faf9;
+  --acc:#4f46e5; --acc2:#4338ca; --acc-soft:#eef2ff; --acc-border:#c7d2fe; --acc-ink:#4338ca;
+  --bg:#f8fafc;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -105,7 +105,7 @@ b,strong{font-weight:700}
 .btn-o{background:var(--card);color:var(--ink);border-color:var(--line2)}
 .btn-o:hover{border-color:var(--acc-border);color:var(--acc-ink);background:var(--acc-soft);transform:translateY(-1px)}
 .btn-g{background:var(--money);color:#ffffff}
-.btn-g:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 8px 20px rgba(5,150,105,.3)}
+.btn-g:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 8px 20px rgba(79,70,229,.3)}
 .btn-ghost{background:none;color:var(--mut);border:none;font-weight:600}
 .btn-ghost:hover{color:var(--ink)}
 .btn-lg{padding:14px 26px;font-size:16px;border-radius:13px}
@@ -494,7 +494,7 @@ b,strong{font-weight:700}
 .appr .st{margin-top:9px;font-weight:700;font-size:13px}
 .ok-txt{color:var(--money)}
 .escrow-box{border:1.5px solid var(--money-border);background:var(--money-soft);border-radius:16px;padding:26px 22px;text-align:center;margin-top:16px;transition:all .4s var(--ease)}
-.escrow-box.secured{border-color:var(--money);box-shadow:0 0 0 4px rgba(5,150,105,.12)}
+.escrow-box.secured{border-color:var(--money);box-shadow:0 0 0 4px rgba(79,70,229,.12)}
 .escrow-shield{font-size:30px;margin-bottom:8px}
 .escrow-lab{font-size:12.5px;color:var(--money);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
 .escrow-box .big{font-size:34px;font-weight:800;color:var(--money);font-variant-numeric:tabular-nums;font-family:var(--font-d);letter-spacing:-.02em}
