@@ -253,3 +253,35 @@ class Session(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     expires_at = Column(DateTime, nullable=False)
+
+
+class Conversation(Base):
+    """A direct-message thread between two real accounts.
+
+    Participants are stored sorted (user_lo <= user_hi) so a pair maps to a
+    stable row regardless of who starts it. context_ref optionally scopes the
+    thread to a subject (a listing "p12" or campaign "c7") — messaging someone
+    about one listing is a separate thread from a general DM.
+    """
+    __tablename__ = "conversations"
+    id = Column(Integer, primary_key=True)
+    user_lo = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_hi = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    context_ref = Column(String, index=True)   # "p12" | "c7" | None (general DM)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_message_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class Message(Base):
+    """A single message in a conversation. `read` = read by the recipient.
+
+    Only ever created by a real sender via POST /messages — never fabricated,
+    and no replies are ever authored on anyone's behalf.
+    """
+    __tablename__ = "messages"
+    id = Column(Integer, primary_key=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    body = Column(Text, nullable=False)
+    read = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

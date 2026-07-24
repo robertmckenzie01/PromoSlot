@@ -97,7 +97,8 @@ function reviewsFor(id){
 /* ==================== STATE & HELPERS ==================== */
 const S = {
   roles:[], activeRole:null, biz:null, myPlatforms:[], myCampaigns:[], deals:[],
-  notifications:[], marketTab:"platforms", filters:null, chatLogs:{}, dealSeq:1
+  notifications:[], marketTab:"platforms", filters:null, dealSeq:1,
+  convos:[], activeConv:null, activeThread:null
 };
 function resetFilters(){
   S.filters = {q:"",platforms:new Set(),niches:new Set(),services:new Set(),countries:new Set(),pay:new Set(),min:"",max:""};
@@ -625,112 +626,138 @@ function renderCampaignModal(c,tab){
     <div class="det-body">${body}</div>`,"wide");
 }
 
-/* ==================== CHAT ==================== */
-// A conversation starts empty. We never fabricate messages from the other party
-// or a fake "typing…" reply — inbound messages only exist when a real account
-// actually sends them.
-function chatSeed(id){
-  const l=findListing(id), c=l?null:findCampaign(id);
-  if(l) return {them:l.owner.split(" ")[0], plat:l.platform, name:l.name, msgs:[], example:!!l.example};
-  if(c) return {them:c.company, plat:null, name:c.company, msgs:[], example:!!c.example};
-  return {them:"Unknown", plat:null, name:"Unknown", msgs:[], example:false};
+/* ==================== CHAT (backend-driven) ==================== */
+// Messages are real: persisted server-side and delivered to the other account,
+// which is notified. We never fabricate an inbound message or a reply — an
+// incoming message exists only because the real other account actually sent it.
+function msgTime(iso){
+  if(!iso) return "";
+  const d=new Date(iso); if(isNaN(d)) return "";
+  return d.getHours()+":"+String(d.getMinutes()).padStart(2,"0");
 }
-function chatBanner(ch){
-  return ch.example
-    ? `<div class="note blue" style="margin:0">🧪 This is an <b>example profile</b>. Messages you send here aren't delivered to a real account — real conversations begin when members join. PromoSlot never writes replies on anyone's behalf.</div>`
-    : `<div class="note blue" style="margin:0">💬 Messages are delivered to <b>${esc(ch.name)}</b>'s real account. Replies appear here only when they actually respond.</div>`;
+function threadMsgsHtml(msgs){
+  if(!msgs||!msgs.length) return `<div class="thread-empty" style="min-height:120px"><div class="es-ico">✉️</div><p>No messages yet — say hello.</p></div>`;
+  return msgs.map(m=>`<div class="msg ${m.mine?"me":"them"}">${esc(m.body)}<span class="mt">${msgTime(m.created_at)}</span></div>`).join("");
 }
-function threadMsgsHtml(ch){
-  if(!ch.msgs.length) return `<div class="thread-empty" style="min-height:120px"><div class="es-ico">✉️</div><p>No messages yet — say hello.</p></div>`;
-  return ch.msgs.map(m=>`<div class="msg ${m.who}">${esc(m.txt)}<span class="mt">${m.t}</span></div>`).join("");
+// Resolve the real counterparty + subject from a listing/campaign id.
+function chatSubject(id){
+  const l=findListing(id);
+  if(l) return {kind:"listing", name:l.name, plat:l.platform,
+                otherId: parseInt(l.ownerId,10),
+                real: !l.example && /^\d+$/.test(String(l.ownerId))};
+  const c=findCampaign(id);
+  if(c) return {kind:"campaign", name:c.company, plat:null,
+                otherId: parseInt(c.businessId,10),
+                real: !c.example && /^c\d+$/.test(String(c.id))};
+  return null;
 }
-function openChat(id){
-  if(!S.chatLogs[id]) S.chatLogs[id]=chatSeed(id);
-  const ch=S.chatLogs[id];
+function exampleChat(subj){
+  return `<div class="chat-box">
+    <div class="chat-head">${pfp(subj.name,subj.plat)}<div><b>${esc(subj.name)}</b><small class="mut" style="color:var(--mut)">Example ${subj.kind==="campaign"?"campaign":"profile"}</small></div></div>
+    <div style="padding:12px 16px 0"><div class="note blue" style="margin:0">🧪 This is an <b>example ${subj.kind==="campaign"?"campaign":"profile"}</b> — there's no real account here, so messages aren't delivered. Real conversations begin when members join. PromoSlot never writes replies on anyone's behalf.</div></div>
+    <div class="chat-msgs" style="min-height:120px"><div class="thread-empty"><div class="es-ico">✉️</div><p>Example — messaging is disabled here.</p></div></div>
+  </div>`;
+}
+async function openChat(id){
+  const subj=chatSubject(id); if(!subj) return;
+  if(!subj.real){ openModal(exampleChat(subj)); return; }
+  if(!S.account){ window._afterAuth=()=>openChat(id); authModal("login"); return; }
+  if(String(subj.otherId)===String(S.account.id)){ toast("That's your own — you can't message yourself."); return; }
+  // Load any existing thread for this (person, subject) so history shows.
+  let msgs=[], convoId=null;
+  try{
+    const list=await PSApi.get("/conversations");
+    const found=list.find(x=>String(x.other_id)===String(subj.otherId) && String(x.context_ref||"")===String(id));
+    if(found){ convoId=found.id; const full=await PSApi.get(`/conversations/${found.id}/messages`); msgs=full.messages||[]; }
+  }catch(e){}
+  S._chatCtx={otherId:subj.otherId, contextRef:id, convoId};
   openModal(`<div class="chat-box">
-    <div class="chat-head">${pfp(ch.name,ch.plat)}<div><b>${esc(ch.name)}</b><small class="mut" style="color:var(--mut)">${ch.example?"Example profile":"Direct message"}</small></div>
-      <button class="btn btn-o btn-sm" style="margin-left:auto" onclick="${findListing(id)?`openListing('${id}')`:`openCampaign('${id}')`}">View ${findListing(id)?"profile":"campaign"}</button></div>
-    <div style="padding:12px 16px 0">${chatBanner(ch)}</div>
-    <div class="chat-msgs" id="chatMsgs">${threadMsgsHtml(ch)}</div>
-    <div class="chat-input"><input id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat('${id}')"><button class="btn btn-p" onclick="sendChat('${id}')">Send</button></div>
+    <div class="chat-head">${pfp(subj.name,subj.plat)}<div><b>${esc(subj.name)}</b><small class="mut" style="color:var(--mut)">Direct message</small></div>
+      <button class="btn btn-o btn-sm" style="margin-left:auto" onclick="${subj.kind==="listing"?`openListing('${id}')`:`openCampaign('${id}')`}">View ${subj.kind==="listing"?"profile":"campaign"}</button></div>
+    <div style="padding:12px 16px 0"><div class="note blue" style="margin:0">💬 Messages are delivered to <b>${esc(subj.name)}</b>'s account. Replies appear here only when they actually respond.</div></div>
+    <div class="chat-msgs" id="chatMsgs">${threadMsgsHtml(msgs)}</div>
+    <div class="chat-input"><input id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()"><button class="btn btn-p" onclick="sendChat()">Send</button></div>
   </div>`);
-  const box=$("chatMsgs"); box.scrollTop=box.scrollHeight;
+  const box=$("chatMsgs"); if(box) box.scrollTop=box.scrollHeight;
 }
-function sendChat(id){
-  const inp=$("chatInput"); const txt=inp.value.trim(); if(!txt) return;
-  const ch=S.chatLogs[id]; const now=new Date();
-  const t=now.getHours()+":"+String(now.getMinutes()).padStart(2,"0");
-  ch.msgs.push({who:"me",t,txt});
-  inp.value="";
-  // Only the user's real message is added. No fabricated reply.
-  const box=$("chatMsgs");
-  box.innerHTML=threadMsgsHtml(ch);
-  box.scrollTop=box.scrollHeight;
+async function sendChat(){
+  const inp=$("chatInput"); const txt=(inp.value||"").trim(); if(!txt) return;
+  const ctx=S._chatCtx; if(!ctx) return;
+  inp.disabled=true;
+  try{
+    const res=await PSApi.post("/messages",{to_user_id:ctx.otherId, body:txt, context_ref:ctx.contextRef});
+    ctx.convoId=res.conversation_id;
+    const full=await PSApi.get(`/conversations/${ctx.convoId}/messages`);
+    const box=$("chatMsgs"); if(box){ box.innerHTML=threadMsgsHtml(full.messages); box.scrollTop=box.scrollHeight; }
+    inp.value="";
+  }catch(err){ toast(err.message||"Could not send message"); }
+  inp.disabled=false; if($("chatInput")) $("chatInput").focus();
 }
 
-/* ==================== MESSAGES INBOX ==================== */
-// The inbox only contains conversations the user has really started. No seeded
-// or fake unread threads.
-function ensureInboxSeeds(){ /* intentionally empty — no fabricated conversations */ }
-function convMeta(id){
-  const ch=S.chatLogs[id]; const last=ch.msgs[ch.msgs.length-1]||{t:"",who:"me",txt:"No messages yet"};
-  return {ch,last};
+/* ==================== MESSAGES INBOX (backend-driven) ==================== */
+async function loadConvos(){
+  if(!S.account){ S.convos=[]; return; }
+  try{ S.convos=await PSApi.get("/conversations"); }catch(e){ S.convos=[]; }
 }
-function openMessages(id){
-  if(id) S.activeConv=id;
-  if(!S.activeConv || !S.chatLogs[S.activeConv]) S.activeConv=Object.keys(S.chatLogs)[0]||null;
-  renderMessages(false); showView("view-messages");
+async function openMessages(){
+  showView("view-messages");
+  await loadConvos();
+  if(!S.activeConv || !(S.convos||[]).some(c=>String(c.id)===String(S.activeConv))){
+    S.activeConv=(S.convos[0]&&S.convos[0].id)||null; S.activeThread=null;
+  }
+  if(S.activeConv && !S.activeThread){ try{ S.activeThread=await PSApi.get(`/conversations/${S.activeConv}/messages`); }catch(e){} }
+  renderMessages(false);
 }
-function openConv(id){
-  S.activeConv=id; S.chatLogs[id].unread=false;
+async function openConv(cid){
+  S.activeConv=cid;
+  try{ S.activeThread=await PSApi.get(`/conversations/${cid}/messages`); }catch(e){ S.activeThread=null; }
+  await loadConvos();                 // unread cleared for this thread
+  loadNotifications();                // refresh the bell
   renderMessages(true);
 }
 function renderMessages(showThread){
-  const ids=Object.keys(S.chatLogs);
-  const act=S.activeConv;
-  if(!ids.length){
-    $("msgsWrap").innerHTML=`
-      <div class="msgs-head"><h2>Messages</h2><p class="mut" style="font-size:14px">Negotiate freely — when you're ready, move terms into the deal builder so everything is documented and escrow-protected.</p></div>
+  const convos=S.convos||[];
+  const head=`<div class="msgs-head"><h2>Messages</h2><p class="mut" style="font-size:14px">Negotiate freely — when you're ready, move terms into the deal builder so everything is documented and escrow-protected.</p></div>`;
+  if(!convos.length){
+    $("msgsWrap").innerHTML=`${head}
       <div class="empty-state"><div class="es-ico">💬</div><h4>No conversations yet</h4><p>Message a platform owner or business from their profile to start a conversation. Your real threads show up here — nothing is pre-filled.</p><button class="btn btn-o btn-sm" onclick="openMarket()">Browse the marketplace</button></div>`;
     return;
   }
-  const list=ids.map(id=>{
-    const {ch,last}=convMeta(id);
-    return `<div class="conv ${id===act?"on":""}" onclick="openConv('${id}')">
-      ${pfp(ch.name,ch.plat)}
-      <div class="cv-main"><div class="cv-top"><b>${esc(ch.name)}</b><span class="cv-time">${esc(last.t)}</span></div>
-      <div class="cv-prev">${last.who==="me"&&last.txt!=="No messages yet"?"You: ":""}${esc(last.txt)}</div></div>
-      ${ch.unread?'<span class="unread-dot"></span>':""}</div>`;
-  }).join("");
+  const act=S.activeConv;
+  const list=convos.map(c=>`<div class="conv ${String(c.id)===String(act)?"on":""}" onclick="openConv(${c.id})">
+      ${pfp(c.other_name,null)}
+      <div class="cv-main"><div class="cv-top"><b>${esc(c.other_name)}</b><span class="cv-time">${msgTime(c.last_at)}</span></div>
+      <div class="cv-prev">${c.last_mine&&c.last_body?"You: ":""}${esc(c.last_body||"No messages yet")}</div></div>
+      ${c.unread?'<span class="unread-dot"></span>':""}</div>`).join("");
   let thread=`<div class="thread-empty"><div class="es-ico">💬</div><p>Select a conversation</p></div>`;
-  if(act && S.chatLogs[act]){
-    const ch=S.chatLogs[act];
-    const isListing=!!findListing(act);
+  const t=S.activeThread;
+  if(t && String(t.id)===String(act)){
+    const ctx=t.context_ref;
+    const viewBtn = ctx ? `<button class="btn btn-o btn-sm" style="margin-left:auto" onclick="${/^c\d+$/.test(ctx)?`openCampaign('${ctx}')`:`openListing('${ctx}')`}">View ${/^c\d+$/.test(ctx)?"campaign":"profile"}</button>` : "";
     thread=`<div class="chat-head">
       <button class="btn btn-ghost conv-back" onclick="renderMessages(false)">←</button>
-      ${pfp(ch.name,ch.plat)}<div><b>${esc(ch.name)}</b><small class="mut" style="color:var(--mut)">${ch.example?"Example profile":"Direct message"}</small></div>
-      <button class="btn btn-o btn-sm" style="margin-left:auto" onclick="${isListing?`openListing('${act}')`:`openCampaign('${act}')`}">View ${isListing?"profile":"campaign"}</button></div>
-    <div style="padding:12px 16px 0">${chatBanner(ch)}</div>
-    <div class="chat-msgs" id="ibMsgs">${threadMsgsHtml(ch)}</div>
-    <div class="chat-input"><input id="ibInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendInboxMsg('${act}')"><button class="btn btn-p" onclick="sendInboxMsg('${act}')">Send</button></div>`;
+      ${pfp(t.other_name,null)}<div><b>${esc(t.other_name)}</b><small class="mut" style="color:var(--mut)">Direct message</small></div>${viewBtn}</div>
+    <div style="padding:12px 16px 0"><div class="note blue" style="margin:0">💬 Messages are delivered to <b>${esc(t.other_name)}</b>'s account. Replies appear here only when they actually respond.</div></div>
+    <div class="chat-msgs" id="ibMsgs">${threadMsgsHtml(t.messages)}</div>
+    <div class="chat-input"><input id="ibInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendInboxMsg()"><button class="btn btn-p" onclick="sendInboxMsg()">Send</button></div>`;
   }
-  $("msgsWrap").innerHTML=`
-    <div class="msgs-head"><h2>Messages</h2><p class="mut" style="font-size:14px">Negotiate freely — when you're ready, move terms into the deal builder so everything is documented and escrow-protected.</p></div>
+  $("msgsWrap").innerHTML=`${head}
     <div class="inbox ${showThread?"show-thread":""}">
       <div class="conv-list">${list}</div>
       <div class="thread">${thread}</div>
     </div>`;
   const box=$("ibMsgs"); if(box) box.scrollTop=box.scrollHeight;
 }
-function sendInboxMsg(id){
-  const inp=$("ibInput"); const txt=inp.value.trim(); if(!txt) return;
-  const ch=S.chatLogs[id]; const now=new Date();
-  const t=now.getHours()+":"+String(now.getMinutes()).padStart(2,"0");
-  ch.msgs.push({who:"me",t,txt});
-  inp.value="";
-  // Only the user's real message is added. No fabricated reply.
-  const box=$("ibMsgs");
-  if(box){ box.innerHTML=threadMsgsHtml(ch); box.scrollTop=box.scrollHeight; }
+async function sendInboxMsg(){
+  const inp=$("ibInput"); const txt=(inp.value||"").trim(); if(!txt) return;
+  const t=S.activeThread; if(!t) return;
+  inp.disabled=true;
+  try{
+    await PSApi.post("/messages",{to_user_id:t.other_id, body:txt, context_ref:t.context_ref||null});
+    S.activeThread=await PSApi.get(`/conversations/${t.id}/messages`);
+    await loadConvos();
+    renderMessages(true);
+  }catch(err){ toast(err.message||"Could not send message"); if($("ibInput")) $("ibInput").disabled=false; }
 }
 
 /* ==================== DEAL BUILDER ==================== */
@@ -1646,7 +1673,7 @@ const NOTIF_FEED=[
  {ico:"🏢",tag:"New campaign",txt:"See how a complete business campaign looks — open the Example Campaign.",ref:"cx-ex"}
 ];
 let notifOpen=false;
-const NOTIF_ICON={deal_funded:"🔒",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️"};
+const NOTIF_ICON={deal_funded:"🔒",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️",message:"💬",campaign_application:"📩",deal_declined:"🚫"};
 function setBell(n){ const b=$("bellCnt"); if(!b) return; b.classList.toggle("hide",n<=0); b.textContent=n>9?"9+":n; }
 function bellSync(){ if(!S.account) setBell(0); }
 function relTime(iso){ if(!iso) return ""; const d=new Date(iso), s=(Date.now()-d.getTime())/1000;
@@ -1659,7 +1686,7 @@ async function loadNotifications(){
 function pushNotif(item,quiet){ if(!quiet && item && item.txt) toast(item.txt); }
 function tagCls(tag){ return tag==="New campaign"?"amb":tag==="New offer"?"ind":""; }
 function renderNotifPop(){
-  const real=(S.realNotifs||[]).map(n=>({ico:NOTIF_ICON[n.type]||"🔔",tag:"Your account",txt:n.body,t:relTime(n.created_at)}));
+  const real=(S.realNotifs||[]).map(n=>({ico:NOTIF_ICON[n.type]||"🔔",tag:"Your account",txt:n.body,t:relTime(n.created_at),ref:n.ref}));
   const items=real.concat(NOTIF_FEED);
   $("notifPop").innerHTML=`<div class="np-head"><h4>Notifications</h4><span class="mut" style="font-size:12px">${S.account?"Real updates from your deals":"Offers & changes from both sides of the marketplace"}</span></div>
   <div class="np-list">${items.length?items.map(n=>`<div class="np-item ${n.ref?"clickable":""}" ${n.ref?`onclick="openNotif('${n.ref}')"`:""}><div class="n-ico">${n.ico}</div>
@@ -1668,8 +1695,10 @@ function renderNotifPop(){
 }
 function openNotif(ref){
   toggleNotifs(false);
-  if(findListing(ref)) openListing(ref);
-  else if(findCampaign(ref)) openCampaign(ref);
+  if(typeof ref==="string" && ref.indexOf("convo:")===0){ openMessages().then(()=>openConv(parseInt(ref.slice(6),10))); return; }
+  if(findListing(ref)){ openListing(ref); return; }
+  if(findCampaign(ref)){ openCampaign(ref); return; }
+  if(/^\d+$/.test(String(ref))){ showView("view-deal"); renderRealDeal(parseInt(ref,10)); return; }  // deal notifications
 }
 async function toggleNotifs(force){
   notifOpen = force!==undefined?force:!notifOpen;
