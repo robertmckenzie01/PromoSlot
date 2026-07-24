@@ -1,0 +1,36 @@
+PromoSlot database migrations (Alembic)
+=======================================
+
+Alembic is the single source of truth for the database schema. The app no
+longer creates tables at import time — you bring a database up to date by
+running migrations. The same migrations run on SQLite (dev) and Postgres
+(prod); the target is chosen by the DATABASE_URL env var (see .env.example).
+
+Common commands (run from the project root, with the venv active):
+
+  alembic upgrade head          # create/upgrade the schema to the latest
+  alembic current               # show the DB's current revision
+  alembic history               # list revisions
+  alembic downgrade -1          # roll back one revision
+
+Changing the schema:
+
+  1. Edit the SQLAlchemy models in backend/models.py.
+  2. Autogenerate a migration:
+         alembic revision --autogenerate -m "describe the change"
+  3. Review the generated file in alembic/versions/ (autogenerate is a
+     starting point, not gospel — check indexes, defaults, data moves).
+  4. Apply it:
+         alembic upgrade head
+
+Notes:
+
+- The URL comes from settings.database_url (DATABASE_URL) via alembic/env.py,
+  so migrations always target whatever the app targets. The sqlalchemy.url in
+  alembic.ini is only a fallback and is overridden at runtime.
+- render_as_batch is enabled on SQLite so column ALTERs work there too; it is a
+  no-op on Postgres.
+- `alembic check` fails if the models have drifted from the latest migration —
+  useful in CI to catch a model change that lacks a migration.
+- Point DATABASE_URL at Postgres to run the exact same migrations there, e.g.
+  DATABASE_URL=postgresql+psycopg://user:pass@host:5432/promoslot alembic upgrade head

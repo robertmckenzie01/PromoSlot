@@ -5,3 +5,5 @@ pydantic[email]>=2.0
 python-dotenv>=1.0
 SQLAlchemy>=2.0
 python-multipart>=0.0.9
+alembic>=1.13
+psycopg[binary]>=3.1        # PostgreSQL driver (production); dev may stay on SQLite

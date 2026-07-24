@@ -7,7 +7,6 @@ from fastapi.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  (ensure models are registered on Base)
 from .config import settings
-from .db import Base, engine
 from .routers import (
     auth, campaigns, connect, deals, health, messages, notifications, platforms,
     proofs, review, reviews, webhooks,
@@ -15,8 +14,10 @@ from .routers import (
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 
-# Create tables for local/dev. (Production will use migrations.)
-Base.metadata.create_all(bind=engine)
+# Schema is owned by Alembic migrations (SQLite in dev, Postgres in prod).
+# Bring a database up to date with:  alembic upgrade head
+# The app no longer creates tables at import time, so migrations are the single
+# source of truth and schema changes never require dropping tables.
 
 app = FastAPI(title="PromoSlot API", version="0.1.0")
 
