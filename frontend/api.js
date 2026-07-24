@@ -33,6 +33,7 @@
     get: (p) => req("GET", p),
     post: (p, b) => req("POST", p, b),
     postForm: (p, fd) => req("POST", p, fd, true),
+    del: (p) => req("DELETE", p),
 
     // auth
     me: () => req("GET", "/auth/me"),

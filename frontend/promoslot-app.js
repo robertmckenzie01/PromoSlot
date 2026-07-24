@@ -388,17 +388,73 @@ function detSkeleton(){
     <div style="padding:20px 28px"><div class="sk sk-line" style="width:95%"></div><div class="sk sk-line" style="width:80%"></div>
     <div class="sk sk-block" style="margin-top:18px;height:80px"></div><div class="sk sk-block" style="margin-top:12px;height:80px"></div></div>`;
 }
-function openListing(id,tab){
+async function openListing(id,tab){
   const l=findListing(id); if(!l) return;
   const fresh = !$("overlay").classList.contains("open");
-  if(fresh){ openModal(detSkeleton(),"wide"); setTimeout(()=>renderListingModal(l,tab),340); }
-  else renderListingModal(l,tab);
+  if(fresh) openModal(detSkeleton(),"wide");
+  // Fetch real listings' media (My Work + Past campaigns) once, cache on l.
+  if(!l.example && /^p\d+$/.test(String(l.id)) && !l._media){
+    const pid=String(l.id).slice(1);
+    try{ const all=await PSApi.get(`/platforms/${pid}/media`);
+      l._media={work:all.filter(m=>m.kind==="work"),past:all.filter(m=>m.kind==="past_campaign")}; }
+    catch(e){ l._media={work:[],past:[]}; }
+  }
+  renderListingModal(l,tab);
+}
+function mediaUploadForm(l,kind){
+  const isWork = kind==="work";
+  return `<div class="frm" style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+    <div class="wiz-h5">${isWork?"Add a work sample":"Add a past campaign"}</div>
+    ${isWork
+      ? `<div><label>Caption</label><input type="text" id="md-title" placeholder="e.g. Hypertrophy reel — my editing style"></div>`
+      : `<div class="row2"><div><label>Brand</label><input type="text" id="md-brand" placeholder="MyProtein"></div>
+         <div><label>What you did</label><input type="text" id="md-title" placeholder="3-video creatine series"></div></div>
+         <div><label>Result / stat</label><input type="text" id="md-stat" placeholder="1.2M views · 4.1% CTR"></div>`}
+    <div><label>Video ${isWork?"(required)":"(optional)"} · mp4 / webm / mov, up to 200MB</label>
+      <input type="file" id="md-video" accept="video/mp4,video/webm,video/quicktime"></div>
+    <div><button class="btn btn-p btn-sm" id="md-btn" onclick="uploadMedia('${l.id}','${kind}')">Upload</button></div>
+    <div class="hint-err hide" id="md-err"></div></div>`;
+}
+async function uploadMedia(listingId,kind){
+  const l=findListing(listingId); if(!l) return;
+  const pid=String(l.id).slice(1);
+  const title=($("md-title")?$("md-title").value:"").trim();
+  const brand=($("md-brand")?$("md-brand").value:"").trim();
+  const stat=($("md-stat")?$("md-stat").value:"").trim();
+  const file=$("md-video")&&$("md-video").files[0];
+  const err=$("md-err");
+  if(kind==="work" && !file){ if(err){err.textContent="A work sample needs a video.";err.classList.remove("hide");} return; }
+  const fd=new FormData(); fd.append("kind",kind);
+  if(title)fd.append("title",title); if(brand)fd.append("brand",brand); if(stat)fd.append("stat",stat);
+  if(file)fd.append("video",file);
+  const btn=$("md-btn"); if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Uploading…`; }
+  try{ await PSApi.postForm(`/platforms/${pid}/media`, fd); }
+  catch(e){ if(btn){btn.disabled=false;btn.textContent="Upload";} if(err){err.textContent=e.message||"Upload failed";err.classList.remove("hide");} return; }
+  toast("Uploaded",true);
+  l._media=null;  // invalidate cache so it refetches
+  openListing(l.id, kind==="work"?"work":"past");
+}
+async function deleteMedia(listingId, mediaId, tab){
+  const l=findListing(listingId); if(!l) return;
+  if(!confirm("Delete this item?")) return;
+  const pid=String(l.id).slice(1);
+  try{ await PSApi.del(`/platforms/${pid}/media/${mediaId}`); }
+  catch(e){ toast(e.message||"Delete failed"); return; }
+  toast("Deleted");
+  l._media=null;
+  openListing(l.id, tab==="past"?"past":"work");
 }
 function renderListingModal(l,tab){
   tab=tab||"offers";
   const others=allListings().filter(x=>x.ownerId===l.ownerId && x.id!==l.id);
   const revs=l.example?reviewsFor(l.id):[];
-  const tabs=[["offers","Services & pricing"],["about","Audience & analytics"],["past","Past campaigns"],["reviews",`Reviews${l.example?" (Example)":" (0)"}`]];
+  const meOwner = S.account && String(l.ownerId)===String(S.account.id);
+  const workCount = l._media?l._media.work.length:0;
+  const pastCount = l.example ? (l.past?l.past.length:0) : (l._media?l._media.past.length:0);
+  const tabs=[["offers","Services & pricing"],["about","Audience & analytics"],
+    ["work",`My Work${workCount?" ("+workCount+")":""}`],
+    ["past",`Past campaigns${pastCount?" ("+pastCount+")":""}`],
+    ["reviews",`Reviews${l.example?" (Example)":" (0)"}`]];
   let body="";
   if(tab==="offers"){
     body = `<div class="det-sec"><h5>Services offered</h5><div class="tagrow">${l.services.map(s=>`<span class="tag">${esc(s)}</span>`).join("")}</div></div>
@@ -422,10 +478,26 @@ function renderListingModal(l,tab){
     <div class="det-sec"><h5>Age ranges</h5><div class="tagrow">${l.ages.map(a=>`<span class="tag">${esc(a)}</span>`).join("")}</div></div>
     <div class="det-sec"><h5>Audience interests</h5><div class="tagrow">${l.interests.map(a=>`<span class="tag amb">${esc(a)}</span>`).join("")}</div></div>
     <div class="det-sec"><h5>Availability</h5><p class="det-p">Currently accepting new deals · typical response time under 4 hours · next open slot within 7 days.</p></div>`;
+  } else if(tab==="work"){
+    const work=(l._media&&l._media.work)||[];
+    body = `<div class="det-sec"><h5>My Work — content samples</h5>
+      ${work.length
+        ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px">${work.map(m=>`
+          <div><video controls preload="metadata" src="${m.video_url}" style="width:100%;border-radius:10px;background:#000;max-height:340px"></video>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px"><small class="mut" style="font-size:12.5px">${esc(m.title||"Sample")}</small>${meOwner?`<button class="btn btn-danger btn-sm" onclick="deleteMedia('${l.id}',${m.id},'work')">Delete</button>`:""}</div></div>`).join("")}</div>`
+        : `<p class="det-p">${meOwner?"Showcase your content style — upload a video sample below (this is your portfolio, independent of any deal).":"No work samples yet."}</p>`}
+      ${meOwner?mediaUploadForm(l,"work"):""}</div>`;
   } else if(tab==="past"){
-    body = `<div class="det-sec"><h5>Previous campaign examples</h5><div class="pastc">
-      ${l.past.length?l.past.map(p=>`<div class="pc"><b>${esc(p.brand)}</b><small>${esc(p.what)}</small><div class="pcs">📈 ${esc(p.stat)}</div></div>`).join(""):`<p class="det-p" style="grid-column:1/-1">No campaigns completed on PromoSlot yet — every completed deal appears here automatically with its verified results.</p>`}
-    </div><div class="note" style="margin-top:14px">Delivery ≠ performance: past results are evidence of reach, not a guarantee of sales or virality — unless written into a funded performance agreement.</div></div>`;
+    const past = l.example
+      ? (l.past||[]).map(p=>({brand:p.brand,title:p.what,stat:p.stat,video_url:null,id:null}))
+      : ((l._media&&l._media.past)||[]);
+    body = `<div class="det-sec"><h5>Past campaigns</h5><div class="pastc">
+      ${past.length?past.map(p=>`<div class="pc"><b>${esc(p.brand||"")}</b><small>${esc(p.title||"")}</small>${p.stat?`<div class="pcs">📈 ${esc(p.stat)}</div>`:""}
+        ${p.video_url?`<video controls preload="metadata" src="${p.video_url}" style="width:100%;margin-top:8px;border-radius:8px;background:#000;max-height:260px"></video>`:""}
+        ${meOwner&&p.id?`<button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="deleteMedia('${l.id}',${p.id},'past')">Delete</button>`:""}</div>`).join("")
+        :`<p class="det-p" style="grid-column:1/-1">${meOwner?"Add a previous campaign below — attach a video if you have one.":"No campaigns completed yet — every completed deal appears here automatically with its verified results."}</p>`}
+    </div>${meOwner&&!l.example?mediaUploadForm(l,"past_campaign"):""}
+    <div class="note" style="margin-top:14px">Delivery ≠ performance: past results are evidence of reach, not a guarantee of sales or virality — unless written into a funded performance agreement.</div></div>`;
   } else {
     body = l.example
       ? `<div class="det-sec"><h5>What businesses say</h5><div class="note blue" style="margin-bottom:12px">These are illustrative example reviews — real reviews appear only after a completed deal.</div>
@@ -1687,7 +1759,7 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue};
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,uploadMedia,deleteMedia};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

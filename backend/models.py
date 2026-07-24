@@ -85,6 +85,28 @@ class Platform(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class PlatformMedia(Base):
+    """Per-listing media: portfolio samples ('work') and past-campaign entries.
+
+    kind='work'          -> a video sample of the owner's content style.
+    kind='past_campaign' -> a previous campaign (brand/what/stat) with optional video.
+    Videos are stored via the same disk-storage flow as delivery proof (see
+    storage.py); both move to object storage together in the future.
+    """
+    __tablename__ = "platform_media"
+    id = Column(Integer, primary_key=True)
+    platform_id = Column(Integer, ForeignKey("platforms.id"), nullable=False, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    kind = Column(String, nullable=False)        # 'work' | 'past_campaign'
+    title = Column(String)                        # caption (work) / what was done (past)
+    brand = Column(String)                        # past_campaign only
+    stat = Column(String)                         # past_campaign only
+    video_path = Column(String)                   # stored file path (nullable)
+    content_type = Column(String)                 # video mime type
+    original_filename = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class Campaign(Base):
     """A business campaign listing (job-post style)."""
     __tablename__ = "campaigns"

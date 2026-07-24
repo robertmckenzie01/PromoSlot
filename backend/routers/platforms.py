@@ -4,18 +4,24 @@ Serializers return objects shaped like the front end's listing objects so the UI
 can render real data unchanged. Ratings are derived purely from real reviews of
 the owner (a brand-new listing has no rating).
 """
+import os
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import Platform, Review, User
+from ..models import Platform, PlatformMedia, Review, User
+from ..storage import save_media_file
 
 router = APIRouter(prefix="/platforms", tags=["platforms"])
+
+ALLOWED_VIDEO = {"video/mp4", "video/webm", "video/quicktime"}
 
 
 class PlatformCreateIn(BaseModel):
@@ -117,3 +123,104 @@ def get_platform(platform_id: int, db: Session = Depends(get_db)):
     if p is None:
         raise HTTPException(status_code=404, detail="Platform not found")
     return listing_dict(db, p)
+
+
+# -------------------- Platform media (My Work + Past campaigns) --------------------
+
+def media_dict(m: PlatformMedia) -> dict:
+    return {
+        "id": m.id,
+        "platform_id": m.platform_id,
+        "kind": m.kind,
+        "title": m.title or "",
+        "brand": m.brand or "",
+        "stat": m.stat or "",
+        "has_video": bool(m.video_path),
+        "video_url": f"/platforms/{m.platform_id}/media/{m.id}/video" if m.video_path else None,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
+
+
+def _own_platform(db: Session, platform_id: int, user: User) -> Platform:
+    p = db.get(Platform, platform_id)
+    if p is None:
+        raise HTTPException(status_code=404, detail="Platform not found")
+    if p.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="You don't own this listing")
+    return p
+
+
+@router.get("/{platform_id:int}/media")
+def list_media(platform_id: int, kind: Optional[str] = None, db: Session = Depends(get_db)):
+    """Public: a listing's portfolio ('work') and/or past-campaign entries."""
+    q = db.query(PlatformMedia).filter_by(platform_id=platform_id)
+    if kind:
+        q = q.filter_by(kind=kind)
+    return [media_dict(m) for m in q.order_by(PlatformMedia.id.desc()).all()]
+
+
+@router.post("/{platform_id:int}/media", status_code=201)
+def add_media(
+    platform_id: int,
+    kind: str = Form(...),
+    title: Optional[str] = Form(None),
+    brand: Optional[str] = Form(None),
+    stat: Optional[str] = Form(None),
+    video: Optional[UploadFile] = File(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    p = _own_platform(db, platform_id, user)
+    if kind not in ("work", "past_campaign"):
+        raise HTTPException(status_code=422, detail="kind must be 'work' or 'past_campaign'")
+
+    has_video = video is not None and (video.filename or "") != ""
+    if kind == "work" and not has_video:
+        raise HTTPException(status_code=422, detail="A work sample needs a video")
+
+    video_path = content_type = original_filename = None
+    if has_video:
+        if video.content_type not in ALLOWED_VIDEO:
+            raise HTTPException(status_code=415, detail=f"Unsupported video type: {video.content_type}")
+        try:
+            video_path, _size = save_media_file(p.id, video, settings.max_video_bytes)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        content_type = video.content_type
+        original_filename = video.filename
+
+    m = PlatformMedia(platform_id=p.id, owner_id=user.id, kind=kind, title=title,
+                      brand=brand, stat=stat, video_path=video_path,
+                      content_type=content_type, original_filename=original_filename)
+    db.add(m)
+    db.commit()
+    db.refresh(m)
+    return media_dict(m)
+
+
+@router.get("/{platform_id:int}/media/{media_id:int}/video")
+def get_media_video(platform_id: int, media_id: int, db: Session = Depends(get_db)):
+    m = db.get(PlatformMedia, media_id)
+    if m is None or m.platform_id != platform_id or not m.video_path or not os.path.exists(m.video_path):
+        raise HTTPException(status_code=404, detail="Video not found")
+    # Public showcase. NOTE: dev serves via FileResponse (limited range/seeking);
+    # production moves to object storage + CDN/signed URLs with range support —
+    # migrated together with proof-of-delivery storage.
+    return FileResponse(m.video_path, media_type=m.content_type or "video/mp4")
+
+
+@router.delete("/{platform_id:int}/media/{media_id:int}")
+def delete_media(platform_id: int, media_id: int, user: User = Depends(get_current_user),
+                 db: Session = Depends(get_db)):
+    _own_platform(db, platform_id, user)
+    m = db.get(PlatformMedia, media_id)
+    if m is None or m.platform_id != platform_id:
+        raise HTTPException(status_code=404, detail="Media not found")
+    if m.video_path and os.path.exists(m.video_path):
+        try:
+            os.remove(m.video_path)
+        except OSError:
+            pass
+    db.delete(m)
+    db.commit()
+    return {"deleted": media_id}

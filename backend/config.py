@@ -22,6 +22,7 @@ class Settings:
     database_url: str = os.environ.get("DATABASE_URL", "sqlite:///./promoslot.sqlite3")
     storage_dir: str = os.environ.get("STORAGE_DIR", "./storage")
     max_upload_bytes: int = int(os.environ.get("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
+    max_video_bytes: int = int(os.environ.get("MAX_VIDEO_BYTES", str(200 * 1024 * 1024)))
 
     @property
     def stripe_configured(self) -> bool:
