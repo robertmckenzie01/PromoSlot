@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import Deal, DealStatus, Payment, User
+from ..models import Deal, DealStatus, Notification, Payment, User
 from ..services import deal_money_for, mark_deal_funded_from_pi
 from ..stripe_client import stripe
 
@@ -45,6 +45,8 @@ def deal_dict(d: Deal) -> dict:
         "total_charged": m["charge_amount"],     # what the business pays
         "net_to_owner": m["net_to_owner"],        # what the owner receives
         "platform_take": m["platform_take"],
+        "campaign_id": d.campaign_id,
+        "platform_id": d.platform_id,
         "business_approved": d.business_approved,
         "owner_approved": d.owner_approved,
         "funded": d.funded_at is not None,
@@ -208,4 +210,26 @@ def refresh_deal(deal_id: int, user: User = Depends(get_current_user), db: Sessi
     if d.payment_intent_id and d.funded_at is None:
         mark_deal_funded_from_pi(db, d.payment_intent_id)
         db.refresh(d)
+    return deal_dict(d)
+
+
+@router.post("/{deal_id}/decline")
+def decline_deal(deal_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Decline/cancel a deal before any money is committed. Either party may do so.
+
+    Used to turn down a campaign application (or back out of a proposal) while it's
+    still unfunded. A funded deal can't be cancelled this way — those resolve
+    through verification or a refund, never by silently dropping the agreement.
+    """
+    d = _get_party_deal(db, deal_id, user)
+    if d.funded_at is not None:
+        raise HTTPException(status_code=409, detail="A funded deal can't be declined; it resolves via verification or refund")
+    if d.status in (DealStatus.CANCELLED, DealStatus.REFUNDED):
+        return deal_dict(d)
+    d.status = DealStatus.CANCELLED
+    other_id = d.platform_owner_id if user.id == d.business_id else d.business_id
+    db.add(Notification(user_id=other_id, type="deal_declined",
+                        body=f"Deal #{d.id} was declined.", ref=str(d.id)))
+    db.commit()
+    db.refresh(d)
     return deal_dict(d)

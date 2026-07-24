@@ -10,9 +10,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import Campaign, Review, User
+from ..models import Campaign, Deal, DealStatus, Notification, Platform, Review, User
+from ..services import deal_money_for
+from .deals import deal_dict
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
@@ -39,9 +42,15 @@ def campaign_dict(db: Session, c: Campaign) -> dict:
     biz = db.get(User, c.business_id)
     count, avg = (db.query(func.count(Review.id), func.avg(Review.rating))
                   .filter(Review.reviewee_id == c.business_id).one())
+    # Real applicant count: platform owners who have a live (non-declined)
+    # application to this campaign. Zero for a brand-new campaign.
+    applicants = (db.query(func.count(Deal.id))
+                  .filter(Deal.campaign_id == c.id, Deal.status != DealStatus.CANCELLED)
+                  .scalar() or 0)
     t = c.terms or {}
     return {
         "id": f"c{c.id}",
+        "businessId": str(c.business_id),
         "company": biz.display_name if biz else "",
         "industry": c.industry or "",
         "title": c.title,
@@ -49,7 +58,7 @@ def campaign_dict(db: Session, c: Campaign) -> dict:
         "rating": round(float(avg), 1) if avg is not None else None,
         "reviewCount": count or 0,
         "posted": "just now",
-        "applicants": 0,
+        "applicants": applicants,
         "budget": c.budget or 0,
         "desc": c.description or "",
         "platforms": t.get("platforms", []),
@@ -108,3 +117,115 @@ def get_campaign(campaign_id: int, db: Session = Depends(get_db)):
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return campaign_dict(db, c)
+
+
+# -------------------- Applications (owner-initiated deals) --------------------
+
+class ApplyIn(BaseModel):
+    listed_price: int = Field(ge=100, description="Proposed rate, in pence")
+    platform_id: Optional[int] = None      # which of the owner's listings they'd promote on
+    pitch: Optional[str] = None
+    currency: str = "gbp"
+
+
+@router.post("/{campaign_id:int}/apply", status_code=201)
+def apply_to_campaign(campaign_id: int, body: ApplyIn,
+                      user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """A platform owner applies to a business's campaign.
+
+    This creates a REAL deal in awaiting_approval — the owner proposes their rate
+    and has, by applying, agreed to their own terms (owner_approved=True). The
+    business still reviews, approves, and funds it: an application is a proposed
+    deal, and the same money flow (approve -> fund -> proof -> verify -> payout)
+    applies unchanged. The business remains the payer; the owner remains the payee.
+    """
+    if not user.is_platform_owner:
+        raise HTTPException(status_code=403, detail="Only a platform owner can apply to a campaign")
+    c = db.get(Campaign, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if c.business_id == user.id:
+        raise HTTPException(status_code=422, detail="You can't apply to your own campaign")
+
+    # One live application per owner per campaign (a declined one may be re-applied).
+    existing = (db.query(Deal)
+                .filter(Deal.campaign_id == campaign_id,
+                        Deal.platform_owner_id == user.id,
+                        Deal.status != DealStatus.CANCELLED)
+                .first())
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="You've already applied to this campaign")
+
+    platform_id = None
+    if body.platform_id is not None:
+        p = db.get(Platform, body.platform_id)
+        if p is None or p.owner_id != user.id:
+            raise HTTPException(status_code=422, detail="That platform isn't one of yours")
+        platform_id = p.id
+
+    d = Deal(
+        business_id=c.business_id,
+        platform_owner_id=user.id,
+        campaign_id=c.id,
+        platform_id=platform_id,
+        listed_price=body.listed_price,
+        currency=body.currency.lower(),
+        seller_fee_percent=settings.seller_fee_percent,
+        buyer_fee_percent=settings.buyer_fee_percent,
+        status=DealStatus.AWAITING_APPROVAL,
+        owner_approved=True,        # applying = agreeing to your own proposed terms
+        business_approved=False,
+        terms={
+            "kind": "application",
+            "campaign_title": c.title,
+            "pitch": body.pitch or "",
+            # header/counterparty label in the deal room (matches buy-offer shape)
+            "owner": user.display_name,
+            "deliverables": (c.terms or {}).get("deliverables", "") or c.title,
+        },
+    )
+    db.add(d)
+    db.commit()
+    db.refresh(d)
+
+    db.add(Notification(
+        user_id=c.business_id, type="campaign_application",
+        body=f"{user.display_name} applied to your campaign “{c.title}”.",
+        ref=str(d.id),
+    ))
+    db.commit()
+    return deal_dict(d)
+
+
+@router.get("/{campaign_id:int}/applications")
+def campaign_applications(campaign_id: int,
+                          user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Applicants to a campaign — visible only to the business that owns it."""
+    c = db.get(Campaign, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if c.business_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the campaign owner can view applications")
+
+    rows = (db.query(Deal)
+            .filter(Deal.campaign_id == campaign_id, Deal.status != DealStatus.CANCELLED)
+            .order_by(Deal.id.desc()).all())
+    out = []
+    for d in rows:
+        owner = db.get(User, d.platform_owner_id)
+        m = deal_money_for(d)
+        out.append({
+            "deal_id": d.id,
+            "applicant": owner.display_name if owner else "",
+            "applicant_id": d.platform_owner_id,
+            "platform_id": d.platform_id,
+            "pitch": (d.terms or {}).get("pitch", ""),
+            "listed_price": d.listed_price,
+            "total_charged": m["charge_amount"],
+            "net_to_owner": m["net_to_owner"],
+            "status": d.status,
+            "business_approved": d.business_approved,
+            "owner_approved": d.owner_approved,
+            "funded": d.funded_at is not None,
+        })
+    return out

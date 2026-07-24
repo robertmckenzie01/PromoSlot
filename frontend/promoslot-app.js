@@ -543,17 +543,45 @@ function sendQuoteReq(id){
 }
 
 /* ==================== CAMPAIGN DETAIL ==================== */
-function openCampaign(id,tab){
+async function openCampaign(id,tab){
   const c=findCampaign(id); if(!c) return;
+  const real = !c.example && /^c\d+$/.test(String(c.id));
+  const meBiz = real && S.account && String(c.businessId)===String(S.account.id);
+  // The campaign owner sees real applicants — fetch fresh (they change as the
+  // owner approves/declines). Only the owning business can read these.
+  if(meBiz){
+    try{ c._apps=await PSApi.get(`/campaigns/${String(c.id).replace(/^c/,'')}/applications`); }catch(e){ c._apps=c._apps||[]; }
+  }
   const fresh = !$("overlay").classList.contains("open");
   if(fresh){ openModal(detSkeleton(),"wide"); setTimeout(()=>renderCampaignModal(c,tab),340); }
   else renderCampaignModal(c,tab);
 }
+function applicantsHtml(c, apps){
+  if(!apps.length) return `<div class="det-sec"><h5>Applicants</h5><div class="empty-state small"><div class="es-ico">📭</div><h4>No applications yet</h4><p>Platform owners who apply to “${esc(c.title)}” appear here. Each application is a real, escrow-ready deal you can review, approve, and fund.</p></div></div>`;
+  return `<div class="det-sec"><h5>${apps.length} applicant${apps.length>1?"s":""}</h5>
+    ${apps.map(a=>`<div class="op-row" style="align-items:flex-start;cursor:default">
+      ${pfp(a.applicant,null)}
+      <div style="flex:1;min-width:0">
+        <b>${esc(a.applicant)}</b>
+        <small>Proposes ${gbpP(a.listed_price)} · you'd pay ${gbpP(a.total_charged)} · owner receives ${gbpP(a.net_to_owner)}</small>
+        ${a.pitch?`<p class="det-p" style="margin:6px 0 0">${esc(a.pitch)}</p>`:""}
+        <div style="margin-top:8px"><span class="tag ${a.funded?"grn":""}">${a.funded?"Funded":esc(a.status.replace(/_/g," "))}${a.business_approved?" · you approved":""}</span></div>
+      </div>
+      <button class="btn btn-p btn-sm" onclick="closeModal();showView('view-deal');renderRealDeal(${a.deal_id})">Review &amp; approve →</button>
+    </div>`).join("")}</div>`;
+}
 function renderCampaignModal(c,tab){
+  const real = !c.example && /^c\d+$/.test(String(c.id));
+  const meBiz = real && S.account && String(c.businessId)===String(S.account.id);
+  const canApply = real && !meBiz;   // platform-owner check happens in applyCampaign()
+  const apps=c._apps||[];
   tab=tab||"offer";
   const revs=c.example?reviewsFor(c.id):[];
-  const tabs=[["offer","What they're offering"],["profile","Business profile"],["reviews",`Reviews${c.example?" (Example)":" (0)"}`]];
+  const tabs=[["offer","What they're offering"],["profile","Business profile"]];
+  if(meBiz) tabs.push(["applicants",`Applicants (${apps.length})`]);
+  tabs.push(["reviews",`Reviews${c.example?" (Example)":" (0)"}`]);
   let body="";
+  if(tab==="applicants"){ body=applicantsHtml(c, apps); } else
   if(tab==="offer"){
     body=`<div class="det-sec"><h5>Looking for</h5><div class="tagrow">${c.platforms.map(p=>`<span class="tag">${PLATFORM_META[p].ico} ${p}</span>`).join("")}${c.niches.map(n=>`<span class="tag amb">${esc(n)}</span>`).join("")}${c.creatorSizes.map(s=>`<span class="tag">${esc(s)}</span>`).join("")}</div></div>
     <div class="det-sec"><h5>Services wanted</h5><div class="tagrow">${c.services.map(s=>`<span class="tag ind">${esc(s)}</span>`).join("")}</div></div>
@@ -587,7 +615,9 @@ function renderCampaignModal(c,tab){
       </div>
       <div class="det-actions">
         <button class="btn btn-o btn-sm" onclick="openChat('${c.id}')">💬 Message</button>
-        <button class="btn btn-p btn-sm" onclick="applyCampaign('${c.id}')">Apply to campaign</button>
+        ${meBiz
+          ? `<button class="btn btn-p btn-sm" onclick="openCampaign('${c.id}','applicants')">View applicants (${apps.length})</button>`
+          : (canApply?`<button class="btn btn-p btn-sm" onclick="applyCampaign('${c.id}')">Apply to campaign</button>`:"")}
       </div>
     </div>
     <p class="det-bio">${esc(c.desc)}</p>
@@ -739,8 +769,12 @@ async function renderRealDeal(dealId){
   const donePct=Math.min(100,Math.round(((cur-1)/(steps.length-1))*100));
   const stepper=`<div class="stepper"><div class="stepper-track"><i style="width:${donePct}%"></i></div>${steps.map((s,i)=>{
     const n=i+1, cls=n<cur?"done":n===cur?"cur":""; return `<div class="step ${cls}"><div class="dot">${n<cur?"✓":n}</div><span>${s}</span></div>`;}).join("")}</div>`;
+  const ctxLabel = d.terms&&d.terms.offer ? " · "+esc(d.terms.offer)
+                 : d.terms&&d.terms.campaign_title ? " · "+esc(d.terms.campaign_title) : "";
   const doc=`<div class="agree-doc">
-    <div class="ad-head"><span>📄 Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</span><span>You ⇄ ${esc((d.terms&&d.terms.owner)||"counterparty")}</span></div>
+    <div class="ad-head"><span>📄 Deal ${d.id}${ctxLabel}</span><span>You ⇄ ${esc((d.terms&&d.terms.owner)||"counterparty")}</span></div>
+    ${d.terms&&d.terms.kind==="application"?`<div class="ad-row"><span class="k">Source</span><span class="v">Application to “${esc(d.terms.campaign_title||"campaign")}”</span></div>`:""}
+    ${d.terms&&d.terms.kind==="application"&&d.terms.pitch?`<div class="ad-row"><span class="k">Applicant pitch</span><span class="v">${esc(d.terms.pitch)}</span></div>`:""}
     <div class="ad-row"><span class="k">Listed price</span><span class="v">${gbpP(d.listed_price)}</span></div>
     <div class="ad-row"><span class="k">Buyer protection fee (${d.buyer_fee_percent}%)</span><span class="v">${gbpP(d.buyer_protection_fee)}</span></div>
     <div class="ad-row"><span class="k">Total charged to business</span><span class="v"><b>${gbpP(d.total_charged)}</b></span></div>
@@ -749,7 +783,11 @@ async function renderRealDeal(dealId){
     <div class="ad-row"><span class="k">PromoSlot take</span><span class="v">${gbpP(d.platform_take)}</span></div>
     ${d.terms&&d.terms.deliverables?`<div class="ad-row"><span class="k">Deliverables</span><span class="v">${esc(d.terms.deliverables)}</span></div>`:""}</div>`;
   let main;
-  if(!d.funded){
+  if(d.status==="cancelled"){
+    main=`<h3 class="deal-h">Deal declined</h3>
+    <p class="deal-sub">This deal was cancelled before funding — no money moved. ${d.terms&&d.terms.kind==="application"?"The application is closed; the owner can apply again with new terms.":""}</p>
+    ${doc}`;
+  } else if(!d.funded){
     main=`<h3 class="deal-h">${bothApproved?"Fund the deal":"Approve the agreement"}</h3>
     <p class="deal-sub">${bothApproved?"Both parties approved. The business funds the agreed amount into escrow before work starts.":"Both parties approve the same agreement before any money moves."}</p>
     ${doc}
@@ -758,7 +796,8 @@ async function renderRealDeal(dealId){
       <div class="appr ${d.owner_approved?"ok":""}"><b>Platform owner</b><small>delivers</small><div class="st">${d.owner_approved?'<span class="ok-txt">✓ Approved</span>':(meOwner?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
     </div>
     ${bothApproved&&meBiz?`<div id="fundArea"><button class="btn btn-g btn-lg" style="margin-top:16px" onclick="realFund(${d.id})">🔒 Fund ${gbpP(d.total_charged)} into escrow</button></div>`:""}
-    ${bothApproved&&!meBiz?`<div class="note blue" style="margin-top:16px">Waiting for the business to fund ${gbpP(d.total_charged)} into escrow.</div>`:""}`;
+    ${bothApproved&&!meBiz?`<div class="note blue" style="margin-top:16px">Waiting for the business to fund ${gbpP(d.total_charged)} into escrow.</div>`:""}
+    ${(meBiz||meOwner)?`<div style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="realDecline(${d.id})">Decline &amp; cancel</button></div>`:""}`;
   } else {
     const proofList = proofs.length
       ? proofs.map(p=>`<div class="proof-item got"><span class="pi-ico">${p.has_file?"🖼️":"🔗"}</span>${esc(p.kind)}${p.url?" · "+esc(p.url):""}${p.has_file?" · file stored":""}<span class="ok">submitted</span></div>`).join("")
@@ -797,6 +836,11 @@ async function renderRealDeal(dealId){
 async function realApprove(dealId){
   try{ await PSApi.post(`/deals/${dealId}/approve`); }catch(err){ toast(err.message||"Could not approve"); return; }
   toast("Your approval is recorded",true); renderRealDeal(dealId);
+}
+async function realDecline(dealId){
+  if(!confirm("Decline and cancel this deal? This can't be undone — no money has moved.")) return;
+  try{ await PSApi.post(`/deals/${dealId}/decline`); }catch(err){ toast(err.message||"Could not decline"); return; }
+  toast("Deal declined",true); openDash();
 }
 function ensureStripeJs(){
   // The design-tool runtime rebuilds <head>, stripping static external scripts,
@@ -894,31 +938,41 @@ async function realSubmitReview(dealId){
   try{ await PSApi.post(`/deals/${dealId}/review`,{rating,text}); }catch(err){ toast(err.message||"Could not publish review"); return; }
   closeModal(); toast("Review published — thanks for keeping the marketplace honest",true); renderRealDeal(dealId);
 }
-function applyCampaign(campId){
-  const c=findCampaign(campId);
-  const fixed=c.payment.find(p=>p.type==="fixed"), pv=c.payment.find(p=>p.type==="per-view"), aff=c.payment.find(p=>p.type==="affiliate"), tm=c.payment.find(p=>p.type==="time");
-  const guaranteed = fixed? Number((fixed.detail.match(/£(\d+)/)||[0,0])[1]) : tm? Number((tm.detail.match(/£(\d+)/)||[0,0])[1]) : 0;
-  const deal={
-    id:"D-"+(1040+S.dealSeq++), kind:"apply", with:c.company, withSub:c.title, plat:null, refId:c.id, example:!!c.example,
-    title:`Application — ${c.title}`, status:"Agreement draft", step:1, myApproved:false, theirApproved:false,
-    funded:false, proofStored:false, verifiedByReviewer:false, paidOut:false,
-    proof:[], measuredViews:0, log:[{t:"Just now",txt:"Application started — terms seeded from campaign"}],
-    terms:{
-      platforms:c.platforms.slice(0,2), deliverables:c.deliverables.split(".")[0], posts:"1 post",
-      content:"Follow campaign brief · tracked link/code required · draft approval before posting",
-      pubDate:"Within 14 days of funding", liveFor:"Minimum 30 days",
-      model:campPayTypes(c).join(" + "), guaranteed,
-      performance: pv? pv.detail : "None — delivery-based deal",
-      commission: aff? aff.detail : "n/a",
-      measurement: pv? "14 days after publication" : aff? "30-day attribution" : "On delivery approval",
-      cap: pv? Math.max(300,guaranteed*3) : 0,
-      revisions:"1 revision included", usage:c.id==="c8"?"6-month paid usage rights":"Organic usage only",
-      proofReq:"Published link · analytics screenshot" + (aff?" · referral sales report":""),
-      cancel:"Free cancellation before funding · after funding, escrow returns to business if delivery conditions unmet"
-    }
-  };
-  S.deals.unshift(deal); closeModal(); renderDeal(deal.id); showView("view-deal");
-  toast("Application drafted — review & approve the agreement");
+// Applying to a campaign creates a REAL owner-initiated deal (backend), which the
+// business then approves and funds — the same escrow flow as a bought offer, only
+// the platform owner starts it. Example campaigns can't transact.
+async function applyCampaign(campId){
+  const c=findCampaign(campId); if(!c) return;
+  if(c.example || !/^c\d+$/.test(String(c.id))){ toast("This is an example campaign — apply to a real one to transact."); return; }
+  if(!S.account){ window._afterAuth=()=>applyCampaign(campId); authModal("login"); return; }
+  if(!S.account.is_platform_owner){ toast("Only a platform owner can apply — sign up as a platform owner to pitch."); return; }
+  if(String(c.businessId)===String(S.account.id)){ toast("That's your own campaign — you can review applicants from it."); return; }
+  let plats=S.myPlatforms||[];
+  if(!plats.length){ try{ plats=await PSApi.get("/platforms/mine"); S.myPlatforms=plats; }catch(e){} }
+  const platOpts=plats.map(p=>`<option value="${p.id}">${esc(p.name)} · ${esc(p.platform)}</option>`).join("");
+  const prefill=c.budget||300;
+  openModal(`<div class="m-pad"><h3 class="m-title">Apply to “${esc(c.title)}”</h3>
+    <p class="m-sub">Propose your rate and a short pitch. <b>${esc(c.company)}</b> reviews applicants, then approves and funds the deal into escrow before you start work.</p>
+    <div class="frm">
+      ${plats.length
+        ? `<div><label>Promote on</label><select id="ap-plat">${platOpts}</select></div>`
+        : `<div class="note blue" style="margin:0">You don't have a listing yet — you can still apply, and add one anytime.</div>`}
+      <div><label>Your rate (£)</label><input type="number" id="ap-price" min="1" step="1" value="${prefill}"></div>
+      <div><label>Pitch (optional)</label><textarea id="ap-pitch" placeholder="Why you're a great fit, what you'd deliver, and a rough timeline…"></textarea></div>
+    </div>
+    <div class="m-actions"><button class="btn btn-o" onclick="openCampaign('${c.id}')">Back</button><button class="btn btn-p" onclick="submitApplication('${String(c.id).replace(/^c/,'')}')">Send application</button></div></div>`);
+}
+async function submitApplication(cid){
+  const price=Math.round((Number(($("ap-price")||{}).value)||0)*100);
+  if(!(price>=100)){ toast("Enter a valid rate (at least £1)"); return; }
+  const platSel=$("ap-plat");
+  const platform_id = platSel ? parseInt(platSel.value,10) : null;
+  const pitch=(($("ap-pitch")||{}).value||"").trim();
+  try{
+    const deal=await PSApi.post(`/campaigns/${cid}/apply`,{listed_price:price, platform_id:platform_id||null, pitch});
+    closeModal(); showView("view-deal"); renderRealDeal(deal.id);
+    toast("Application sent — the business will review & approve",true);
+  }catch(err){ toast(err.message||"Could not apply"); }
 }
 function dealById(id){ return S.deals.find(d=>d.id===id); }
 const DEAL_STEPS=["Agreement","Approval","Escrow funding","Delivery & proof","Verification","Payout"];
@@ -1759,7 +1813,7 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,uploadMedia,deleteMedia};
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,uploadMedia,deleteMedia};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
