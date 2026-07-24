@@ -101,7 +101,13 @@ def list_deals(user: User = Depends(get_current_user), db: Session = Depends(get
 
 @router.get("/{deal_id}")
 def get_deal(deal_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return deal_dict(_get_party_deal(db, deal_id, user))
+    d = db.get(Deal, deal_id)
+    if d is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    # Parties can view; reviewers can view (read-only) to verify delivery.
+    if user.id not in (d.business_id, d.platform_owner_id) and not user.is_reviewer:
+        raise HTTPException(status_code=403, detail="Not a party to this deal")
+    return deal_dict(d)
 
 
 @router.post("/{deal_id}/approve")

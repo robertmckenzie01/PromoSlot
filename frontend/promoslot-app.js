@@ -158,6 +158,8 @@ async function openDash(){
   if(!S.account){ authModal("login"); return; }
   if(!S.roles.includes(S.activeRole)) S.activeRole=S.roles[0];
   await loadMine();
+  await loadDeals();
+  await loadNotifications();
   if(S.activeRole==="biz" && !S.biz){
     S.biz={company:S.account.display_name||S.account.email,product:"—",industry:"—",target:"",
       intents:[],countries:[],platforms:[],services:[],sizes:[],budget:0,payMethods:[],duration:"—"};
@@ -654,7 +656,10 @@ async function renderRealDeal(dealId){
   try{ d=await PSApi.get("/deals/"+dealId); }catch(err){ toast(err.message||"Could not load deal"); return; }
   const meBiz = S.account && S.account.id===d.business_id;
   const meOwner = S.account && S.account.id===d.platform_owner_id;
+  const isReviewer = S.account && S.account.is_reviewer;
   const bothApproved = d.business_approved && d.owner_approved;
+  let proofs=[];
+  if(d.funded && (meBiz||meOwner||isReviewer)){ try{ proofs=await PSApi.get("/deals/"+dealId+"/proofs"); }catch(e){} }
   const steps=["Agreement","Approval","Funding","Delivery","Verification","Payout"];
   let cur=1;
   if(d.business_approved||d.owner_approved) cur=2;
@@ -683,12 +688,24 @@ async function renderRealDeal(dealId){
     ${bothApproved&&meBiz?`<div id="fundArea"><button class="btn btn-g btn-lg" style="margin-top:16px" onclick="realFund(${d.id})">🔒 Fund ${gbpP(d.total_charged)} into escrow</button></div>`:""}
     ${bothApproved&&!meBiz?`<div class="note blue" style="margin-top:16px">Waiting for the business to fund ${gbpP(d.total_charged)} into escrow.</div>`:""}`;
   } else {
+    const proofList = proofs.length
+      ? proofs.map(p=>`<div class="proof-item got"><span class="pi-ico">${p.has_file?"🖼️":"🔗"}</span>${esc(p.kind)}${p.url?" · "+esc(p.url):""}${p.has_file?" · file stored":""}<span class="ok">submitted</span></div>`).join("")
+      : `<p class="mut" style="font-size:12.5px">No delivery evidence submitted yet.</p>`;
     main=`<h3 class="deal-h">Funded — ${gbpP(d.total_charged)} secured in escrow 🔒</h3>
-    <p class="deal-sub">The money is held by PromoSlot. Next: the platform owner delivers and submits proof, a reviewer verifies, then the owner is paid ${gbpP(d.net_to_owner)} (listed price − ${d.seller_fee_percent}% seller fee).</p>
+    <p class="deal-sub">Money held by PromoSlot. The owner delivers &amp; submits proof → a reviewer verifies → the owner is paid ${gbpP(d.net_to_owner)} (listed price − ${d.seller_fee_percent}% seller fee).</p>
     ${doc}
-    <div class="proof-item got"><span class="pi-ico">🔒</span>Escrow funded<span class="ok">✓</span></div>
-    <div class="proof-item ${d.verified?"got":""}"><span class="pi-ico">🔎</span>Delivery verified by a reviewer<span class="ok">${d.verified?"✓":"pending"}</span></div>
-    <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.net_to_owner):"pending"}</span></div>`;
+    <div class="det-sec" style="margin-top:18px"><h5>Progress</h5>
+      <div class="proof-item got"><span class="pi-ico">🔒</span>Escrow funded<span class="ok">✓</span></div>
+      <div class="proof-item ${d.verified?"got":""}"><span class="pi-ico">🔎</span>Delivery verified by a reviewer<span class="ok">${d.verified?"✓":"pending"}</span></div>
+      <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.net_to_owner):"pending"}</span></div></div>
+    <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
+      ${meOwner && !d.verified ? `<div class="frm" style="margin-top:10px">
+        <div class="row2"><div><label>Kind</label><input type="text" id="pf-kind" value="screenshot"></div>
+        <div><label>Published link (optional)</label><input type="text" id="pf-url" placeholder="https://tiktok.com/@you/video/…"></div></div>
+        <div><label>File (optional · image or PDF)</label><input type="file" id="pf-file" accept="image/*,application/pdf"></div></div>
+        <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="realSubmitProof(${d.id})">Submit evidence</button>` : ""}</div>
+    ${isReviewer ? reviewerControls(d, proofs.length) : ""}
+    ${d.paid ? `<div class="btn-row"><button class="btn btn-p" onclick="realReviewModal(${d.id})">⭐ Leave a review</button></div>` : ""}`;
   }
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="openDash()">← Dashboard</button><h2>Deal ${d.id}</h2>
@@ -751,6 +768,59 @@ async function realPay(){
   window._stripeCtx=null;
   toast("Payment successful — escrow funded 🔒",true);
   renderRealDeal(ctx.dealId);
+}
+function reviewerControls(d, proofCount){
+  let inner;
+  if(!d.verified){
+    inner = proofCount>0
+      ? `<div class="btn-row"><button class="btn btn-g btn-sm" onclick="realVerify(${d.id},'approved')">✓ Verify delivery</button>
+         <button class="btn btn-danger btn-sm" onclick="realVerify(${d.id},'rejected')">Reject — needs revision</button></div>`
+      : `<p class="mut" style="font-size:12.5px">Waiting for the owner to submit evidence before you can verify.</p>`;
+  } else if(!d.paid){
+    inner = `<div class="btn-row"><button class="btn btn-g btn-sm" onclick="realRelease(${d.id})">💸 Release payout — ${gbpP(d.net_to_owner)} to owner</button></div>`;
+  } else {
+    inner = `<p class="ok-txt" style="font-size:13px">✓ Verified & paid out.</p>`;
+  }
+  const refund = !d.paid ? `<div style="margin-top:8px"><button class="btn btn-danger btn-sm" onclick="realRefund(${d.id})">↩︎ Refund the business instead</button></div>` : "";
+  return `<div class="det-sec" style="margin-top:18px"><h5>Reviewer actions</h5>${inner}${refund}</div>`;
+}
+async function realSubmitProof(dealId){
+  const kind=($("pf-kind").value||"screenshot").trim();
+  const url=($("pf-url").value||"").trim();
+  const file=$("pf-file").files[0];
+  if(!url && !file){ toast("Provide a published link or a file"); return; }
+  const fd=new FormData(); fd.append("kind",kind); if(url) fd.append("url",url); if(file) fd.append("file",file);
+  try{ await PSApi.postForm(`/deals/${dealId}/proof`, fd); }catch(err){ toast(err.message||"Could not submit evidence"); return; }
+  toast("Evidence submitted",true); renderRealDeal(dealId);
+}
+async function realVerify(dealId, decision){
+  try{ await PSApi.post(`/review/deals/${dealId}/verify`,{decision}); }catch(err){ toast(err.message||"Verify failed"); return; }
+  toast(decision==="approved"?"Delivery verified ✓":"Sent back for revision",true); renderRealDeal(dealId);
+}
+async function realRelease(dealId){
+  try{ const r=await PSApi.post(`/review/deals/${dealId}/release`); toast("Payout released — "+gbpP(r.net_to_owner)+" to owner 💸",true); }
+  catch(err){ toast(err.message||"Release failed"); return; }
+  renderRealDeal(dealId);
+}
+async function realRefund(dealId){
+  if(!confirm("Refund the business? This cancels the deal.")) return;
+  try{ await PSApi.post(`/review/deals/${dealId}/refund`); toast("Business refunded ↩︎",true); }
+  catch(err){ toast(err.message||"Refund failed"); return; }
+  renderRealDeal(dealId);
+}
+function realReviewModal(dealId){
+  window._reviewStars=5;
+  openModal(`<div class="m-pad"><h3 class="m-title">Leave a review</h3>
+    <p class="m-sub">Reviews only attach to a genuinely completed deal.</p>
+    <div class="rev-stars" id="revStars">${[1,2,3,4,5].map(i=>`<span data-n="${i}" onclick="setReviewStars(${i})">★</span>`).join("")}</div>
+    <div class="frm"><div><label>Your review</label><textarea id="rev-text" placeholder="How did the deal go against what was agreed?"></textarea></div></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Later</button><button class="btn btn-p" onclick="realSubmitReview(${dealId})">Publish review</button></div></div>`,"narrow");
+}
+function setReviewStars(n){ window._reviewStars=n; document.querySelectorAll("#revStars span").forEach((s,j)=>s.textContent=j<n?"★":"☆"); }
+async function realSubmitReview(dealId){
+  const rating=window._reviewStars||5; const text=($("rev-text").value||"").trim();
+  try{ await PSApi.post(`/deals/${dealId}/review`,{rating,text}); }catch(err){ toast(err.message||"Could not publish review"); return; }
+  closeModal(); toast("Review published — thanks for keeping the marketplace honest",true); renderRealDeal(dealId);
 }
 function applyCampaign(campId){
   const c=findCampaign(campId);
@@ -1317,19 +1387,31 @@ function runVerify(role){
 }
 
 /* ==================== DASHBOARDS ==================== */
+async function loadDeals(){
+  if(!S.account){ S.realDeals=[]; return; }
+  try{ S.realDeals=await PSApi.get("/deals"); }catch(e){ S.realDeals=[]; }
+}
 function dealRows(){
-  if(!S.deals.length) return `<div class="empty-state small">
+  const deals=S.realDeals||[];
+  if(!deals.length) return `<div class="empty-state small">
     <div class="es-ico">🤝</div><h4>No deals yet</h4>
-    <p>Open a deal from any listing or campaign — funding, delivery and payout all happen in one protected deal room.</p>
-    <button class="btn btn-o btn-sm" onclick="openMarket()">Browse the marketplace</button></div>`;
-  return S.deals.map(d=>`<div class="deal-row" onclick="renderDeal('${d.id}');showView('view-deal')">
-    ${pfp(d.with,d.plat)}<div><div class="dr-t">${esc(d.title)}</div><div class="dr-s">${esc(d.id)} · with ${esc(d.with)}</div></div>
-    <span class="status-pill ${d.paidOut?"st-done":d.funded?"st-escrow":"st-review"}">${esc(d.status)}</span>
-    <div class="dr-amt"><b>${gbp(escrowOf(d))}</b><small>${d.funded&&!d.paidOut?"in escrow":d.paidOut?"completed":"proposed"}</small></div></div>`).join("");
+    <p>Buy an offer from a listing to open a protected deal — funding, delivery and payout all happen in one deal room.</p>
+    <button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Browse listings</button></div>`;
+  return deals.map(d=>{
+    const meBiz=S.account&&S.account.id===d.business_id;
+    const other=meBiz?((d.terms&&d.terms.owner)||"platform owner"):"the business";
+    const stCls=d.paid?"st-done":d.funded?"st-escrow":"st-review";
+    return `<div class="deal-row" onclick="showView('view-deal');renderRealDeal(${d.id})">
+      ${pfp(other,d.terms&&d.terms.platform)}<div><div class="dr-t">Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</div>
+      <div class="dr-s">${meBiz?"You buy · "+esc(other):"You deliver"}</div></div>
+      <span class="status-pill ${stCls}">${esc(d.status)}</span>
+      <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":d.funded?"in escrow":"pending"}</small></div></div>`;
+  }).join("");
 }
 function notifRows(){
-  const base=S.notifications.map(n=>`<div class="notif"><div class="n-ico">${n.ico}</div><div>${esc(n.txt)}<small>${esc(n.t)}</small></div></div>`).join("");
-  return base||`<div class="empty">Nothing yet.</div>`;
+  const items=S.realNotifs||[];
+  if(!items.length) return `<div class="empty">Nothing yet — updates from your deals appear here.</div>`;
+  return items.map(n=>`<div class="notif"><div class="n-ico">${NOTIF_ICON[n.type]||"🔔"}</div><div>${esc(n.body)}<small>${relTime(n.created_at)}</small></div></div>`).join("");
 }
 function sparkline(seed,color){
   const n=8, pts=[]; let v=40+(seed%20);
@@ -1437,38 +1519,40 @@ const NOTIF_FEED=[
  {ico:"📣",tag:"New offer",txt:"See how a complete platform-owner listing looks — open the Example Creator profile.",ref:"px-ex"},
  {ico:"🏢",tag:"New campaign",txt:"See how a complete business campaign looks — open the Example Campaign.",ref:"cx-ex"}
 ];
-let notifUnread=1, notifOpen=false;
-function bellSync(){
-  const b=$("bellCnt"); if(!b) return;
-  b.classList.toggle("hide",notifUnread<=0);
-  b.textContent=notifUnread>9?"9+":notifUnread;
+let notifOpen=false;
+const NOTIF_ICON={deal_funded:"🔒",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️"};
+function setBell(n){ const b=$("bellCnt"); if(!b) return; b.classList.toggle("hide",n<=0); b.textContent=n>9?"9+":n; }
+function bellSync(){ if(!S.account) setBell(0); }
+function relTime(iso){ if(!iso) return ""; const d=new Date(iso), s=(Date.now()-d.getTime())/1000;
+  if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return d.toLocaleDateString(); }
+async function loadNotifications(){
+  if(!S.account){ S.realNotifs=[]; setBell(0); return; }
+  try{ S.realNotifs=await PSApi.get("/notifications"); }catch(e){ S.realNotifs=[]; }
+  try{ const c=await PSApi.get("/notifications/unread-count"); setBell(c.unread||0); }catch(e){}
 }
-function pushNotif(item,quiet){
-  NOTIF_FEED.unshift(item);
-  if(!notifOpen) notifUnread++;
-  bellSync();
-  if(notifOpen) renderNotifPop();
-  if(!quiet) toast(item.txt);
-}
-function tagCls(tag){ return tag==="Price drop"?"grn":tag==="New campaign"?"amb":tag==="New offer"?"ind":""; }
+function pushNotif(item,quiet){ if(!quiet && item && item.txt) toast(item.txt); }
+function tagCls(tag){ return tag==="New campaign"?"amb":tag==="New offer"?"ind":""; }
 function renderNotifPop(){
-  const personal=S.notifications.map(n=>({ico:n.ico,tag:"Your account",txt:n.txt,t:n.t}));
-  const items=personal.concat(NOTIF_FEED);
-  $("notifPop").innerHTML=`<div class="np-head"><h4>Notifications</h4><span class="mut" style="font-size:12px">Offers & changes from both sides of the marketplace</span></div>
-  <div class="np-list">${items.map(n=>`<div class="np-item ${n.ref?"clickable":""}" ${n.ref?`onclick="openNotif('${n.ref}')"`:""}><div class="n-ico">${n.ico}</div>
+  const real=(S.realNotifs||[]).map(n=>({ico:NOTIF_ICON[n.type]||"🔔",tag:"Your account",txt:n.body,t:relTime(n.created_at)}));
+  const items=real.concat(NOTIF_FEED);
+  $("notifPop").innerHTML=`<div class="np-head"><h4>Notifications</h4><span class="mut" style="font-size:12px">${S.account?"Real updates from your deals":"Offers & changes from both sides of the marketplace"}</span></div>
+  <div class="np-list">${items.length?items.map(n=>`<div class="np-item ${n.ref?"clickable":""}" ${n.ref?`onclick="openNotif('${n.ref}')"`:""}><div class="n-ico">${n.ico}</div>
     <div class="np-body"><span class="tag ${tagCls(n.tag)} np-tag">${esc(n.tag)}</span>
-    <div class="np-txt">${esc(n.txt)}</div><small>${esc(n.t)}${n.ref?' · <span class="np-go">View →</span>':""}</small></div></div>`).join("")}</div>`;
+    <div class="np-txt">${esc(n.txt)}</div><small>${esc(n.t)}${n.ref?' · <span class="np-go">View →</span>':""}</small></div></div>`).join(""):'<div class="empty">Nothing yet.</div>'}</div>`;
 }
 function openNotif(ref){
   toggleNotifs(false);
   if(findListing(ref)) openListing(ref);
   else if(findCampaign(ref)) openCampaign(ref);
 }
-function toggleNotifs(force){
+async function toggleNotifs(force){
   notifOpen = force!==undefined?force:!notifOpen;
-  const p=$("notifPop");
-  p.classList.toggle("hide",!notifOpen);
-  if(notifOpen){ renderNotifPop(); notifUnread=0; bellSync(); }
+  $("notifPop").classList.toggle("hide",!notifOpen);
+  if(notifOpen){
+    if(S.account) await loadNotifications();
+    renderNotifPop();
+    if(S.account){ try{ await PSApi.post("/notifications/read-all"); }catch(e){} setBell(0); }
+  }
 }
 
 /* ==================== REAL AUTH (backend) ==================== */
@@ -1484,11 +1568,26 @@ function authReflect(){
   syncNav();  // toggles roleSwitch / dashboard / userChip / get-started from S.roles
   $("nav-login").classList.toggle("hide", !!a);
   $("nav-logout").classList.toggle("hide", !a);
+  $("nl-review").classList.toggle("hide", !(a && a.is_reviewer));
   if(a){
     $("userChip").classList.remove("hide");
     $("userInit").textContent=(a.display_name||a.email||"?").slice(0,1).toUpperCase();
     $("userName").textContent=a.display_name||a.email;
   }
+}
+async function openReviewQueue(){
+  if(!S.account || !S.account.is_reviewer){ toast("Reviewer access required"); return; }
+  showView("view-deal");
+  let q=[]; try{ q=await PSApi.get("/review/queue"); }catch(e){}
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="openDash()">← Dashboard</button><h2>Review queue</h2>
+      <span class="status-pill st-review">${q.length} awaiting</span></div>
+    <div class="panel"><div class="panel-b">${q.length?q.map(item=>`
+      <div class="deal-row" onclick="showView('view-deal');renderRealDeal(${item.deal_id})">
+        <div class="pfp" style="background:var(--amber)">${item.deal_id}</div>
+        <div><div class="dr-t">Deal ${item.deal_id}</div><div class="dr-s">${item.proof_count} evidence item(s) · ${esc(item.status)}</div></div>
+        <div class="dr-amt"><b>${gbpP(item.listed_price)}</b><small>listed</small></div></div>`).join("")
+      :`<div class="empty-state"><div class="es-ico">✅</div><h4>Nothing to review</h4><p>Funded deals with submitted evidence appear here for verification.</p></div>`}</div></div>`;
 }
 async function loadMine(){
   if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; return; }
@@ -1545,7 +1644,7 @@ async function doLogout(){
   S.account=null; authReflect(); goHome(); toast("Logged out");
 }
 async function restoreSession(){
-  try{ S.account=await PSApi.me(); await loadMine(); }catch(e){ S.account=null; }
+  try{ S.account=await PSApi.me(); await loadMine(); await loadNotifications(); }catch(e){ S.account=null; }
   authReflect();
 }
 
@@ -1562,6 +1661,7 @@ const NAV_ACTIONS={
   "messages":()=>openMessages(),
   "notifs":()=>toggleNotifs(),
   "dash":()=>openDash(),
+  "review-queue":()=>openReviewQueue(),
   "wiz-biz":()=>startWizard("biz"),
   "wiz-plat":()=>startWizard("plat"),
   "wiz-both":()=>startWizard("both"),
@@ -1587,7 +1687,7 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realFund,realPay};
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
