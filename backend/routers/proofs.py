@@ -19,6 +19,7 @@ from ..storage import save_proof_file
 router = APIRouter(tags=["proofs"])
 
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp", "application/pdf"}
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 
 
 def _deal_or_404(db: Session, deal_id: int) -> Deal:
@@ -32,12 +33,19 @@ def _is_party(d: Deal, user: User) -> bool:
     return user.id in (d.business_id, d.platform_owner_id)
 
 
+def _is_image(path) -> bool:
+    return bool(path) and path.lower().endswith(IMAGE_EXTS)
+
+
 def proof_dict(p: Proof) -> dict:
     return {
         "id": p.id,
         "deal_id": p.deal_id,
         "kind": p.kind,
         "has_file": bool(p.stored_path),
+        # Same-origin URL the review UI renders directly (image) or links to (pdf).
+        "file_url": f"/deals/{p.deal_id}/proof/{p.id}/file" if p.stored_path else None,
+        "is_image": _is_image(p.stored_path),
         "url": p.url,
         "submitted_by": p.submitted_by,
     }
@@ -110,4 +118,5 @@ def get_proof_file(deal_id: int, proof_id: int, user: User = Depends(get_current
         raise HTTPException(status_code=404, detail="Proof not found")
     if not p.stored_path or not os.path.exists(p.stored_path):
         raise HTTPException(status_code=404, detail="No stored file for this proof")
-    return FileResponse(p.stored_path)
+    # inline so the review UI can render images (and preview PDFs) in-page.
+    return FileResponse(p.stored_path, content_disposition_type="inline")

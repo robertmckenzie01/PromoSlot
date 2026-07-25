@@ -42,6 +42,33 @@ def review_queue(reviewer: User = Depends(get_current_reviewer), db: Session = D
              "proof_count": db.query(Proof).filter_by(deal_id=d.id).count()} for d in rows]
 
 
+@router.get("/payouts")
+def payout_queue(reviewer: User = Depends(get_current_reviewer), db: Session = Depends(get_db)):
+    """Verified deals not yet paid out (or refunded) — awaiting a deliberate payout.
+
+    A deal stays here after verification until the reviewer actually releases the
+    payout (or refunds), so a verified-but-unpaid deal is never lost from view.
+    """
+    rows = (db.query(Deal)
+            .filter(Deal.verified_at.isnot(None), Deal.paid_at.is_(None),
+                    Deal.status != DealStatus.REFUNDED)
+            .order_by(Deal.verified_at.asc()).all())
+    out = []
+    for d in rows:
+        owner = db.get(User, d.platform_owner_id)
+        ca = db.query(ConnectedAccount).filter_by(user_id=d.platform_owner_id).first()
+        m = deal_money_for(d)
+        out.append({
+            "deal_id": d.id,
+            "owner": owner.display_name if owner else "",
+            "listed_price": d.listed_price,
+            "net_to_owner": m["net_to_owner"],
+            "status": d.status,
+            "payout_ready": bool(ca and ca.transfers_active),
+        })
+    return out
+
+
 @router.post("/deals/{deal_id}/verify")
 def verify(deal_id: int, body: VerifyIn,
            reviewer: User = Depends(get_current_reviewer), db: Session = Depends(get_db)):

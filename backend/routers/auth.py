@@ -12,7 +12,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import COOKIE_NAME, get_current_user
 from ..models import Session as AuthSession, User
-from ..schemas import LoginIn, SignupIn, UserOut
+from ..schemas import ChangePasswordIn, LoginIn, SignupIn, UserOut
 from ..security import hash_password, new_session_token, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -86,3 +86,16 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user
+
+
+@router.post("/change-password")
+def change_password(body: ChangePasswordIn, user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    """Change the signed-in user's password after verifying the current one."""
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(status_code=403, detail="Current password is incorrect")
+    if body.new_password == body.current_password:
+        raise HTTPException(status_code=422, detail="New password must be different")
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"ok": True}

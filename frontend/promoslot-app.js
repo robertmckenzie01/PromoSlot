@@ -98,7 +98,8 @@ function reviewsFor(id){
 const S = {
   roles:[], activeRole:null, biz:null, myPlatforms:[], myCampaigns:[], deals:[],
   notifications:[], marketTab:"platforms", filters:null, dealSeq:1,
-  convos:[], activeConv:null, activeThread:null
+  convos:[], activeConv:null, activeThread:null,
+  attn:{unread:0,review_pending:0,awaiting_payout:0}
 };
 function resetFilters(){
   S.filters = {q:"",platforms:new Set(),niches:new Set(),services:new Set(),countries:new Set(),pay:new Set(),min:"",max:""};
@@ -780,6 +781,22 @@ async function buyOffer(listingId, priceIdx){
 }
 
 /* ---------- Real deal room (backend-driven) ---------- */
+// Delivery evidence: image proofs render inline; PDFs/other files get a view
+// link; submitted URLs are clickable. Served same-origin from the proof store.
+function proofItemHtml(p){
+  const label = esc(p.kind || "evidence");
+  let media = "";
+  if(p.is_image && p.file_url){
+    media = `<a href="${p.file_url}" target="_blank" rel="noopener" class="proof-thumb"><img src="${p.file_url}" alt="${label}" loading="lazy"></a>`;
+  } else if(p.has_file && p.file_url){
+    media = `<a href="${p.file_url}" target="_blank" rel="noopener" class="btn btn-o btn-sm" style="margin-top:8px">📄 View file</a>`;
+  }
+  const link = p.url ? `<div class="pb-link"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a></div>` : "";
+  return `<div class="proof-item got proof-block">
+    <div class="pb-head"><span class="pi-ico">${p.is_image?"🖼️":p.has_file?"📄":"🔗"}</span><b>${label}</b><span class="ok">submitted</span></div>
+    ${link}${media}
+  </div>`;
+}
 async function renderRealDeal(dealId){
   let d;
   try{ d=await PSApi.get("/deals/"+dealId); }catch(err){ toast(err.message||"Could not load deal"); return; }
@@ -827,7 +844,7 @@ async function renderRealDeal(dealId){
     ${(meBiz||meOwner)?`<div style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="realDecline(${d.id})">Decline &amp; cancel</button></div>`:""}`;
   } else {
     const proofList = proofs.length
-      ? proofs.map(p=>`<div class="proof-item got"><span class="pi-ico">${p.has_file?"🖼️":"🔗"}</span>${esc(p.kind)}${p.url?" · "+esc(p.url):""}${p.has_file?" · file stored":""}<span class="ok">submitted</span></div>`).join("")
+      ? proofs.map(proofItemHtml).join("")
       : `<p class="mut" style="font-size:12.5px">No delivery evidence submitted yet.</p>`;
     main=`<h3 class="deal-h">Funded — ${gbpP(d.total_charged)} secured in escrow 🔒</h3>
     <p class="deal-sub">Money held by PromoSlot. The owner delivers &amp; submits proof → a reviewer verifies → the owner is paid ${gbpP(d.net_to_owner)} (listed price − ${d.seller_fee_percent}% seller fee).</p>
@@ -915,17 +932,26 @@ async function realPay(){
 function reviewerControls(d, proofCount){
   let inner;
   if(!d.verified){
+    // Verification step — three distinct outcomes. Verifying does NOT pay out.
     inner = proofCount>0
-      ? `<div class="btn-row"><button class="btn btn-g btn-sm" onclick="realVerify(${d.id},'approved')">✓ Verify delivery</button>
-         <button class="btn btn-danger btn-sm" onclick="realVerify(${d.id},'rejected')">Reject — needs revision</button></div>`
+      ? `<p class="mut" style="font-size:12.5px;margin-bottom:9px">Verifying only confirms the evidence meets the agreed terms — it does <b>not</b> release money. Payout is a separate step you take afterwards.</p>
+         <div class="btn-row">
+           <button class="btn btn-g btn-sm" onclick="realVerify(${d.id},'approved')">✓ Verify — evidence meets terms</button>
+           <button class="btn btn-o btn-sm" onclick="realVerify(${d.id},'rejected')">↩︎ Send back for revision</button>
+           <button class="btn btn-danger btn-sm" onclick="realRefund(${d.id})">✕ Disapprove &amp; refund business</button>
+         </div>`
       : `<p class="mut" style="font-size:12.5px">Waiting for the owner to submit evidence before you can verify.</p>`;
   } else if(!d.paid){
-    inner = `<div class="btn-row"><button class="btn btn-g btn-sm" onclick="realRelease(${d.id})">💸 Release payout — ${gbpP(d.net_to_owner)} to owner</button></div>`;
+    // Verified but unpaid — payout is a separate, deliberate action (also on the Awaiting Payouts page).
+    inner = `<div class="note blue" style="margin:0 0 10px">✓ Verified — <b>awaiting payout</b>. Releasing funds is a separate action; do it now or later from <b>Awaiting Payouts</b>.</div>
+      <div class="btn-row">
+        <button class="btn btn-g btn-sm" onclick="realRelease(${d.id})">💸 Release payout — ${gbpP(d.net_to_owner)} to owner</button>
+        <button class="btn btn-danger btn-sm" onclick="realRefund(${d.id})">✕ Refund business instead</button>
+      </div>`;
   } else {
-    inner = `<p class="ok-txt" style="font-size:13px">✓ Verified & paid out.</p>`;
+    inner = `<p class="ok-txt" style="font-size:13px">✓ Verified &amp; paid out — deal complete.</p>`;
   }
-  const refund = !d.paid ? `<div style="margin-top:8px"><button class="btn btn-danger btn-sm" onclick="realRefund(${d.id})">↩︎ Refund the business instead</button></div>` : "";
-  return `<div class="det-sec" style="margin-top:18px"><h5>Reviewer actions</h5>${inner}${refund}</div>`;
+  return `<div class="det-sec" style="margin-top:18px"><h5>Reviewer actions</h5>${inner}</div>`;
 }
 async function realSubmitProof(dealId){
   const kind=($("pf-kind").value||"screenshot").trim();
@@ -937,18 +963,25 @@ async function realSubmitProof(dealId){
   toast("Evidence submitted",true); renderRealDeal(dealId);
 }
 async function realVerify(dealId, decision){
+  if(decision==="rejected" && !confirm("Send this delivery back to the owner for revision? They can resubmit evidence.")) return;
   try{ await PSApi.post(`/review/deals/${dealId}/verify`,{decision}); }catch(err){ toast(err.message||"Verify failed"); return; }
-  toast(decision==="approved"?"Delivery verified ✓":"Sent back for revision",true); renderRealDeal(dealId);
+  toast(decision==="approved"
+    ? "Verified ✓ — moved to Awaiting Payouts (release payout separately when ready)"
+    : "Sent back to the owner for revision", true);
+  loadNotifications();
+  renderRealDeal(dealId);
 }
 async function realRelease(dealId){
   try{ const r=await PSApi.post(`/review/deals/${dealId}/release`); toast("Payout released — "+gbpP(r.net_to_owner)+" to owner 💸",true); }
   catch(err){ toast(err.message||"Release failed"); return; }
+  loadNotifications();
   renderRealDeal(dealId);
 }
 async function realRefund(dealId){
-  if(!confirm("Refund the business? This cancels the deal.")) return;
+  if(!confirm("Disapprove this delivery and refund the business? The escrowed funds are returned to the business and the deal is closed. This can't be undone.")) return;
   try{ await PSApi.post(`/review/deals/${dealId}/refund`); toast("Business refunded ↩︎",true); }
   catch(err){ toast(err.message||"Refund failed"); return; }
+  loadNotifications();
   renderRealDeal(dealId);
 }
 function realReviewModal(dealId){
@@ -1676,12 +1709,26 @@ let notifOpen=false;
 const NOTIF_ICON={deal_funded:"🔒",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️",message:"💬",campaign_application:"📩",deal_declined:"🚫"};
 function setBell(n){ const b=$("bellCnt"); if(!b) return; b.classList.toggle("hide",n<=0); b.textContent=n>9?"9+":n; }
 function bellSync(){ if(!S.account) setBell(0); }
+function _dot(id,on){ const e=$(id); if(e) e.classList.toggle("hide", !on); }
+// Per-user attention dots. Notification unread clears when the bell is viewed;
+// reviewer queue/payout dots persist until the work is actually done, so a
+// verified-but-unpaid deal keeps flagging attention until it's paid or refunded.
+function updateDots(){
+  const a=S.attn||{unread:0,review_pending:0,awaiting_payout:0};
+  const dashAttn=(a.unread>0)||(a.review_pending>0)||(a.awaiting_payout>0);
+  _dot("userDot", !!S.account && dashAttn);   // avatar / dashboard attention
+  _dot("dashDot", !!S.account && dashAttn);
+  _dot("dot-review", (a.review_pending||0)>0);
+  _dot("dot-payouts", (a.awaiting_payout||0)>0);
+}
 function relTime(iso){ if(!iso) return ""; const d=new Date(iso), s=(Date.now()-d.getTime())/1000;
   if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return d.toLocaleDateString(); }
 async function loadNotifications(){
-  if(!S.account){ S.realNotifs=[]; setBell(0); return; }
+  if(!S.account){ S.realNotifs=[]; S.attn={unread:0,review_pending:0,awaiting_payout:0}; setBell(0); updateDots(); return; }
   try{ S.realNotifs=await PSApi.get("/notifications"); }catch(e){ S.realNotifs=[]; }
-  try{ const c=await PSApi.get("/notifications/unread-count"); setBell(c.unread||0); }catch(e){}
+  try{ S.attn=await PSApi.get("/notifications/summary"); }catch(e){ S.attn={unread:0,review_pending:0,awaiting_payout:0}; }
+  setBell((S.attn&&S.attn.unread)||0);
+  updateDots();
 }
 function pushNotif(item,quiet){ if(!quiet && item && item.txt) toast(item.txt); }
 function tagCls(tag){ return tag==="New campaign"?"amb":tag==="New offer"?"ind":""; }
@@ -1706,7 +1753,12 @@ async function toggleNotifs(force){
   if(notifOpen){
     if(S.account) await loadNotifications();
     renderNotifPop();
-    if(S.account){ try{ await PSApi.post("/notifications/read-all"); }catch(e){} setBell(0); }
+    if(S.account){
+      try{ await PSApi.post("/notifications/read-all"); }catch(e){}
+      setBell(0);
+      if(S.attn) S.attn.unread=0;   // viewed -> notification attention clears
+      updateDots();
+    }
   }
 }
 
@@ -1724,18 +1776,22 @@ function authReflect(){
   $("nav-login").classList.toggle("hide", !!a);
   $("nav-logout").classList.toggle("hide", !a);
   $("nl-review").classList.toggle("hide", !(a && a.is_reviewer));
+  $("nl-payouts").classList.toggle("hide", !(a && a.is_reviewer));
   if(a){
-    $("userChip").classList.remove("hide");
+    $("userChip").classList.remove("hide");   // avatar shows whenever logged in (incl. reviewer)
     $("userInit").textContent=(a.display_name||a.email||"?").slice(0,1).toUpperCase();
     $("userName").textContent=a.display_name||a.email;
   }
+  updateDots();
 }
 async function openReviewQueue(){
   if(!S.account || !S.account.is_reviewer){ toast("Reviewer access required"); return; }
   showView("view-deal");
   let q=[]; try{ q=await PSApi.get("/review/queue"); }catch(e){}
+  loadNotifications();
   $("dealWrap").innerHTML=`
-    <div class="deal-top"><button class="btn btn-ghost" onclick="openDash()">← Dashboard</button><h2>Review queue</h2>
+    <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>Review queue</h2>
+      <button class="btn btn-o btn-sm" onclick="openPayouts()">💸 Awaiting Payouts →</button>
       <span class="status-pill st-review">${q.length} awaiting</span></div>
     <div class="panel"><div class="panel-b">${q.length?q.map(item=>`
       <div class="deal-row" onclick="showView('view-deal');renderRealDeal(${item.deal_id})">
@@ -1743,6 +1799,23 @@ async function openReviewQueue(){
         <div><div class="dr-t">Deal ${item.deal_id}</div><div class="dr-s">${item.proof_count} evidence item(s) · ${esc(item.status)}</div></div>
         <div class="dr-amt"><b>${gbpP(item.listed_price)}</b><small>listed</small></div></div>`).join("")
       :`<div class="empty-state"><div class="es-ico">✅</div><h4>Nothing to review</h4><p>Funded deals with submitted evidence appear here for verification.</p></div>`}</div></div>`;
+}
+async function openPayouts(){
+  if(!S.account || !S.account.is_reviewer){ toast("Reviewer access required"); return; }
+  showView("view-deal");
+  let q=[]; try{ q=await PSApi.get("/review/payouts"); }catch(e){}
+  loadNotifications();
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="openReviewQueue()">← Review queue</button><h2>Awaiting Payouts</h2>
+      <span class="status-pill st-escrow">${q.length} to pay</span></div>
+    <p class="deal-sub" style="padding:0 2px 6px">Verified deals waiting for a payout. They stay here until you release the funds (or refund) — nothing is lost after verification.</p>
+    <div class="panel"><div class="panel-b">${q.length?q.map(item=>`
+      <div class="deal-row" onclick="showView('view-deal');renderRealDeal(${item.deal_id})">
+        <div class="pfp" style="background:var(--acc)">${item.deal_id}</div>
+        <div><div class="dr-t">Deal ${item.deal_id} · ${esc(item.owner)}</div>
+          <div class="dr-s">Verified · ${item.payout_ready?"payout ready":"owner hasn't set up payouts yet"}</div></div>
+        <div class="dr-amt"><b>${gbpP(item.net_to_owner)}</b><small>to owner</small></div></div>`).join("")
+      :`<div class="empty-state"><div class="es-ico">💸</div><h4>No payouts pending</h4><p>Verified deals awaiting payout appear here until you release the funds.</p></div>`}</div></div>`;
 }
 async function loadMine(){
   if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; return; }
@@ -1798,6 +1871,57 @@ async function doLogout(){
   try{ await PSApi.logout(); }catch(e){}
   S.account=null; authReflect(); goHome(); toast("Logged out");
 }
+/* ==================== MY ACCOUNT ==================== */
+function roleLabels(a){
+  const r=[];
+  if(a.is_business) r.push("Business");
+  if(a.is_platform_owner) r.push("Platform owner");
+  if(a.is_reviewer) r.push("Reviewer");
+  return r.length?r:["No role set"];
+}
+function openAccount(){
+  const a=S.account;
+  if(!a){ authModal("login"); return; }
+  showView("view-account");
+  const init=(a.display_name||a.email||"?").slice(0,1).toUpperCase();
+  $("accountWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>My Account</h2></div>
+    <div class="acct-grid">
+      <div class="panel"><div class="panel-b">
+        <div class="acct-id"><span class="avatar-dot dash-avatar">${esc(init)}</span>
+          <div><div class="acct-name">${esc(a.display_name||"—")}</div><div class="acct-email">${esc(a.email)}</div></div></div>
+        <div class="acct-rows">
+          <div class="acct-row"><span>Name</span><b>${esc(a.display_name||"—")}</b></div>
+          <div class="acct-row"><span>Email</span><b>${esc(a.email)}</b></div>
+          <div class="acct-row"><span>Role${roleLabels(a).length>1?"s":""}</span><b>${roleLabels(a).map(r=>`<span class="tag">${esc(r)}</span>`).join(" ")}</b></div>
+        </div>
+        <div style="margin-top:16px"><button class="btn btn-o btn-sm" onclick="doLogout()">Log out</button></div>
+      </div></div>
+      <div class="panel"><div class="panel-b">
+        <h5 style="margin-bottom:10px">Change password</h5>
+        <div class="frm">
+          <div><label>Current password</label><input type="password" id="pw-cur" autocomplete="current-password"></div>
+          <div><label>New password</label><input type="password" id="pw-new" placeholder="At least 8 characters" autocomplete="new-password"></div>
+          <div><label>Confirm new password</label><input type="password" id="pw-conf" autocomplete="new-password" onkeydown="if(event.key==='Enter')doChangePassword()"></div>
+          <div class="hint-err hide" id="pw-err"></div>
+        </div>
+        <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="doChangePassword()">Update password</button></div>
+      </div></div>
+    </div>`;
+}
+async function doChangePassword(){
+  const cur=($("pw-cur").value||""), nw=($("pw-new").value||""), conf=($("pw-conf").value||"");
+  const err=$("pw-err");
+  const fail=m=>{ if(err){ err.textContent=m; err.classList.remove("hide"); } };
+  if(err) err.classList.add("hide");
+  if(!cur||!nw){ fail("Enter your current and new password."); return; }
+  if(nw.length<8){ fail("New password must be at least 8 characters."); return; }
+  if(nw!==conf){ fail("New passwords don't match."); return; }
+  try{ await PSApi.post("/auth/change-password",{current_password:cur,new_password:nw}); }
+  catch(e){ fail(e.message||"Could not change password"); return; }
+  $("pw-cur").value=$("pw-new").value=$("pw-conf").value="";
+  toast("Password updated ✓",true);
+}
 async function restoreSession(){
   try{ S.account=await PSApi.me(); await loadMine(); await loadNotifications(); }catch(e){ S.account=null; }
   authReflect();
@@ -1816,7 +1940,9 @@ const NAV_ACTIONS={
   "messages":()=>openMessages(),
   "notifs":()=>toggleNotifs(),
   "dash":()=>openDash(),
+  "account":()=>openAccount(),
   "review-queue":()=>openReviewQueue(),
+  "payouts":()=>openPayouts(),
   "wiz-biz":()=>startWizard("biz"),
   "wiz-plat":()=>startWizard("plat"),
   "wiz-both":()=>startWizard("both"),
@@ -1842,7 +1968,7 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,uploadMedia,deleteMedia};
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,uploadMedia,deleteMedia};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
