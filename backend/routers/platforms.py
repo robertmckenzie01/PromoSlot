@@ -137,6 +137,10 @@ def media_dict(m: PlatformMedia) -> dict:
         "stat": m.stat or "",
         "has_video": bool(m.video_path),
         "video_url": f"/platforms/{m.platform_id}/media/{m.id}/video" if m.video_path else None,
+        # Link-based work samples (external content + its own cover image).
+        "link_url": m.link_url or None,
+        "has_cover": bool(m.cover_path),
+        "cover_url": f"/platforms/{m.platform_id}/media/{m.id}/cover" if m.cover_path else None,
         "created_at": m.created_at.isoformat() if m.created_at else None,
     }
 
@@ -159,6 +163,10 @@ def list_media(platform_id: int, kind: Optional[str] = None, db: Session = Depen
     return [media_dict(m) for m in q.order_by(PlatformMedia.id.desc()).all()]
 
 
+# Cover images carry no size/type restriction (owner-chosen thumbnails).
+_COVER_MAX_BYTES = 2 * 1024 * 1024 * 1024
+
+
 @router.post("/{platform_id:int}/media", status_code=201)
 def add_media(
     platform_id: int,
@@ -166,7 +174,9 @@ def add_media(
     title: Optional[str] = Form(None),
     brand: Optional[str] = Form(None),
     stat: Optional[str] = Form(None),
+    link_url: Optional[str] = Form(None),
     video: Optional[UploadFile] = File(None),
+    cover: Optional[UploadFile] = File(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -175,8 +185,11 @@ def add_media(
         raise HTTPException(status_code=422, detail="kind must be 'work' or 'past_campaign'")
 
     has_video = video is not None and (video.filename or "") != ""
-    if kind == "work" and not has_video:
-        raise HTTPException(status_code=422, detail="A work sample needs a video")
+    has_link = bool(link_url and link_url.strip())
+    has_cover = cover is not None and (cover.filename or "") != ""
+    # A work sample is either an uploaded video OR an external link.
+    if kind == "work" and not (has_video or has_link):
+        raise HTTPException(status_code=422, detail="A work sample needs a video or a link")
 
     video_path = content_type = original_filename = None
     if has_video:
@@ -189,9 +202,19 @@ def add_media(
         content_type = video.content_type
         original_filename = video.filename
 
+    cover_path = cover_content_type = None
+    if has_cover:  # any type, no size restriction
+        try:
+            cover_path, _cs = save_media_file(p.id, cover, _COVER_MAX_BYTES)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        cover_content_type = cover.content_type
+
     m = PlatformMedia(platform_id=p.id, owner_id=user.id, kind=kind, title=title,
                       brand=brand, stat=stat, video_path=video_path,
-                      content_type=content_type, original_filename=original_filename)
+                      content_type=content_type, original_filename=original_filename,
+                      link_url=link_url.strip() if has_link else None,
+                      cover_path=cover_path, cover_content_type=cover_content_type)
     db.add(m)
     db.commit()
     db.refresh(m)
@@ -209,6 +232,15 @@ def get_media_video(platform_id: int, media_id: int, db: Session = Depends(get_d
     return FileResponse(m.video_path, media_type=m.content_type or "video/mp4")
 
 
+@router.get("/{platform_id:int}/media/{media_id:int}/cover")
+def get_media_cover(platform_id: int, media_id: int, db: Session = Depends(get_db)):
+    m = db.get(PlatformMedia, media_id)
+    if m is None or m.platform_id != platform_id or not m.cover_path or not os.path.exists(m.cover_path):
+        raise HTTPException(status_code=404, detail="Cover not found")
+    return FileResponse(m.cover_path, media_type=m.cover_content_type or "image/jpeg",
+                        content_disposition_type="inline")
+
+
 @router.delete("/{platform_id:int}/media/{media_id:int}")
 def delete_media(platform_id: int, media_id: int, user: User = Depends(get_current_user),
                  db: Session = Depends(get_db)):
@@ -216,11 +248,12 @@ def delete_media(platform_id: int, media_id: int, user: User = Depends(get_curre
     m = db.get(PlatformMedia, media_id)
     if m is None or m.platform_id != platform_id:
         raise HTTPException(status_code=404, detail="Media not found")
-    if m.video_path and os.path.exists(m.video_path):
-        try:
-            os.remove(m.video_path)
-        except OSError:
-            pass
+    for path in (m.video_path, m.cover_path):
+        if path and os.path.exists(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
     db.delete(m)
     db.commit()
     return {"deleted": media_id}

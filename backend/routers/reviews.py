@@ -80,3 +80,39 @@ def user_reviews(user_id: int, user: User = Depends(get_current_user), db: Sessi
         "average": round(float(avg), 2) if avg is not None else None,
         "reviews": [review_dict(r) for r in rows],
     }
+
+
+@router.get("/users/{user_id}/public")
+def public_profile(user_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """A party's real public profile: identity, rating, reviews, and their
+    listings (if a platform owner) / campaigns (if a business). Used to make
+    each party's name in a deal clickable through to who they actually are.
+    """
+    from ..models import Platform, Campaign
+    from .platforms import listing_dict
+    from .campaigns import campaign_dict
+
+    u = db.get(User, user_id)
+    if u is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    rows = (db.query(Review).filter_by(reviewee_id=user_id)
+            .order_by(Review.id.desc()).all())
+    count, avg = (db.query(func.count(Review.id), func.avg(Review.rating))
+                  .filter(Review.reviewee_id == user_id).one())
+    listings = ([listing_dict(db, p) for p in
+                 db.query(Platform).filter_by(owner_id=user_id).order_by(Platform.id.desc()).all()]
+                if u.is_platform_owner else [])
+    campaigns = ([campaign_dict(db, c) for c in
+                  db.query(Campaign).filter_by(business_id=user_id).order_by(Campaign.id.desc()).all()]
+                 if u.is_business else [])
+    return {
+        "id": u.id,
+        "display_name": u.display_name or u.email,
+        "is_business": u.is_business,
+        "is_platform_owner": u.is_platform_owner,
+        "rating": round(float(avg), 1) if avg is not None else None,
+        "review_count": count or 0,
+        "reviews": [review_dict(r) for r in rows],
+        "listings": listings,
+        "campaigns": campaigns,
+    }

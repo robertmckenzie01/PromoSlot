@@ -28,6 +28,10 @@ class DealCreateIn(BaseModel):
     terms: dict = Field(default_factory=dict)
 
 
+def _name(u) -> str:
+    return (u.display_name or u.email) if u else ""
+
+
 def deal_dict(d: Deal) -> dict:
     m = deal_money_for(d)
     return {
@@ -47,6 +51,11 @@ def deal_dict(d: Deal) -> dict:
         "platform_take": m["platform_take"],
         "campaign_id": d.campaign_id,
         "platform_id": d.platform_id,
+        # Real identities of both parties (never "You"), with refs to their profiles.
+        "business_name": _name(d.business),
+        "owner_name": _name(d.platform_owner),
+        "owner_listing_ref": (f"p{d.platform_id}" if d.platform_id
+                              else (d.terms or {}).get("listing_id")),
         "business_approved": d.business_approved,
         "owner_approved": d.owner_approved,
         "funded": d.funded_at is not None,

@@ -10,6 +10,7 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text,
 )
+from sqlalchemy.orm import relationship
 
 from .db import Base
 
@@ -104,6 +105,10 @@ class PlatformMedia(Base):
     video_path = Column(String)                   # stored file path (nullable)
     content_type = Column(String)                 # video mime type
     original_filename = Column(String)
+    # Link-based work samples: an external link plus its own cover image.
+    link_url = Column(String)                     # external content link (nullable)
+    cover_path = Column(String)                   # stored cover image path (nullable)
+    cover_content_type = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -159,6 +164,10 @@ class Deal(Base):
     paid_at = Column(DateTime)       # set on transfer/payout confirmation
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # The two real parties (for showing each side's actual identity, never "You").
+    business = relationship("User", foreign_keys=[business_id])
+    platform_owner = relationship("User", foreign_keys=[platform_owner_id])
 
 
 class Payment(Base):

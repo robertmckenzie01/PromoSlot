@@ -18,7 +18,6 @@ from ..storage import save_proof_file
 
 router = APIRouter(tags=["proofs"])
 
-ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp", "application/pdf"}
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 
 
@@ -73,8 +72,7 @@ def submit_proof(
 
     stored_path = None
     if has_file:
-        if file.content_type not in ALLOWED_TYPES:
-            raise HTTPException(status_code=415, detail=f"Unsupported file type: {file.content_type}")
+        # Delivery evidence accepts any file type; only the size cap applies.
         try:
             stored_path, _size = save_proof_file(d.id, file, settings.max_upload_bytes)
         except ValueError as e:
