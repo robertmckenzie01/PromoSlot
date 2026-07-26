@@ -61,6 +61,10 @@ def deal_dict(d: Deal) -> dict:
         "funded": d.funded_at is not None,
         "verified": d.verified_at is not None,
         "paid": d.paid_at is not None,
+        # Event timestamps for the dashboard growth timeline.
+        "created_at": d.created_at.isoformat() if d.created_at else None,
+        "funded_at": d.funded_at.isoformat() if d.funded_at else None,
+        "paid_at": d.paid_at.isoformat() if d.paid_at else None,
         "payment_intent_id": d.payment_intent_id,
         "terms": d.terms,
     }

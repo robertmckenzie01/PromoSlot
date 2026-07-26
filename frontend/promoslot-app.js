@@ -1778,6 +1778,62 @@ function animateKpis(){
     requestAnimationFrame(tick);
   });
 }
+// Draggable-scrubber growth timeline (real deal events only). x = time,
+// y = cumulative £. A single draggable dot scrubs time; event dots are fixed.
+function renderGrowthTimeline(hostId, events, cfg){
+  const host=document.getElementById(hostId); if(!host) return;
+  cfg=cfg||{}; const verb=cfg.verb||"earned";
+  events=(events||[]).filter(e=>e.t && !isNaN(+e.t)).sort((a,b)=>a.t-b.t);
+  if(!events.length){
+    host.innerHTML=`<div class="empty-state small"><div class="es-ico">📈</div><h4>No ${verb==="earned"?"earnings":"purchases"} yet</h4><p>Your account growth appears here once you have a completed deal — drag along the line to scrub through time.</p></div>`;
+    return;
+  }
+  let cum=0; const pts=events.map(e=>({t:+e.t, v:(cum+=e.amount), amount:e.amount, dealId:e.dealId}));
+  const W=640,H=210,padL=52,padR=16,padT=16,padB=26, plotW=W-padL-padR, plotH=H-padT-padB;
+  let tStart=pts[0].t, tEnd=Math.max(pts[pts.length-1].t, Date.now());
+  if(tEnd<=tStart) tEnd=tStart+864e5;
+  const span=tEnd-tStart, yMax=Math.max(...pts.map(p=>p.v))*1.15||1;
+  const xs=t=>padL+(t-tStart)/span*plotW, ys=v=>(padT+plotH)-(v/yMax)*plotH;
+  // stepped cumulative path + area
+  let d=`M ${xs(tStart).toFixed(1)} ${ys(0).toFixed(1)}`, prev=0;
+  const poly=[`${xs(tStart).toFixed(1)},${ys(0).toFixed(1)}`];
+  pts.forEach(p=>{
+    d+=` L ${xs(p.t).toFixed(1)} ${ys(prev).toFixed(1)} L ${xs(p.t).toFixed(1)} ${ys(p.v).toFixed(1)}`;
+    poly.push(`${xs(p.t).toFixed(1)},${ys(prev).toFixed(1)}`,`${xs(p.t).toFixed(1)},${ys(p.v).toFixed(1)}`);
+    prev=p.v;
+  });
+  d+=` L ${xs(tEnd).toFixed(1)} ${ys(prev).toFixed(1)}`;
+  poly.push(`${xs(tEnd).toFixed(1)},${ys(prev).toFixed(1)}`,
+            `${xs(tEnd).toFixed(1)},${ys(0).toFixed(1)}`);
+  const areaPts=poly.join(" ");
+  const dots=pts.map(p=>`<circle class="g-dot" cx="${xs(p.t).toFixed(1)}" cy="${ys(p.v).toFixed(1)}" r="4"><title>Deal ${p.dealId} · +£${p.amount.toFixed(2)} · ${new Date(p.t).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</title></circle>`).join("");
+  const sx0=xs(tEnd), sy0=ys(pts[pts.length-1].v);
+  host.innerHTML=`<div class="growth">
+    <div class="g-readout" id="${hostId}-ro"></div>
+    <svg class="growth-svg" viewBox="0 0 ${W} ${H}" role="img">
+      <line class="g-axis" x1="${padL}" y1="${padT+plotH}" x2="${W-padR}" y2="${padT+plotH}"/>
+      <polygon class="g-area" points="${areaPts}"/>
+      <path class="g-line" d="${d}"/>
+      ${dots}
+      <line class="g-scrub-line" x1="${sx0.toFixed(1)}" y1="${padT}" x2="${sx0.toFixed(1)}" y2="${padT+plotH}"/>
+      <circle class="g-scrub" cx="${sx0.toFixed(1)}" cy="${sy0.toFixed(1)}" r="7"/>
+    </svg>
+    <div class="g-scale"><span>${new Date(tStart).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span><span>drag the dot to scrub ↔</span><span>${new Date(tEnd).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span></div>
+  </div>`;
+  const svg=host.querySelector(".growth-svg"), scrub=host.querySelector(".g-scrub"),
+        sline=host.querySelector(".g-scrub-line"), ro=document.getElementById(hostId+"-ro");
+  const cumAt=tms=>{ let v=0,n=0; pts.forEach(p=>{ if(p.t<=tms){ v=p.v; n++; } }); return {v,n}; };
+  const setScrub=tms=>{ if(!isFinite(tms)) return; tms=Math.max(tStart,Math.min(tEnd,tms)); const {v,n}=cumAt(tms);
+    const sx=xs(tms), sy=ys(v); scrub.setAttribute("cx",sx.toFixed(1)); scrub.setAttribute("cy",sy.toFixed(1));
+    sline.setAttribute("x1",sx.toFixed(1)); sline.setAttribute("x2",sx.toFixed(1));
+    ro.innerHTML=`<b>By ${new Date(tms).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</b> · £${v.toFixed(2)} ${verb} · ${n} deal${n===1?"":"s"}`; };
+  const cxToT=cx=>{ const r=svg.getBoundingClientRect(); if(!r.width||!isFinite(cx)) return tEnd; const px=(cx-r.left)/r.width*W; return tStart+Math.max(0,Math.min(1,(px-padL)/plotW))*span; };
+  let dragging=false;
+  svg.addEventListener("pointerdown",e=>{ dragging=true; try{svg.setPointerCapture(e.pointerId);}catch(_){}; setScrub(cxToT(e.clientX)); e.preventDefault(); });
+  svg.addEventListener("pointermove",e=>{ if(dragging) setScrub(cxToT(e.clientX)); });
+  svg.addEventListener("pointerup",e=>{ dragging=false; try{svg.releasePointerCapture(e.pointerId);}catch(_){} });
+  setScrub(tEnd);  // start showing "today" (full total)
+}
 function kpi(cfg){
   const i=cfg.i,val=cfg.val,to=cfg.to,pre=cfg.pre||"",suf=cfg.suf||"",dec=cfg.dec||0,label=cfg.label,delta=cfg.delta,cls=cfg.cls||"neu",spark=cfg.spark,act=cfg.act;
   const head=(to!=null)?(pre+"0"+suf):val;
@@ -1793,6 +1849,7 @@ function renderBizDash(){
   const asBiz=(S.realDeals||[]).filter(d=>String(d.business_id)===myId);
   const escrowPence=asBiz.filter(d=>d.funded&&!d.paid&&d.status!=="refunded").reduce((a,d)=>a+(d.total_charged||0),0);
   const completedCount=asBiz.filter(d=>d.paid).length;
+  const growthEvents=asBiz.filter(d=>d.funded_at).map(d=>({t:new Date(d.funded_at),amount:(d.total_charged||0)/100,dealId:d.id}));
   const applicants=S.myCampaigns.reduce((a,c)=>a+c.applicants,0);
   $("bizDash").innerHTML=`
     <div class="dash-head"><div class="avatar-dot dash-avatar">${initials(b.company)}</div>
@@ -1801,6 +1858,7 @@ function renderBizDash(){
         <button class="btn btn-o" onclick="openMarket('platforms')">Browse platform listings</button>
         <button class="btn btn-p" onclick="openNewCampaign()">＋ New campaign</button></div></div>
     <div class="kpis">${kpi({i:0,to:S.myCampaigns.length,label:"Live campaigns",delta:S.myCampaigns.length?"↑ published today":"none yet — post one",cls:S.myCampaigns.length?"up":"neu",spark:"#4f46e5",act:"openMarket('campaigns')"})}${kpi({i:1,to:applicants,label:"Applicants",delta:applicants?"↑ new applications":"awaiting first applications",cls:applicants?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,val:escrowPence?gbpP(escrowPence):"—",to:escrowPence?escrowPence/100:null,pre:"£",dec:2,label:"Secured in escrow",delta:escrowPence?"released on verified delivery":"fund a deal to protect it",cls:"neu",spark:"#4f46e5",act:"openMarket('platforms')"})}${kpi({i:3,to:completedCount,label:"Completed deals",delta:completedCount?"fee only on completion":"none yet",cls:"neu",spark:"#4f46e5"})}    </div>
+    <div class="panel"><div class="panel-h"><h4>Account growth · spend over time</h4></div><div class="panel-b" id="bizGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>
         <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📢</div><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay — platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
@@ -1818,6 +1876,7 @@ function renderBizDash(){
         ${allListings().filter(l=>l.ownerId!=="you"&&(b.platforms.includes(l.platform))).slice(0,3).map(l=>`<div class="op-row" style="margin-bottom:8px" onclick="openListing('${l.id}')">${pfp(l.name,l.platform)}<div><b>${esc(l.name)}</b><small>${l.platform} · ${fmtN(l.audience)}${priceFrom(l)?" · from "+gbp(priceFrom(l)):""}</small></div><span class="op-go">View →</span></div>`).join("")}
       </div></div>
     </div></div>`;
+  renderGrowthTimeline("bizGrowth", growthEvents, {verb:"spent"});
   requestAnimationFrame(animateKpis);
 }
 function renderPlatDash(){
@@ -1828,6 +1887,7 @@ function renderPlatDash(){
   const earnedPence=paidReal.reduce((a,d)=>a+(d.net_to_owner||0),0);          // cumulative, after 10% seller fee
   const inEscrow=asOwner.filter(d=>d.funded&&!d.paid&&d.status!=="refunded").length;
   const rAvg=S.myRating&&S.myRating.average, rCount=(S.myRating&&S.myRating.count)||0;
+  const growthEvents=paidReal.filter(d=>d.paid_at).map(d=>({t:new Date(d.paid_at),amount:(d.net_to_owner||0)/100,dealId:d.id}));
   const brand=S.myPlatforms[0]?S.myPlatforms[0].brand:"Your brand";
   const myNiches=[...new Set(S.myPlatforms.flatMap(p=>p.niches))];
   const matches=allCampaigns().filter(c=>!c.id.startsWith("my-")&&(c.niches.some(n=>myNiches.includes(n))||!myNiches.length)).slice(0,3);
@@ -1838,6 +1898,7 @@ function renderPlatDash(){
         <button class="btn btn-o" onclick="openMarket('campaigns')">Browse campaigns</button>
         <button class="btn btn-p" onclick="openRegisterPlatform()">＋ Register another platform</button></div></div>
     <div class="kpis">${kpi({i:0,to:S.myPlatforms.length,label:"Live listings",delta:S.myPlatforms.length?"live in the marketplace":"list one to get seen",cls:S.myPlatforms.length?"up":"neu",spark:"#4f46e5",act:"openMarket('campaigns')"})}${kpi({i:1,val:earnedPence?gbpP(earnedPence):"—",to:earnedPence?earnedPence/100:null,pre:"£",dec:2,label:"Earned (after 10% seller fee)",delta:earnedPence?`from ${paidReal.length} completed deal${paidReal.length>1?"s":""}`:"complete a deal to earn",cls:earnedPence?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,to:inEscrow,label:"Deals in escrow",delta:inEscrow?"funds secured before you work":"none in escrow",cls:"neu",spark:"#4f46e5",act:"openMarket('campaigns')"})}${kpi({i:3,val:rAvg!=null?"⭐ "+rAvg.toFixed(1):"—",label:"Your rating",delta:rAvg!=null?`${rCount} review${rCount===1?"":"s"}`:"appears after your first completed deal",cls:rAvg!=null?"up":"neu",spark:"#4f46e5"})}    </div>
+    <div class="panel"><div class="panel-h"><h4>Account growth · earnings over time</h4></div><div class="panel-b" id="platGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel"><div class="panel-h"><h4>Your platform listings</h4><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add platform</button></div>
         <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📣</div><h4>No listings yet</h4><p>Register each platform you control — its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
@@ -1858,6 +1919,7 @@ function renderPlatDash(){
         <div><span>Connect payouts</span><button class="btn btn-o btn-sm" onclick="toast('Payouts run on Stripe Connect, which isn\\'t live yet — you\\'ll connect a bank account here before your first payout')">Set up later</button></div>
       </div></div>
     </div></div>`;
+  renderGrowthTimeline("platGrowth", growthEvents, {verb:"earned"});
   requestAnimationFrame(animateKpis);
 }
 function openNewCampaign(){
