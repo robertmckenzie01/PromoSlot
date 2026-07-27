@@ -110,6 +110,8 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
         "display_name": u.display_name or u.email,
         "is_business": u.is_business,
         "is_platform_owner": u.is_platform_owner,
+        "avatar_url": f"/users/{u.id}/avatar" if u.avatar_path else None,
+        "intro_video_url": f"/users/{u.id}/intro-video" if u.intro_video_path else None,
         "rating": round(float(avg), 1) if avg is not None else None,
         "review_count": count or 0,
         "reviews": [review_dict(r) for r in rows],

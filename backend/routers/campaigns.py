@@ -3,9 +3,11 @@
 Serializers return objects shaped like the front end's campaign objects.
 Ratings/applicants come only from real data (a new campaign has none).
 """
+import os
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -15,7 +17,10 @@ from ..db import get_db
 from ..deps import get_current_user
 from ..models import Campaign, Deal, DealStatus, Notification, Platform, Review, User
 from ..services import deal_money_for
+from ..storage import save_generic
 from .deals import deal_dict
+
+_IMG_MAX = 2 * 1024 * 1024 * 1024  # campaign pictures: no meaningful size limit
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
@@ -72,6 +77,8 @@ def campaign_dict(db: Session, c: Campaign) -> dict:
         "duration": t.get("duration", ""),
         "samples": t.get("samples", False),
         "profile": t.get("profile", {}),
+        "image_url": f"/campaigns/{c.id}/image" if c.image_path else None,
+        "companyAvatar": f"/users/{c.business_id}/avatar" if (biz and biz.avatar_path) else None,
     }
 
 
@@ -119,13 +126,48 @@ def get_campaign(campaign_id: int, db: Session = Depends(get_db)):
     return campaign_dict(db, c)
 
 
+@router.post("/{campaign_id:int}/image", status_code=201)
+def upload_campaign_image(campaign_id: int, file: UploadFile = File(...),
+                          user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    c = db.get(Campaign, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if c.business_id != user.id:
+        raise HTTPException(status_code=403, detail="You don't own this campaign")
+    try:
+        path, _ = save_generic(f"campaign_img/campaign_{c.id}", file, _IMG_MAX)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if c.image_path and os.path.exists(c.image_path):
+        try:
+            os.remove(c.image_path)
+        except OSError:
+            pass
+    c.image_path, c.image_content_type = path, file.content_type
+    db.commit()
+    return {"image_url": f"/campaigns/{c.id}/image"}
+
+
+@router.get("/{campaign_id:int}/image")
+def get_campaign_image(campaign_id: int, db: Session = Depends(get_db)):
+    c = db.get(Campaign, campaign_id)
+    if c is None or not c.image_path or not os.path.exists(c.image_path):
+        raise HTTPException(status_code=404, detail="No image")
+    return FileResponse(c.image_path, media_type=c.image_content_type or "image/jpeg",
+                        content_disposition_type="inline")
+
+
 # -------------------- Applications (owner-initiated deals) --------------------
 
 class ApplyIn(BaseModel):
-    listed_price: int = Field(ge=100, description="Proposed rate, in pence")
+    listed_price: int = Field(ge=100, description="Escrow amount (sum of upfront/guaranteed), in pence")
     platform_id: Optional[int] = None      # which of the owner's listings they'd promote on
     pitch: Optional[str] = None
     currency: str = "gbp"
+    # Proposed payment methods (same shape as platform listing pricing). The
+    # upfront/guaranteed portion is escrowed as listed_price; performance terms
+    # are recorded for both parties.
+    pricing: Optional[List[dict]] = None
 
 
 @router.post("/{campaign_id:int}/apply", status_code=201)
@@ -182,6 +224,7 @@ def apply_to_campaign(campaign_id: int, body: ApplyIn,
             # header/counterparty label in the deal room (matches buy-offer shape)
             "owner": user.display_name,
             "deliverables": (c.terms or {}).get("deliverables", "") or c.title,
+            "pricing": body.pricing or [],   # proposed payment methods
         },
     )
     db.add(d)

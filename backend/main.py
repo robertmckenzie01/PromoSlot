@@ -9,7 +9,7 @@ from . import models  # noqa: F401  (ensure models are registered on Base)
 from .config import settings
 from .routers import (
     auth, campaigns, connect, deals, health, messages, notifications, platforms,
-    proofs, review, reviews, webhooks,
+    profiles, proofs, review, reviews, support, webhooks,
 )
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
@@ -40,6 +40,8 @@ app.include_router(review.router)
 app.include_router(reviews.router)
 app.include_router(notifications.router)
 app.include_router(messages.router)
+app.include_router(profiles.router)
+app.include_router(support.router)
 app.include_router(platforms.router)
 app.include_router(campaigns.router)
 

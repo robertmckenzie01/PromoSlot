@@ -42,7 +42,20 @@ class User(Base):
     # Not self-serve: granted out-of-band (scripts/make_reviewer.py). A reviewer
     # is a human on the PromoSlot side who verifies delivery evidence.
     is_reviewer = Column(Boolean, default=False, nullable=False)
+    # Profile media (set from My Account).
+    avatar_path = Column(String)
+    avatar_content_type = Column(String)
+    intro_video_path = Column(String)          # profile intro video (separate from My Work)
+    intro_video_content_type = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    @property
+    def avatar_url(self):
+        return f"/users/{self.id}/avatar" if self.avatar_path else None
+
+    @property
+    def intro_video_url(self):
+        return f"/users/{self.id}/intro-video" if self.intro_video_path else None
 
 
 class ConnectedAccount(Base):
@@ -83,6 +96,8 @@ class Platform(Base):
     pricing = Column(JSON, default=list)
     meta = Column(JSON, default=dict)            # countries / ages / interests
     verified = Column(Boolean, default=False, nullable=False)  # only by human review
+    image_path = Column(String)                  # listing picture
+    image_content_type = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -124,6 +139,8 @@ class Campaign(Base):
     # money moves through Deal.listed_price, which is in pence.
     budget = Column(Integer, default=0)
     terms = Column(JSON, default=dict)
+    image_path = Column(String)                  # campaign picture
+    image_content_type = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -279,6 +296,21 @@ class Conversation(Base):
     context_ref = Column(String, index=True)   # "p12" | "c7" | None (general DM)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_message_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class SupportTicket(Base):
+    """A real 'Contact Support' submission — stored so an admin/reviewer can act
+    on it (and can later be emailed out when SMTP is configured)."""
+    __tablename__ = "support_tickets"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)  # may be null (logged out)
+    name = Column(String, nullable=False)
+    email = Column(String)
+    mobile = Column(String)
+    subject = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    handled = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class Message(Base):

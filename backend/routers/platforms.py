@@ -17,7 +17,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import Platform, PlatformMedia, Review, User
-from ..storage import save_media_file
+from ..storage import save_generic, save_media_file
 
 router = APIRouter(prefix="/platforms", tags=["platforms"])
 
@@ -75,6 +75,8 @@ def listing_dict(db: Session, p: Platform) -> dict:
         "services": p.services or [],
         "pricing": p.pricing or [],
         "past": [],
+        "image_url": f"/platforms/{p.id}/image" if p.image_path else None,
+        "ownerAvatar": f"/users/{p.owner_id}/avatar" if (owner and owner.avatar_path) else None,
     }
 
 
@@ -238,6 +240,33 @@ def get_media_cover(platform_id: int, media_id: int, db: Session = Depends(get_d
     if m is None or m.platform_id != platform_id or not m.cover_path or not os.path.exists(m.cover_path):
         raise HTTPException(status_code=404, detail="Cover not found")
     return FileResponse(m.cover_path, media_type=m.cover_content_type or "image/jpeg",
+                        content_disposition_type="inline")
+
+
+@router.post("/{platform_id:int}/image", status_code=201)
+def upload_platform_image(platform_id: int, file: UploadFile = File(...),
+                          user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    p = _own_platform(db, platform_id, user)
+    try:
+        path, _ = save_generic(f"platform_img/platform_{p.id}", file, _COVER_MAX_BYTES)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if p.image_path and os.path.exists(p.image_path):
+        try:
+            os.remove(p.image_path)
+        except OSError:
+            pass
+    p.image_path, p.image_content_type = path, file.content_type
+    db.commit()
+    return {"image_url": f"/platforms/{p.id}/image"}
+
+
+@router.get("/{platform_id:int}/image")
+def get_platform_image(platform_id: int, db: Session = Depends(get_db)):
+    p = db.get(Platform, platform_id)
+    if p is None or not p.image_path or not os.path.exists(p.image_path):
+        raise HTTPException(status_code=404, detail="No image")
+    return FileResponse(p.image_path, media_type=p.image_content_type or "image/jpeg",
                         content_disposition_type="inline")
 
 

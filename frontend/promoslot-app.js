@@ -1,6 +1,25 @@
 (function(){
 if(window.PSBoot) return;
 /* PromoSlot app logic — visual/interaction upgrade layer. Flows, fields and IA are final (per brief). */
+
+/* ============================================================
+   SUPPORT CONTACT DETAILS — PLACEHOLDERS.
+   Swap these three values for the real details a few days before launch.
+   This is the ONLY place to change them (rendered into the footer).
+   ============================================================ */
+const SUPPORT_INFO = {
+  email:   "[Business Email — placeholder]",
+  mobile:  "[Mobile Number — placeholder]",
+  address: "[Business Address — placeholder]",
+};
+function renderFooterSupport(){
+  const el=document.getElementById("footerSupport"); if(!el) return;
+  el.innerHTML=`
+    <div class="fs-row"><span>Business Email:</span> ${esc(SUPPORT_INFO.email)}</div>
+    <div class="fs-row"><span>Mobile Number:</span> ${esc(SUPPORT_INFO.mobile)}</div>
+    <div class="fs-row"><span>Business Address:</span> ${esc(SUPPORT_INFO.address)}</div>`;
+}
+
 /* ==================== SEEDED DATA ==================== */
 const PLATFORM_META = {
   TikTok:{color:"#0f172a",ico:"🎵"}, Instagram:{color:"#c026d3",ico:"📸"},
@@ -533,6 +552,22 @@ async function deleteMedia(listingId, mediaId, tab){
   l._media=null;
   openListing(l.id, tab==="past"?"past":"work");
 }
+async function uploadListingImage(listingId){
+  const f=$("list-img")&&$("list-img").files[0]; if(!f) return;
+  const l=findListing(listingId); if(!l) return; const pid=String(l.id).slice(1);
+  const fd=new FormData(); fd.append("file",f);
+  try{ const r=await PSApi.postForm(`/platforms/${pid}/image`,fd); l.image_url=r.image_url+"?t="+Date.now(); }
+  catch(e){ toast(e.message||"Upload failed"); return; }
+  toast("Listing picture updated ✓",true); loadMarket(); openListing(l.id);
+}
+async function uploadCampaignImage(campId){
+  const f=$("camp-img")&&$("camp-img").files[0]; if(!f) return;
+  const c=findCampaign(campId); if(!c) return; const cid=String(c.id).replace(/^c/,"");
+  const fd=new FormData(); fd.append("file",f);
+  try{ const r=await PSApi.postForm(`/campaigns/${cid}/image`,fd); c.image_url=r.image_url+"?t="+Date.now(); }
+  catch(e){ toast(e.message||"Upload failed"); return; }
+  toast("Campaign picture updated ✓",true); loadMarket(); openCampaign(c.id);
+}
 function renderListingModal(l,tab){
   tab=tab||"offers";
   const others=allListings().filter(x=>x.ownerId===l.ownerId && x.id!==l.id);
@@ -605,10 +640,13 @@ function renderListingModal(l,tab){
       </div>
       <div class="det-actions">
         <button class="btn btn-o btn-sm" onclick="openChat('${l.id}')">💬 Message</button>
+        ${!l.example&&/^\d+$/.test(String(l.ownerId))?`<button class="btn btn-o btn-sm" onclick="openProfile(${parseInt(l.ownerId,10)})">👤 View full profile</button>`:""}
         <button class="btn btn-o btn-sm" onclick="requestQuote('${l.id}')">Request custom quote</button>
       </div>
     </div>
     <p class="det-bio">${esc(l.bio)}</p>
+    ${l.image_url?`<div style="padding:0 28px 6px"><img class="list-hero" src="${l.image_url}" alt="${esc(l.name)}"></div>`:""}
+    ${meOwner?`<div style="padding:0 28px 8px"><label class="btn btn-o btn-sm" for="list-img">${l.image_url?"Change listing picture":"＋ Add listing picture"}</label><input type="file" id="list-img" accept="image/*" class="pf-file-input" onchange="uploadListingImage('${l.id}')"></div>`:""}
     ${others.length?`<div style="padding:16px 28px 0"><div class="det-sec" style="margin:0"><h5>Also from ${esc(l.brand)} — ${others.length} more platform${others.length>1?"s":""}</h5>
       <div class="other-plats">${others.map(o=>`<div class="op-row" onclick="openListing('${o.id}')">${pfp(o.name,o.platform,"")}<div><b>${esc(o.name)}</b><small>${o.platform} · ${fmtN(o.audience)} ${o.platform==="Newsletter"?"subs":o.platform==="Discord"?"members":"followers"}${priceFrom(o)?" · from "+gbp(priceFrom(o)):""}</small></div><span class="op-go">View →</span></div>`).join("")}</div></div></div>`:""}
     <div class="det-tabs">${tabs.map(([k,lab])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openListing('${l.id}','${k}')">${lab}</button>`).join("")}</div>
@@ -708,12 +746,15 @@ function renderCampaignModal(c,tab){
       </div>
       <div class="det-actions">
         <button class="btn btn-o btn-sm" onclick="openChat('${c.id}')">💬 Message</button>
+        ${real&&!meBiz?`<button class="btn btn-o btn-sm" onclick="openProfile(${parseInt(c.businessId,10)})">👤 View full profile</button>`:""}
         ${meBiz
           ? `<button class="btn btn-p btn-sm" onclick="openCampaign('${c.id}','applicants')">View applicants (${apps.length})</button>`
           : (canApply?`<button class="btn btn-p btn-sm" onclick="applyCampaign('${c.id}')">Apply to campaign</button>`:"")}
       </div>
     </div>
     <p class="det-bio">${esc(c.desc)}</p>
+    ${c.image_url?`<div style="padding:0 28px 6px"><img class="camp-hero" src="${c.image_url}" alt="${esc(c.title)}"></div>`:""}
+    ${meBiz?`<div style="padding:0 28px 8px"><label class="btn btn-o btn-sm" for="camp-img">${c.image_url?"Change campaign picture":"＋ Add campaign picture"}</label><input type="file" id="camp-img" accept="image/*" class="pf-file-input" onchange="uploadCampaignImage('${c.id}')"></div>`:""}
     <div class="det-tabs">${tabs.map(([k,lab])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openCampaign('${c.id}','${k}')">${lab}</button>`).join("")}</div>
     <div class="det-body">${body}</div>`,"wide");
 }
@@ -901,10 +942,11 @@ async function openProfile(userId){
   const reviews = p.reviews&&p.reviews.length
     ? `<div class="det-sec"><h5>Reviews (${p.review_count})</h5>${p.reviews.map(r=>`<div class="rev-item"><div class="rvtop"><span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span></div>${r.text?`<p>${esc(r.text)}</p>`:""}</div>`).join("")}</div>`
     : `<div class="det-sec"><h5>Reviews</h5><p class="mut" style="font-size:13px">No reviews yet — a rating appears after a completed deal.</p></div>`;
-  openModal(`<div class="det-head">${pfp(p.display_name,null)}
+  const intro = p.intro_video_url ? `<div class="det-sec pintro"><h5>Intro video</h5><video controls preload="metadata" src="${p.intro_video_url}"></video></div>` : "";
+  openModal(`<div class="det-head">${avatarBlock(p.avatar_url,p.display_name,true)}
       <div class="det-title"><h3>${esc(p.display_name)}</h3>
         <div class="handle">${roles.join(" · ")||"Member"} · ${stars}</div></div></div>
-    <div class="det-body">${listings}${campaigns}${reviews}</div>`,"wide");
+    <div class="det-body">${intro}${listings}${campaigns}${reviews}</div>`,"wide");
 }
 async function renderRealDeal(dealId){
   let d;
@@ -939,7 +981,8 @@ async function renderRealDeal(dealId){
     <div class="ad-row"><span class="k">Seller fee (${d.seller_fee_percent}%)</span><span class="v">− ${gbpP(d.seller_fee)}</span></div>
     <div class="ad-row"><span class="k">Owner receives</span><span class="v"><b>${gbpP(d.net_to_owner)}</b></span></div>
     <div class="ad-row"><span class="k">PromoSlot take</span><span class="v">${gbpP(d.platform_take)}</span></div>
-    ${d.terms&&d.terms.deliverables?`<div class="ad-row"><span class="k">Deliverables</span><span class="v">${esc(d.terms.deliverables)}</span></div>`:""}</div>`;
+    ${d.terms&&d.terms.deliverables?`<div class="ad-row"><span class="k">Deliverables</span><span class="v">${esc(d.terms.deliverables)}</span></div>`:""}
+    ${d.terms&&d.terms.pricing&&d.terms.pricing.length?d.terms.pricing.map(pm=>`<div class="ad-row"><span class="k">${esc(pm.label||"Payment")}</span><span class="v">${esc(pm.detail||"")}</span></div>`).join(""):""}</div>`;
   let main;
   if(d.status==="cancelled"){
     main=`<h3 class="deal-h">Deal declined</h3>
@@ -968,6 +1011,7 @@ async function renderRealDeal(dealId){
       <div class="proof-item ${d.verified?"got":""}"><span class="pi-ico">🔎</span>Delivery verified by a reviewer<span class="ok">${d.verified?"✓":"pending"}</span></div>
       <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.net_to_owner):"pending"}</span></div></div>
     <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
+      ${meOwner && proofs.length ? `<p class="review-thanks" style="margin-top:10px">Thank you for submitting proof of delivery, your submission will be reviewed by our team shortly</p>` : ""}
       ${meOwner && !d.verified ? `<div class="frm" style="margin-top:10px">
         <div id="pf-slots">${proofSlotHtml(0)}</div>
         <div style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="addProofSlot()">＋ Add another item</button></div>
@@ -1161,6 +1205,56 @@ async function realSubmitReview(dealId){
 // Applying to a campaign creates a REAL owner-initiated deal (backend), which the
 // business then approves and funds — the same escrow flow as a bought offer, only
 // the platform owner starts it. Example campaigns can't transact.
+// Payment-method models — same set as the platform-listing pricing builder,
+// reused here so an applicant can propose one or more payment methods, each with
+// its own relevant fields. The upfront/guaranteed portion is escrowed.
+const PM_MODELS={
+  fixed:{label:"Fixed price",fields:[{id:"label",l:"What's included",t:"text",d:"1 promotional post"},{id:"price",l:"Amount (£)",t:"number",d:"100"}],
+    amount:v=>Number(v.price)||0, detail:v=>`${v.label||"1 post"} · £${v.price||0} fixed`},
+  "per-view":{label:"Per view",fields:[{id:"min",l:"Minimum guaranteed (£)",t:"number",d:"30"},{id:"rate",l:"Rate per 1,000 views (£)",t:"number",d:"8"},{id:"views",l:"Expected views",t:"number",d:"10000"},{id:"cap",l:"Maximum payout (£)",t:"number",d:"250"}],
+    amount:v=>Number(v.min)||0, detail:v=>`£${v.min||0} min + £${v.rate||0} per 1,000 views (expected ${v.views||0}) · capped £${v.cap||0}`},
+  "per-imp":{label:"Per impression",fields:[{id:"rate",l:"Rate per 1,000 impressions (£)",t:"number",d:"3"},{id:"imps",l:"Expected impressions",t:"number",d:"50000"}],
+    amount:v=>Number(v.rate)||0, detail:v=>`£${v.rate||0} per 1,000 impressions (expected ${v.imps||0})`},
+  time:{label:"Time-based",fields:[{id:"price",l:"Price (£)",t:"number",d:"40"},{id:"unit",l:"Per",t:"select",opts:["day","week","month"],d:"week"},{id:"dur",l:"Duration",t:"number",d:"4"}],
+    amount:v=>Number(v.price)||0, detail:v=>`£${v.price||0} per ${v.unit||"week"} · ${v.dur||1} ${v.unit||"week"}(s)`},
+  affiliate:{label:"Affiliate",fields:[{id:"pct",l:"% per sale",t:"number",d:"12"},{id:"cookie",l:"Cookie window (days)",t:"number",d:"30"},{id:"min",l:"Min payout (£)",t:"number",d:"0"}],
+    amount:v=>Number(v.min)||0, detail:v=>`${v.pct||0}% per sale · ${v.cookie||30}-day cookie${Number(v.min)?` · £${v.min} min`:""}`},
+  hybrid:{label:"Hybrid (guaranteed + performance)",fields:[{id:"guar",l:"Guaranteed (£)",t:"number",d:"50"},{id:"extra",l:"Plus performance terms",t:"text",d:"£5 per 1,000 views"}],
+    amount:v=>Number(v.guar)||0, detail:v=>`£${v.guar||0} guaranteed + ${v.extra||"performance"}`},
+  custom:{label:"Custom",fields:[{id:"note",l:"Describe the terms",t:"text",d:""}],
+    amount:()=>0, detail:v=>v.note||"Custom terms"},
+};
+const PM_ORDER=["fixed","per-view","per-imp","time","affiliate","hybrid","custom"];
+function pmFieldsHtml(idx,type){
+  const m=PM_MODELS[type]||PM_MODELS.fixed;
+  return `<div class="row2">${m.fields.map(f=>f.t==="select"
+    ? `<div><label>${f.l}</label><select id="pm-${idx}-${f.id}">${f.opts.map(o=>`<option ${o===f.d?"selected":""}>${o}</option>`).join("")}</select></div>`
+    : `<div><label>${f.l}</label><input type="${f.t}" id="pm-${idx}-${f.id}" value="${esc(f.d)}"></div>`).join("")}</div>`;
+}
+function pmSlotHtml(idx){
+  return `<div class="pm-slot" data-idx="${idx}">
+    <div><label>Payment method</label><select id="pm-type-${idx}" onchange="pmSlotChange(${idx})">${PM_ORDER.map(k=>`<option value="${k}">${PM_MODELS[k].label}</option>`).join("")}</select></div>
+    <div id="pm-fields-${idx}">${pmFieldsHtml(idx,"fixed")}</div>
+  </div>`;
+}
+function pmSlotChange(idx){
+  const type=($("pm-type-"+idx)||{}).value||"fixed";
+  const host=$("pm-fields-"+idx); if(host) host.innerHTML=pmFieldsHtml(idx,type);
+}
+function addPmSlot(){
+  const wrap=$("pm-slots"); if(!wrap) return;
+  wrap.insertAdjacentHTML("beforeend", pmSlotHtml(wrap.querySelectorAll(".pm-slot").length));
+}
+function collectApplyPricing(){
+  const pricing=[]; let total=0;
+  document.querySelectorAll("#pm-slots .pm-slot").forEach(s=>{
+    const idx=s.dataset.idx, type=($("pm-type-"+idx)||{}).value||"fixed", m=PM_MODELS[type];
+    const v={}; m.fields.forEach(f=>{ const el=$(`pm-${idx}-${f.id}`); v[f.id]=el?el.value:""; });
+    const amount=m.amount(v); total+=amount;
+    pricing.push({type, label:m.label, detail:m.detail(v), amount, fields:v});
+  });
+  return {pricing, total};
+}
 async function applyCampaign(campId){
   const c=findCampaign(campId); if(!c) return;
   if(c.example || !/^c\d+$/.test(String(c.id))){ toast("This is an example campaign — apply to a real one to transact."); return; }
@@ -1170,26 +1264,30 @@ async function applyCampaign(campId){
   let plats=S.myPlatforms||[];
   if(!plats.length){ try{ plats=await PSApi.get("/platforms/mine"); S.myPlatforms=plats; }catch(e){} }
   const platOpts=plats.map(p=>`<option value="${p.id}">${esc(p.name)} · ${esc(p.platform)}</option>`).join("");
-  const prefill=c.budget||300;
   openModal(`<div class="m-pad"><h3 class="m-title">Apply to “${esc(c.title)}”</h3>
-    <p class="m-sub">Propose your rate and a short pitch. <b>${esc(c.company)}</b> reviews applicants, then approves and funds the deal into escrow before you start work.</p>
+    <p class="m-sub">Propose one or more payment methods and a short pitch. <b>${esc(c.company)}</b> reviews applicants, then approves and funds the upfront amount into escrow before you start work.</p>
     <div class="frm">
       ${plats.length
         ? `<div><label>Promote on</label><select id="ap-plat">${platOpts}</select></div>`
         : `<div class="note blue" style="margin:0">You don't have a listing yet — you can still apply, and add one anytime.</div>`}
-      <div><label>Your rate (£)</label><input type="number" id="ap-price" min="1" step="1" value="${prefill}"></div>
+      <div><label>Payment methods you propose</label>
+        <div id="pm-slots">${pmSlotHtml(0)}</div>
+        <div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="addPmSlot()">＋ add another payment method</button></div>
+      </div>
       <div><label>Pitch (optional)</label><textarea id="ap-pitch" placeholder="Why you're a great fit, what you'd deliver, and a rough timeline…"></textarea></div>
     </div>
     <div class="m-actions"><button class="btn btn-o" onclick="openCampaign('${c.id}')">Back</button><button class="btn btn-p" onclick="submitApplication('${String(c.id).replace(/^c/,'')}')">Send application</button></div></div>`);
 }
 async function submitApplication(cid){
-  const price=Math.round((Number(($("ap-price")||{}).value)||0)*100);
-  if(!(price>=100)){ toast("Enter a valid rate (at least £1)"); return; }
+  const {pricing, total}=collectApplyPricing();
+  if(!pricing.length){ toast("Add at least one payment method"); return; }
+  const listed_price=Math.round(total*100);
+  if(!(listed_price>=100)){ toast("At least one method needs an upfront/guaranteed amount (min £1) to hold in escrow."); return; }
   const platSel=$("ap-plat");
   const platform_id = platSel ? parseInt(platSel.value,10) : null;
   const pitch=(($("ap-pitch")||{}).value||"").trim();
   try{
-    const deal=await PSApi.post(`/campaigns/${cid}/apply`,{listed_price:price, platform_id:platform_id||null, pitch});
+    const deal=await PSApi.post(`/campaigns/${cid}/apply`,{listed_price, platform_id:platform_id||null, pitch, pricing});
     closeModal(); showView("view-deal"); renderRealDeal(deal.id);
     toast("Application sent — the business will review & approve",true);
   }catch(err){ toast(err.message||"Could not apply"); }
@@ -2024,7 +2122,9 @@ function authReflect(){
   $("nl-payouts").classList.toggle("hide", !(a && a.is_reviewer));
   if(a){
     $("userChip").classList.remove("hide");   // avatar shows whenever logged in (incl. reviewer)
-    $("userInit").textContent=(a.display_name||a.email||"?").slice(0,1).toUpperCase();
+    const ui=$("userInit");
+    if(a.avatar_url){ ui.textContent=""; ui.classList.add("has-img"); ui.style.backgroundImage=`url('${a.avatar_url}')`; }
+    else { ui.classList.remove("has-img"); ui.style.backgroundImage=""; ui.textContent=(a.display_name||a.email||"?").slice(0,1).toUpperCase(); }
     $("userName").textContent=a.display_name||a.email;
   }
   updateDots();
@@ -2124,17 +2224,38 @@ function roleLabels(a){
   if(a.is_reviewer) r.push("Reviewer");
   return r.length?r:["No role set"];
 }
+function avatarBlock(url, name, big){
+  const cls=(big?"avatar-dot dash-avatar":"avatar-dot");
+  return url ? `<span class="${cls} has-img" style="background-image:url('${url}')"></span>`
+             : `<span class="${cls}">${esc((name||"?").slice(0,1).toUpperCase())}</span>`;
+}
+function supportFormHtml(){
+  const a=S.account||{};
+  return `<h5 style="margin-bottom:6px">Contact Support</h5>
+    <p class="mut" style="font-size:12.5px;margin-bottom:10px">Questions or an issue? Send our team a message and we'll get back to you.</p>
+    <div class="frm">
+      <div class="row2"><div><label>Name</label><input type="text" id="sup-name" value="${esc(a.display_name||"")}"></div>
+        <div><label>Email (optional)</label><input type="text" id="sup-email" value="${esc(a.email||"")}"></div></div>
+      <div class="row2"><div><label>Mobile (optional)</label><input type="text" id="sup-mobile" placeholder="+44 …"></div>
+        <div><label>Subject</label><input type="text" id="sup-subject" placeholder="How can we help?"></div></div>
+      <div><label>Message</label><textarea id="sup-body" placeholder="Describe your question or issue…"></textarea></div>
+      <div class="hint-err hide" id="sup-err"></div>
+    </div>
+    <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="submitSupport()">Send message</button></div>`;
+}
 function openAccount(){
   const a=S.account;
   if(!a){ authModal("login"); return; }
   showView("view-account");
-  const init=(a.display_name||a.email||"?").slice(0,1).toUpperCase();
   $("accountWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>My Account</h2></div>
     <div class="acct-grid">
       <div class="panel"><div class="panel-b">
-        <div class="acct-id"><span class="avatar-dot dash-avatar">${esc(init)}</span>
+        <div class="acct-id">${avatarBlock(a.avatar_url, a.display_name||a.email, true)}
           <div><div class="acct-name">${esc(a.display_name||"—")}</div><div class="acct-email">${esc(a.email)}</div></div></div>
+        <div style="margin:0 0 14px">
+          <label class="btn btn-o btn-sm" for="acct-avatar">${a.avatar_url?"Change profile picture":"Add profile picture"}</label>
+          <input type="file" id="acct-avatar" accept="image/*" class="pf-file-input" onchange="uploadAvatar()"></div>
         <div class="acct-rows">
           <div class="acct-row"><span>Name</span><b>${esc(a.display_name||"—")}</b></div>
           <div class="acct-row"><span>Email</span><b>${esc(a.email)}</b></div>
@@ -2142,6 +2263,19 @@ function openAccount(){
         </div>
         <div style="margin-top:16px"><button class="btn btn-o btn-sm" onclick="doLogout()">Log out</button></div>
       </div></div>
+
+      <div class="panel"><div class="panel-b">
+        <h5 style="margin-bottom:8px">Profile intro video</h5>
+        <p class="mut" style="font-size:12.5px;margin-bottom:8px">A short intro shown on your public profile — separate from your My Work portfolio.</p>
+        ${a.intro_video_url
+          ? `<video controls preload="metadata" src="${a.intro_video_url}" style="width:100%;border-radius:10px;background:#000;max-height:260px"></video>`
+          : `<div class="empty-state small"><div class="es-ico">🎬</div><p>No intro video yet.</p></div>`}
+        <div style="margin-top:10px">
+          <label class="btn btn-o btn-sm" for="acct-intro">${a.intro_video_url?"Replace intro video":"Add intro video"}</label>
+          <input type="file" id="acct-intro" accept="video/*" class="pf-file-input" onchange="uploadIntroVideo()"></div>
+        <div class="hint-err hide" id="intro-err"></div>
+      </div></div>
+
       <div class="panel"><div class="panel-b">
         <h5 style="margin-bottom:10px">Change password</h5>
         <div class="frm">
@@ -2152,7 +2286,36 @@ function openAccount(){
         </div>
         <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="doChangePassword()">Update password</button></div>
       </div></div>
+
+      <div class="panel"><div class="panel-b" id="supportPanel">${supportFormHtml()}</div></div>
     </div>`;
+}
+async function uploadAvatar(){
+  const f=$("acct-avatar")&&$("acct-avatar").files[0]; if(!f) return;
+  const fd=new FormData(); fd.append("file",f);
+  try{ const r=await PSApi.postForm("/me/avatar",fd); S.account.avatar_url=r.avatar_url+"?t="+Date.now(); }
+  catch(e){ toast(e.message||"Upload failed"); return; }
+  toast("Profile picture updated ✓",true); authReflect(); openAccount();
+}
+async function uploadIntroVideo(){
+  const f=$("acct-intro")&&$("acct-intro").files[0]; if(!f) return;
+  const err=$("intro-err"); if(err) err.classList.add("hide");
+  const fd=new FormData(); fd.append("file",f);
+  try{ const r=await PSApi.postForm("/me/intro-video",fd); S.account.intro_video_url=r.intro_video_url+"?t="+Date.now(); }
+  catch(e){ if(err){err.textContent=e.message||"Upload failed";err.classList.remove("hide");} return; }
+  toast("Intro video updated ✓",true); openAccount();
+}
+async function submitSupport(){
+  const name=($("sup-name").value||"").trim(), subject=($("sup-subject").value||"").trim(), body=($("sup-body").value||"").trim();
+  const email=($("sup-email").value||"").trim(), mobile=($("sup-mobile").value||"").trim();
+  const err=$("sup-err"); const fail=m=>{ if(err){err.textContent=m;err.classList.remove("hide");} };
+  if(err) err.classList.add("hide");
+  if(!name||!subject||!body){ fail("Name, subject and message are required."); return; }
+  try{ await PSApi.post("/support",{name,email:email||null,mobile:mobile||null,subject,body}); }
+  catch(e){ fail(e.message||"Could not submit — please try again."); return; }
+  const panel=$("supportPanel");
+  if(panel) panel.innerHTML=`<h5 style="margin-bottom:6px">Contact Support</h5>
+    <p class="review-thanks">– Thank you for submitting your form, our team will be in contact with you shortly</p>`;
 }
 async function doChangePassword(){
   const cur=($("pw-cur").value||""), nw=($("pw-new").value||""), conf=($("pw-conf").value||"");
@@ -2200,6 +2363,7 @@ const NAV_ACTIONS={
 };
 function PSBoot(){
   renderMiniMarket();
+  renderFooterSupport();
   syncNav();
   restoreSession();
   startAttnPolling();
@@ -2214,7 +2378,7 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia};
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

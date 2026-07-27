@@ -31,5 +31,7 @@ class UserOut(BaseModel):
     is_business: bool
     is_platform_owner: bool
     is_reviewer: bool = False
+    avatar_url: Optional[str] = None
+    intro_video_url: Optional[str] = None
 
     model_config = {"from_attributes": True}

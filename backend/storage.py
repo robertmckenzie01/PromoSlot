@@ -51,3 +51,9 @@ def save_media_file(platform_id: int, upload, max_bytes: int) -> tuple:
     """Store a platform media (video) file under storage/media/platform_{id}/."""
     return _stream_to_disk(os.path.join(settings.storage_dir, "media", f"platform_{platform_id}"),
                            upload, max_bytes)
+
+
+def save_generic(subfolder: str, upload, max_bytes: int) -> tuple:
+    """Store any upload (avatars, profile videos, listing/campaign images) under
+    storage/<subfolder>/. Same disk-storage flow as proofs/media; migrates with them."""
+    return _stream_to_disk(os.path.join(settings.storage_dir, subfolder), upload, max_bytes)
