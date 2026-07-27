@@ -640,7 +640,7 @@ function renderListingModal(l,tab){
       </div>
       <div class="det-actions">
         <button class="btn btn-o btn-sm" onclick="openChat('${l.id}')">💬 Message</button>
-        ${!l.example&&/^\d+$/.test(String(l.ownerId))?`<button class="btn btn-o btn-sm" onclick="openProfile(${parseInt(l.ownerId,10)})">👤 View full profile</button>`:""}
+        ${!l.example&&/^\d+$/.test(String(l.ownerId))?`<button class="btn btn-o btn-sm" onclick="openProfile(${parseInt(l.ownerId,10)},'${l.id}')">👤 View full profile</button>`:""}
         <button class="btn btn-o btn-sm" onclick="requestQuote('${l.id}')">Request custom quote</button>
       </div>
     </div>
@@ -683,6 +683,11 @@ async function openCampaign(id,tab){
   if(meBiz){
     try{ c._apps=await PSApi.get(`/campaigns/${String(c.id).replace(/^c/,'')}/applications`); }catch(e){ c._apps=c._apps||[]; }
   }
+  // Same review source as the profile view — one source of truth, fetched fresh.
+  if(real){
+    try{ c._reviews=await PSApi.get(`/users/${c.businessId}/reviews`); }
+    catch(e){ c._reviews=c._reviews||{count:0,average:null,reviews:[]}; }
+  }
   const fresh = !$("overlay").classList.contains("open");
   if(fresh){ openModal(detSkeleton(),"wide"); setTimeout(()=>renderCampaignModal(c,tab),340); }
   else renderCampaignModal(c,tab);
@@ -708,9 +713,12 @@ function renderCampaignModal(c,tab){
   const apps=c._apps||[];
   tab=tab||"offer";
   const revs=c.example?reviewsFor(c.id):[];
+  const cRealReviews=(c._reviews&&c._reviews.reviews)||[];
+  const cRevCount=(c._reviews&&c._reviews.count)||0;
+  const cRevAvg=c._reviews?c._reviews.average:null;
   const tabs=[["offer","What they're offering"],["profile","Business profile"]];
   if(meBiz) tabs.push(["applicants",`Applicants (${apps.length})`]);
-  tabs.push(["reviews",`Reviews${c.example?" (Example)":" (0)"}`]);
+  tabs.push(["reviews",`Reviews${c.example?" (Example)":" ("+cRevCount+")"}`]);
   let body="";
   if(tab==="applicants"){ body=applicantsHtml(c, apps); } else
   if(tab==="offer"){
@@ -736,17 +744,20 @@ function renderCampaignModal(c,tab){
     body = c.example
       ? `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}</h5><div class="note blue" style="margin-bottom:12px">These are illustrative example reviews — real reviews appear only after a completed deal.</div>
       ${revs.map(r=>`<div class="rev-item ex-review"><div class="rvtop"><span class="rev-who"><span class="rev-dot">${esc(initials(r.name))}</span><b>${esc(r.name)}</b><span class="tag ex-tag rev-ex">EXAMPLE</span></span><span class="stars">${"★".repeat(r.stars)}${"☆".repeat(5-r.stars)}</span></div><p>${esc(r.text)}</p></div>`).join("")}</div>`
-      : `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}</h5><div class="empty-state small"><div class="es-ico">📝</div><h4>No reviews yet</h4><p>Reviews appear here once a platform owner completes a deal with ${esc(c.company)} and leaves feedback — every review is tied to a real, funded transaction.</p></div></div>`;
+      : (cRealReviews.length
+        ? `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}${cRevAvg!=null?` · ⭐ ${cRevAvg.toFixed(1)} (${cRevCount})`:""}</h5>
+          ${cRealReviews.map(r=>`<div class="rev-item"><div class="rvtop"><span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span></div>${r.text?`<p>${esc(r.text)}</p>`:""}</div>`).join("")}</div>`
+        : `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}</h5><div class="empty-state small"><div class="es-ico">📝</div><h4>No reviews yet</h4><p>Reviews appear here once a platform owner completes a deal with ${esc(c.company)} and leaves feedback — every review is tied to a real, funded transaction.</p></div></div>`);
   }
   openModal(`
     <div class="det-head">${exWrap(pfp(c.company,null),c.example)}
       <div class="det-title"><h3>${esc(c.title)}</h3>
         <div class="handle">by <b>${esc(c.company)}</b> ${c.verified?'<span class="vtick">✔︎ Verified business</span>':""} · ${esc(c.industry)} · posted ${esc(c.posted)}</div>
-        <div class="metaline">${c.example?'<span class="tag ex-tag">EXAMPLE CAMPAIGN</span>':starsHtml(c.rating,c.reviewCount)}<span class="tag grn">${c.budget?gbp(c.budget)+" budget":"Commission only"}</span>${c.example?"":`<span class="tag">${c.applicants} applicants</span>`}</div>
+        <div class="metaline">${c.example?'<span class="tag ex-tag">EXAMPLE CAMPAIGN</span>':starsHtml(c._reviews?cRevAvg:c.rating, c._reviews?cRevCount:c.reviewCount)}<span class="tag grn">${c.budget?gbp(c.budget)+" budget":"Commission only"}</span>${c.example?"":`<span class="tag">${c.applicants} applicants</span>`}</div>
       </div>
       <div class="det-actions">
         <button class="btn btn-o btn-sm" onclick="openChat('${c.id}')">💬 Message</button>
-        ${real&&!meBiz?`<button class="btn btn-o btn-sm" onclick="openProfile(${parseInt(c.businessId,10)})">👤 View full profile</button>`:""}
+        ${real&&!meBiz?`<button class="btn btn-o btn-sm" onclick="openProfile(${parseInt(c.businessId,10)},'${c.id}')">👤 View full profile</button>`:""}
         ${meBiz
           ? `<button class="btn btn-p btn-sm" onclick="openCampaign('${c.id}','applicants')">View applicants (${apps.length})</button>`
           : (canApply?`<button class="btn btn-p btn-sm" onclick="applyCampaign('${c.id}')">Apply to campaign</button>`:"")}
@@ -933,7 +944,9 @@ function proofItemHtml(p){
 function partyLink(id,name){
   return `<a href="#" class="party-link" onclick="event.preventDefault();openProfile(${id})">${esc(name||"—")}</a>`;
 }
-async function openProfile(userId){
+// backRef: optional "c12"/"p3" so the viewer can return to where they came from
+// instead of only being able to close out entirely.
+async function openProfile(userId, backRef){
   let p; try{ p=await PSApi.get(`/users/${userId}/public`); }catch(e){ toast("Couldn't load that profile"); return; }
   const roles=[]; if(p.is_business)roles.push("Business"); if(p.is_platform_owner)roles.push("Platform owner");
   const stars = p.rating!=null ? `⭐ ${p.rating.toFixed(1)} (${p.review_count})` : "No rating yet";
@@ -942,11 +955,22 @@ async function openProfile(userId){
   const reviews = p.reviews&&p.reviews.length
     ? `<div class="det-sec"><h5>Reviews (${p.review_count})</h5>${p.reviews.map(r=>`<div class="rev-item"><div class="rvtop"><span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span></div>${r.text?`<p>${esc(r.text)}</p>`:""}</div>`).join("")}</div>`
     : `<div class="det-sec"><h5>Reviews</h5><p class="mut" style="font-size:13px">No reviews yet — a rating appears after a completed deal.</p></div>`;
-  const intro = p.intro_video_url ? `<div class="det-sec pintro"><h5>Intro video</h5><video controls preload="metadata" src="${p.intro_video_url}"></video></div>` : "";
+  const intro = p.intro_video_url ? `<div class="det-sec pintro"><h5>Who we are — video</h5><video controls preload="metadata" src="${p.intro_video_url}"></video></div>` : "";
+  const about = p.about_text ? `<div class="det-sec"><h5>Who we are</h5><p class="det-p" style="white-space:pre-wrap">${esc(p.about_text)}</p></div>` : "";
+  const links = (p.links&&p.links.length)
+    ? `<div class="det-sec"><h5>Links</h5><div class="tagrow">${p.links.map(l=>`<a class="tag ind" href="${esc(l.url)}" target="_blank" rel="noopener">🔗 ${esc(l.label||l.url)}</a>`).join("")}</div></div>` : "";
+  const assets = (p.assets&&p.assets.length)
+    ? `<div class="det-sec"><h5>Files &amp; images</h5><div class="work-grid">${p.assets.map(a=>a.is_image
+        ? `<a href="${a.url}" target="_blank" rel="noopener" class="proof-thumb"><img src="${a.url}" alt="${esc(a.title)}" loading="lazy"></a>`
+        : `<a href="${a.url}" target="_blank" rel="noopener" class="btn btn-o btn-sm">📄 ${esc(a.title)}</a>`).join("")}</div></div>` : "";
+  const backBtn = backRef
+    ? `<button class="btn btn-o btn-sm" onclick="${/^c\d+$/.test(backRef)?`openCampaign('${backRef}')`:`openListing('${backRef}')`}">← Back to ${/^c\d+$/.test(backRef)?"campaign":"listing"}</button>`
+    : "";
   openModal(`<div class="det-head">${avatarBlock(p.avatar_url,p.display_name,true)}
       <div class="det-title"><h3>${esc(p.display_name)}</h3>
-        <div class="handle">${roles.join(" · ")||"Member"} · ${stars}</div></div></div>
-    <div class="det-body">${intro}${listings}${campaigns}${reviews}</div>`,"wide");
+        <div class="handle">${roles.join(" · ")||"Member"} · ${stars}</div></div>
+      <div class="det-actions">${backBtn}</div></div>
+    <div class="det-body">${about}${intro}${links}${assets}${listings}${campaigns}${reviews}</div>`,"wide");
 }
 async function renderRealDeal(dealId){
   let d;
@@ -1843,13 +1867,16 @@ function dealRows(){
     <button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Browse listings</button></div>`;
   return deals.map(d=>{
     const meBiz=S.account&&S.account.id===d.business_id;
-    const other=meBiz?((d.terms&&d.terms.owner)||"platform owner"):"the business";
-    const stCls=d.paid?"st-done":d.funded?"st-escrow":"st-review";
+    const other=meBiz?(d.owner_name||(d.terms&&d.terms.owner)||"platform owner"):(d.business_name||"the business");
+    // Verified-but-unpaid is called out here (not only in notifications) so it can't be missed.
+    const awaitingPayout = d.verified && !d.paid && d.status!=="refunded";
+    const stCls=d.paid?"st-done":awaitingPayout?"st-review":d.funded?"st-escrow":"st-review";
+    const stLabel=awaitingPayout?"Verified — awaiting payout":esc(d.status);
     return `<div class="deal-row" onclick="showView('view-deal');renderRealDeal(${d.id})">
       ${pfp(other,d.terms&&d.terms.platform)}<div><div class="dr-t">Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</div>
-      <div class="dr-s">${meBiz?"You buy · "+esc(other):"You deliver"}</div></div>
-      <span class="status-pill ${stCls}">${esc(d.status)}</span>
-      <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":d.funded?"in escrow":"pending"}</small></div></div>`;
+      <div class="dr-s">${meBiz?"You buy · "+esc(other):"You deliver · "+esc(other)}</div></div>
+      <span class="status-pill ${stCls}">${stLabel}</span>
+      <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":awaitingPayout?"awaiting payout":d.funded?"in escrow":"pending"}</small></div></div>`;
   }).join("");
 }
 function notifRows(){
@@ -1960,7 +1987,7 @@ function renderBizDash(){
     <div class="dash-cols"><div>
       <div class="panel"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>
         <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📢</div><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay — platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
-      <div class="panel"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Start a deal</button></div><div class="panel-b">${dealRows()}</div></div>
+      <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Start a deal</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
       <div class="panel"><div class="panel-h"><h4>Activity</h4></div><div class="panel-b">${notifRows()}</div></div>
       <div class="panel"><div class="panel-h"><h4>Your public profile</h4><button class="btn btn-o btn-sm" onclick="startWizard('biz')">Edit</button></div>
@@ -1995,13 +2022,13 @@ function renderPlatDash(){
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('campaigns')">Browse campaigns</button>
         <button class="btn btn-p" onclick="openRegisterPlatform()">＋ Register another platform</button></div></div>
-    <div class="kpis">${kpi({i:0,to:S.myPlatforms.length,label:"Live listings",delta:S.myPlatforms.length?"live in the marketplace":"list one to get seen",cls:S.myPlatforms.length?"up":"neu",spark:"#4f46e5",act:"openMarket('campaigns')"})}${kpi({i:1,val:earnedPence?gbpP(earnedPence):"—",to:earnedPence?earnedPence/100:null,pre:"£",dec:2,label:"Earned (after 10% seller fee)",delta:earnedPence?`from ${paidReal.length} completed deal${paidReal.length>1?"s":""}`:"complete a deal to earn",cls:earnedPence?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,to:inEscrow,label:"Deals in escrow",delta:inEscrow?"funds secured before you work":"none in escrow",cls:"neu",spark:"#4f46e5",act:"openMarket('campaigns')"})}${kpi({i:3,val:rAvg!=null?"⭐ "+rAvg.toFixed(1):"—",label:"Your rating",delta:rAvg!=null?`${rCount} review${rCount===1?"":"s"}`:"appears after your first completed deal",cls:rAvg!=null?"up":"neu",spark:"#4f46e5"})}    </div>
+    <div class="kpis">${kpi({i:0,to:S.myPlatforms.length,label:"Live listings",delta:S.myPlatforms.length?"live in the marketplace":"list one to get seen",cls:S.myPlatforms.length?"up":"neu",spark:"#4f46e5",act:"openMarket('campaigns')"})}${kpi({i:1,val:earnedPence?gbpP(earnedPence):"—",to:earnedPence?earnedPence/100:null,pre:"£",dec:2,label:"Earned (after 10% seller fee)",delta:earnedPence?`from ${paidReal.length} completed deal${paidReal.length>1?"s":""}`:"complete a deal to earn",cls:earnedPence?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,to:inEscrow,label:"Deals in escrow",delta:inEscrow?"funds secured before you work":"none in escrow",cls:"neu",spark:"#4f46e5",act:"scrollToDeals()"})}${kpi({i:3,val:rAvg!=null?"⭐ "+rAvg.toFixed(1):"—",label:"Your rating",delta:rAvg!=null?`${rCount} review${rCount===1?"":"s"}`:"appears after your first completed deal",cls:rAvg!=null?"up":"neu",spark:"#4f46e5"})}    </div>
     <div class="panel"><div class="panel-h"><h4>Account growth · earnings over time</h4></div><div class="panel-b" id="platGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel"><div class="panel-h"><h4>Your platform listings</h4><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add platform</button></div>
         <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📣</div><h4>No listings yet</h4><p>Register each platform you control — its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
         ${S.myPlatforms.length&&S.myPlatforms.length<3?`<div class="note blue" style="margin-top:14px">💡 Owners with multiple listings get seen by more campaigns — list each platform you own separately, each with its own audience and prices. <a href="#" onclick="openRegisterPlatform();return false">Register another platform →</a></div>`:""}</div></div>
-      <div class="panel"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">Find campaigns</button></div><div class="panel-b">${dealRows()}</div></div>
+      <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">Find campaigns</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
       <div class="panel"><div class="panel-h"><h4>Activity</h4></div><div class="panel-b">${notifRows()}</div></div>
       <div class="panel"><div class="panel-h"><h4>Campaigns matching your niches</h4></div><div class="panel-b">
@@ -2120,6 +2147,7 @@ function authReflect(){
   $("nav-logout").classList.toggle("hide", !a);
   $("nl-review").classList.toggle("hide", !(a && a.is_reviewer));
   $("nl-payouts").classList.toggle("hide", !(a && a.is_reviewer));
+  $("nl-completed").classList.toggle("hide", !(a && a.is_reviewer));
   if(a){
     $("userChip").classList.remove("hide");   // avatar shows whenever logged in (incl. reviewer)
     const ui=$("userInit");
@@ -2145,6 +2173,30 @@ async function openReviewQueue(){
         <div class="dr-amt"><b>${gbpP(item.listed_price)}</b><small>listed</small></div></div>`).join("")
       :`<div class="empty-state"><div class="es-ico">✅</div><h4>Nothing to review</h4><p>Funded deals with submitted evidence appear here for verification.</p></div>`}</div></div>`;
 }
+function scrollToDeals(){
+  const el=$("yourDeals"); if(!el) return;
+  // scrollIntoView handles nested scroll containers; scroll-margin-top clears the nav.
+  if(el.scrollIntoView) el.scrollIntoView({behavior:"smooth", block:"start"});
+  else smoothTo(el);
+  el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),1200);
+}
+async function openCompleted(){
+  if(!S.account || !S.account.is_reviewer){ toast("Reviewer access required"); return; }
+  showView("view-deal");
+  let q=[]; try{ q=await PSApi.get("/review/completed"); }catch(e){}
+  const total=q.reduce((a,x)=>a+(x.platform_take||0),0);
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="openPayouts()">← Awaiting payouts</button><h2>Completed Deals</h2>
+      <span class="status-pill st-done">${q.length} completed</span></div>
+    <p class="deal-sub" style="padding:0 2px 6px">Historical record of paid-out deals.${q.length?` PromoSlot take across these: <b>${gbpP(total)}</b>.`:""}</p>
+    <div class="panel"><div class="panel-b">${q.length?q.map(item=>`
+      <div class="deal-row" onclick="showView('view-deal');renderRealDeal(${item.deal_id})">
+        <div class="pfp" style="background:var(--acc2)">${item.deal_id}</div>
+        <div><div class="dr-t">Deal ${item.deal_id} · ${esc(item.business)} ⇄ ${esc(item.owner)}</div>
+          <div class="dr-s">Paid ${item.paid_at?new Date(item.paid_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"—"}${item.transfer_id?" · "+esc(item.transfer_id):""}</div></div>
+        <div class="dr-amt"><b>${gbpP(item.net_to_owner)}</b><small>to owner · fee ${gbpP(item.platform_take)}</small></div></div>`).join("")
+      :`<div class="empty-state"><div class="es-ico">🗂️</div><h4>No completed deals yet</h4><p>Deals appear here once their payout has been released.</p></div>`}</div></div>`;
+}
 async function openPayouts(){
   if(!S.account || !S.account.is_reviewer){ toast("Reviewer access required"); return; }
   showView("view-deal");
@@ -2152,6 +2204,7 @@ async function openPayouts(){
   loadNotifications();
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="openReviewQueue()">← Review queue</button><h2>Awaiting Payouts</h2>
+      <button class="btn btn-o btn-sm" onclick="openCompleted()">🗂️ Completed Deals →</button>
       <span class="status-pill st-escrow">${q.length} to pay</span></div>
     <p class="deal-sub" style="padding:0 2px 6px">Verified deals waiting for a payout. They stay here until you release the funds (or refund) — nothing is lost after verification.</p>
     <div class="panel"><div class="panel-b">${q.length?q.map(item=>`
@@ -2210,7 +2263,63 @@ async function doLogin(){
     S.account=await PSApi.login({email,password});
     closeModal(); authReflect(); await loadMine(); authReflect(); toast("Logged in",true);
     _resumeAfterAuth();
-  }catch(err){ btn.disabled=false; btn.textContent="Log in"; _authErr(err.message||"Login failed"); }
+  }catch(err){
+    btn.disabled=false; btn.textContent="Log in";
+    // Count consecutive failures for this email; after 3, offer a password reset.
+    S._loginFails = (S._loginFailEmail===email.toLowerCase() ? (S._loginFails||0) : 0) + 1;
+    S._loginFailEmail = email.toLowerCase();
+    _authErr(err.message||"Login failed");
+    if(S._loginFails>=3){
+      const e=$("au-err");
+      if(e) e.innerHTML=`${esc(err.message||"Login failed")} · <a href="#" class="party-link" onclick="event.preventDefault();forgotPasswordModal('${esc(email)}')">Reset password</a>`;
+    }
+  }
+}
+/* ---------- Password reset (real email via Resend) ---------- */
+function forgotPasswordModal(prefill){
+  openModal(`<div class="m-pad"><h3 class="m-title">Reset your password</h3>
+    <p class="m-sub">Enter the email on your account. We'll send a secure link to set a new password — it expires in 1 hour.</p>
+    <div class="frm">
+      <div><label>Email</label><input type="text" id="fp-email" value="${esc(prefill||"")}" onkeydown="if(event.key==='Enter')sendReset()"></div>
+      <div class="hint-err hide" id="fp-err"></div>
+    </div>
+    <div class="m-actions"><button class="btn btn-o" onclick="authModal('login')">Back to log in</button>
+      <button class="btn btn-p" id="fp-btn" onclick="sendReset()">Send reset link</button></div></div>`,"narrow");
+}
+async function sendReset(){
+  const email=($("fp-email").value||"").trim();
+  const err=$("fp-err"); const fail=m=>{ if(err){err.textContent=m;err.classList.remove("hide");} };
+  if(err) err.classList.add("hide");
+  if(!email){ fail("Enter your email."); return; }
+  const btn=$("fp-btn"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Sending…`;
+  let r; try{ r=await PSApi.post("/auth/forgot-password",{email}); }
+  catch(e){ btn.disabled=false; btn.textContent="Send reset link"; fail(e.message||"Could not send the reset email."); return; }
+  openModal(`<div class="m-pad"><h3 class="m-title">Check your email</h3>
+    <p class="m-sub">${esc(r.message||"If that email is registered, a reset link is on its way.")} The link expires in 1 hour and can only be used once.</p>
+    <div class="m-actions"><button class="btn btn-p" onclick="closeModal()">Done</button></div></div>`,"narrow");
+}
+function resetPasswordModal(token){
+  openModal(`<div class="m-pad"><h3 class="m-title">Set a new password</h3>
+    <p class="m-sub">Choose a new password for your account.</p>
+    <div class="frm">
+      <div><label>New password</label><input type="password" id="rp-new" placeholder="At least 8 characters"></div>
+      <div><label>Confirm new password</label><input type="password" id="rp-conf" onkeydown="if(event.key==='Enter')doResetPassword('${esc(token)}')"></div>
+      <div class="hint-err hide" id="rp-err"></div>
+    </div>
+    <div class="m-actions"><button class="btn btn-p" onclick="doResetPassword('${esc(token)}')">Save new password</button></div></div>`,"narrow");
+}
+async function doResetPassword(token){
+  const nw=($("rp-new").value||""), conf=($("rp-conf").value||"");
+  const err=$("rp-err"); const fail=m=>{ if(err){err.textContent=m;err.classList.remove("hide");} };
+  if(err) err.classList.add("hide");
+  if(nw.length<8){ fail("Password must be at least 8 characters."); return; }
+  if(nw!==conf){ fail("Passwords don't match."); return; }
+  try{ await PSApi.post("/auth/reset-password",{token,new_password:nw}); }
+  catch(e){ fail(e.message||"That reset link is invalid or has expired."); return; }
+  S._loginFails=0;
+  closeModal(); toast("Password updated — please log in",true);
+  history.replaceState({}, "", location.pathname);
+  authModal("login");
 }
 async function doLogout(){
   try{ await PSApi.logout(); }catch(e){}
@@ -2287,8 +2396,74 @@ function openAccount(){
         <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="doChangePassword()">Update password</button></div>
       </div></div>
 
+      <div class="panel" style="grid-column:1/-1"><div class="panel-b" id="whoPanel"></div></div>
+
       <div class="panel"><div class="panel-b" id="supportPanel">${supportFormHtml()}</div></div>
     </div>`;
+  renderWhoWeAre();
+}
+/* ---------- "Who we are" profile content (text, links, files) ---------- */
+function linkRowHtml(idx,l){
+  l=l||{label:"",url:""};
+  return `<div class="link-row" data-idx="${idx}">
+    <div class="row2"><div><label>Label</label><input type="text" id="lk-label-${idx}" value="${esc(l.label||"")}" placeholder="Instagram"></div>
+    <div><label>URL</label><input type="text" id="lk-url-${idx}" value="${esc(l.url||"")}" placeholder="https://…"></div></div></div>`;
+}
+function addLinkRow(){
+  const w=$("lk-rows"); if(!w) return;
+  w.insertAdjacentHTML("beforeend", linkRowHtml(w.querySelectorAll(".link-row").length));
+}
+async function renderWhoWeAre(){
+  const host=$("whoPanel"); if(!host||!S.account) return;
+  let p={about_text:"",links:[],assets:[]};
+  try{ p=await PSApi.get(`/users/${S.account.id}/public`); }catch(e){}
+  S._who=p;
+  const links=(p.links&&p.links.length)?p.links:[{label:"",url:""}];
+  host.innerHTML=`<h5 style="margin-bottom:6px">Who we are — public profile</h5>
+    <p class="mut" style="font-size:12.5px;margin-bottom:10px">Shown to anyone viewing your profile from a campaign or listing. Add as much as you like — all optional, all editable any time (including during campaign setup).</p>
+    <div class="frm">
+      <div><label>About you / your business</label><textarea id="who-about" placeholder="Who you are, what you do, what you're looking for…">${esc(p.about_text||"")}</textarea></div>
+      <div><label>Links (social media, website — no limit)</label>
+        <div id="lk-rows">${links.map((l,i)=>linkRowHtml(i,l)).join("")}</div>
+        <div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="addLinkRow()">＋ add another link</button></div></div>
+      <div class="hint-err hide" id="who-err"></div>
+    </div>
+    <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="saveWhoWeAre()">Save profile</button></div>
+    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+      <label style="font-size:12px;font-weight:700">Files &amp; images</label>
+      ${(p.assets&&p.assets.length)?`<div class="work-grid" style="margin:8px 0">${p.assets.map(a=>`<div>${a.is_image
+          ? `<a href="${a.url}" target="_blank" rel="noopener" class="proof-thumb"><img src="${a.url}" alt="${esc(a.title)}"></a>`
+          : `<a href="${a.url}" target="_blank" rel="noopener" class="btn btn-o btn-sm">📄 ${esc(a.title)}</a>`}
+        <button class="btn btn-danger btn-sm" style="margin-top:6px" onclick="deleteAsset(${a.id})">Delete</button></div>`).join("")}</div>`
+        :`<p class="mut" style="font-size:12.5px;margin:6px 0">No files yet.</p>`}
+      <label class="btn btn-o btn-sm" for="who-asset">＋ Add file or image</label>
+      <input type="file" id="who-asset" class="pf-file-input" onchange="uploadAsset()">
+    </div>`;
+}
+async function saveWhoWeAre(){
+  const about_text=($("who-about").value||"").trim();
+  const links=[];
+  document.querySelectorAll("#lk-rows .link-row").forEach(r=>{
+    const i=r.dataset.idx;
+    const url=(($("lk-url-"+i)||{}).value||"").trim();
+    const label=(($("lk-label-"+i)||{}).value||"").trim();
+    if(url) links.push({label,url});
+  });
+  const err=$("who-err"); if(err) err.classList.add("hide");
+  try{ await PSApi.post("/me/profile",{about_text,links}); }
+  catch(e){ if(err){err.textContent=e.message||"Could not save";err.classList.remove("hide");} return; }
+  toast("Profile saved ✓",true); renderWhoWeAre();
+}
+async function uploadAsset(){
+  const f=$("who-asset")&&$("who-asset").files[0]; if(!f) return;
+  const fd=new FormData(); fd.append("file",f);
+  try{ await PSApi.postForm("/me/assets",fd); }catch(e){ toast(e.message||"Upload failed"); return; }
+  toast("Added ✓",true); renderWhoWeAre();
+}
+async function deleteAsset(id){
+  if(!confirm("Delete this file?")) return;
+  try{ await PSApi.del(`/me/assets/${id}`); }catch(e){ toast(e.message||"Delete failed"); return; }
+  renderWhoWeAre();
 }
 async function uploadAvatar(){
   const f=$("acct-avatar")&&$("acct-avatar").files[0]; if(!f) return;
@@ -2351,6 +2526,7 @@ const NAV_ACTIONS={
   "account":()=>openAccount(),
   "review-queue":()=>openReviewQueue(),
   "payouts":()=>openPayouts(),
+  "completed":()=>openCompleted(),
   "wiz-biz":()=>startWizard("biz"),
   "wiz-plat":()=>startWizard("plat"),
   "wiz-both":()=>startWizard("both"),
@@ -2367,6 +2543,9 @@ function PSBoot(){
   syncNav();
   restoreSession();
   startAttnPolling();
+  // A real reset link (emailed) lands as /?reset=<token> — open the set-password step.
+  const _rt=new URLSearchParams(location.search).get("reset");
+  if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
   loadMarket().then(renderMiniMarket);  // refresh peek with real listings
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); });
   document.addEventListener("click",e=>{
@@ -2378,7 +2557,9 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication};
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,
+forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,scrollToDeals,openCompleted,
+renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

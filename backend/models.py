@@ -42,6 +42,9 @@ class User(Base):
     # Not self-serve: granted out-of-band (scripts/make_reviewer.py). A reviewer
     # is a human on the PromoSlot side who verifies delivery evidence.
     is_reviewer = Column(Boolean, default=False, nullable=False)
+    # Public "who we are" profile content (editable from My Account / campaign setup).
+    about_text = Column(Text)
+    links = Column(JSON, default=list)          # [{label, url}, …] — no cap
     # Profile media (set from My Account).
     avatar_path = Column(String)
     avatar_content_type = Column(String)
@@ -296,6 +299,31 @@ class Conversation(Base):
     context_ref = Column(String, index=True)   # "p12" | "c7" | None (general DM)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_message_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class ProfileAsset(Base):
+    """A file/image a member adds to their public profile ("who we are")."""
+    __tablename__ = "profile_assets"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String)
+    path = Column(String, nullable=False)
+    content_type = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class PasswordResetToken(Base):
+    """A single-use, expiring password-reset token emailed to a real address.
+
+    The token itself is random and stored as-is (dev); it is invalidated on use
+    and on expiry, and every reset also revokes the user's existing sessions.
+    """
+    __tablename__ = "password_reset_tokens"
+    token = Column(String, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class SupportTicket(Base):

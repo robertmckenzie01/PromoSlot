@@ -24,9 +24,17 @@ class Settings:
     max_upload_bytes: int = int(os.environ.get("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
     max_video_bytes: int = int(os.environ.get("MAX_VIDEO_BYTES", str(200 * 1024 * 1024)))
 
+    # Transactional email (Resend) — real password-reset delivery.
+    resend_api_key: str = os.environ.get("RESEND_API_KEY", "")
+    mail_from: str = os.environ.get("MAIL_FROM", "PromoSlot <onboarding@resend.dev>")
+
     @property
     def stripe_configured(self) -> bool:
         return self.stripe_secret_key.startswith("sk_")
+
+    @property
+    def email_configured(self) -> bool:
+        return self.resend_api_key.startswith("re_")
 
 
 settings = Settings()

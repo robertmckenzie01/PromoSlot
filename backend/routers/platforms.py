@@ -75,7 +75,10 @@ def listing_dict(db: Session, p: Platform) -> dict:
         "services": p.services or [],
         "pricing": p.pricing or [],
         "past": [],
-        "image_url": f"/platforms/{p.id}/image" if p.image_path else None,
+        # Defaults to the owner's profile picture until a listing-specific one is set.
+        "image_url": (f"/platforms/{p.id}/image" if p.image_path
+                      else (f"/users/{p.owner_id}/avatar" if (owner and owner.avatar_path) else None)),
+        "has_own_image": bool(p.image_path),
         "ownerAvatar": f"/users/{p.owner_id}/avatar" if (owner and owner.avatar_path) else None,
     }
 

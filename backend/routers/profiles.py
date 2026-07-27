@@ -4,20 +4,32 @@ Uploaded from My Account; served publicly so anyone viewing a profile sees them.
 Same disk-storage flow as proofs/media (migrates together to object storage).
 """
 import os
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import User
+from ..models import ProfileAsset, User
 from ..storage import save_generic
 
 router = APIRouter(tags=["profiles"])
 
 IMG_MAX = 50 * 1024 * 1024  # generous cap for profile pictures
+
+
+def asset_dict(a: ProfileAsset) -> dict:
+    ct = a.content_type or ""
+    return {
+        "id": a.id, "title": a.title or "file",
+        "url": f"/users/{a.user_id}/assets/{a.id}/file",
+        "is_image": ct.startswith("image/"),
+        "content_type": ct,
+    }
 
 
 def _replace(old_path):
@@ -69,3 +81,62 @@ def get_intro_video(user_id: int, db: Session = Depends(get_db)):
     if u is None or not u.intro_video_path or not os.path.exists(u.intro_video_path):
         raise HTTPException(status_code=404, detail="No intro video")
     return FileResponse(u.intro_video_path, media_type=u.intro_video_content_type or "video/mp4")
+
+
+# ---------------- "Who we are": about text, links, and files/images ----------------
+
+class ProfileIn(BaseModel):
+    about_text: Optional[str] = Field(default=None, max_length=5000)
+    links: Optional[List[dict]] = None      # [{label, url}, …] — no cap
+
+
+@router.post("/me/profile")
+def update_profile(body: ProfileIn, user: User = Depends(get_current_user),
+                   db: Session = Depends(get_db)):
+    if body.about_text is not None:
+        user.about_text = body.about_text.strip() or None
+    if body.links is not None:
+        clean = []
+        for l in body.links:
+            url = (l.get("url") or "").strip()
+            if url:
+                clean.append({"label": (l.get("label") or "").strip() or url, "url": url})
+        user.links = clean
+    db.commit()
+    return {"about_text": user.about_text or "", "links": user.links or []}
+
+
+@router.post("/me/assets", status_code=201)
+def add_asset(file: UploadFile = File(...), title: Optional[str] = Form(None),
+              user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        path, _ = save_generic(f"users/user_{user.id}/assets", file, IMG_MAX)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    a = ProfileAsset(user_id=user.id, title=(title or file.filename), path=path,
+                     content_type=file.content_type)
+    db.add(a)
+    db.commit()
+    db.refresh(a)
+    return asset_dict(a)
+
+
+@router.delete("/me/assets/{asset_id}")
+def delete_asset(asset_id: int, user: User = Depends(get_current_user),
+                 db: Session = Depends(get_db)):
+    a = db.get(ProfileAsset, asset_id)
+    if a is None or a.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    _replace(a.path)
+    db.delete(a)
+    db.commit()
+    return {"deleted": asset_id}
+
+
+@router.get("/users/{user_id}/assets/{asset_id}/file")
+def get_asset_file(user_id: int, asset_id: int, db: Session = Depends(get_db)):
+    a = db.get(ProfileAsset, asset_id)
+    if a is None or a.user_id != user_id or not os.path.exists(a.path):
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return FileResponse(a.path, media_type=a.content_type or "application/octet-stream",
+                        content_disposition_type="inline")

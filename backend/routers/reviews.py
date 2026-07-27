@@ -88,9 +88,10 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
     listings (if a platform owner) / campaigns (if a business). Used to make
     each party's name in a deal clickable through to who they actually are.
     """
-    from ..models import Platform, Campaign
+    from ..models import Platform, Campaign, ProfileAsset
     from .platforms import listing_dict
     from .campaigns import campaign_dict
+    from .profiles import asset_dict
 
     u = db.get(User, user_id)
     if u is None:
@@ -112,6 +113,11 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
         "is_platform_owner": u.is_platform_owner,
         "avatar_url": f"/users/{u.id}/avatar" if u.avatar_path else None,
         "intro_video_url": f"/users/{u.id}/intro-video" if u.intro_video_path else None,
+        # "Who we are" content
+        "about_text": u.about_text or "",
+        "links": u.links or [],
+        "assets": [asset_dict(a) for a in
+                   db.query(ProfileAsset).filter_by(user_id=u.id).order_by(ProfileAsset.id.desc()).all()],
         "rating": round(float(avg), 1) if avg is not None else None,
         "review_count": count or 0,
         "reviews": [review_dict(r) for r in rows],

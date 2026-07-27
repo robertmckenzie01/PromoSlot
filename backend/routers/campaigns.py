@@ -77,7 +77,10 @@ def campaign_dict(db: Session, c: Campaign) -> dict:
         "duration": t.get("duration", ""),
         "samples": t.get("samples", False),
         "profile": t.get("profile", {}),
-        "image_url": f"/campaigns/{c.id}/image" if c.image_path else None,
+        # Defaults to the business's profile picture until a campaign-specific one is set.
+        "image_url": (f"/campaigns/{c.id}/image" if c.image_path
+                      else (f"/users/{c.business_id}/avatar" if (biz and biz.avatar_path) else None)),
+        "has_own_image": bool(c.image_path),
         "companyAvatar": f"/users/{c.business_id}/avatar" if (biz and biz.avatar_path) else None,
     }
 

@@ -69,6 +69,30 @@ def payout_queue(reviewer: User = Depends(get_current_reviewer), db: Session = D
     return out
 
 
+@router.get("/completed")
+def completed_deals(reviewer: User = Depends(get_current_reviewer), db: Session = Depends(get_db)):
+    """Historical completed (paid-out) deals — admin record-keeping."""
+    rows = (db.query(Deal).filter(Deal.paid_at.isnot(None))
+            .order_by(Deal.paid_at.desc()).all())
+    out = []
+    for d in rows:
+        biz = db.get(User, d.business_id)
+        owner = db.get(User, d.platform_owner_id)
+        m = deal_money_for(d)
+        out.append({
+            "deal_id": d.id,
+            "business": (biz.display_name or biz.email) if biz else "",
+            "owner": (owner.display_name or owner.email) if owner else "",
+            "listed_price": d.listed_price,
+            "total_charged": m["charge_amount"],
+            "net_to_owner": m["net_to_owner"],
+            "platform_take": m["platform_take"],
+            "transfer_id": d.transfer_id,
+            "paid_at": d.paid_at.isoformat() if d.paid_at else None,
+        })
+    return out
+
+
 @router.post("/deals/{deal_id}/verify")
 def verify(deal_id: int, body: VerifyIn,
            reviewer: User = Depends(get_current_reviewer), db: Session = Depends(get_db)):
