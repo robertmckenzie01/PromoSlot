@@ -77,9 +77,9 @@ def campaign_dict(db: Session, c: Campaign) -> dict:
         "duration": t.get("duration", ""),
         "samples": t.get("samples", False),
         "profile": t.get("profile", {}),
-        # Defaults to the business's profile picture until a campaign-specific one is set.
-        "image_url": (f"/campaigns/{c.id}/image" if c.image_path
-                      else (f"/users/{c.business_id}/avatar" if (biz and biz.avatar_path) else None)),
+        # Optional campaign cover image — entirely separate from the business's
+        # identity avatar; neither ever defaults to the other.
+        "image_url": f"/campaigns/{c.id}/image" if c.image_path else None,
         "has_own_image": bool(c.image_path),
         "companyAvatar": f"/users/{c.business_id}/avatar" if (biz and biz.avatar_path) else None,
     }
@@ -126,6 +126,53 @@ def get_campaign(campaign_id: int, db: Session = Depends(get_db)):
     c = db.get(Campaign, campaign_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    return campaign_dict(db, c)
+
+
+class CampaignUpdateIn(BaseModel):
+    """All fields optional — only what's sent is changed."""
+    title: Optional[str] = None
+    industry: Optional[str] = None
+    description: Optional[str] = None
+    budget: Optional[int] = None
+    platforms: Optional[List[str]] = None
+    niches: Optional[List[str]] = None
+    countries: Optional[List[str]] = None
+    services: Optional[List[str]] = None
+    creator_sizes: Optional[List[str]] = None
+    goals: Optional[List[str]] = None
+    payment: Optional[List[dict]] = None
+    deliverables: Optional[str] = None
+    duration: Optional[str] = None
+    samples: Optional[bool] = None
+
+
+@router.post("/{campaign_id:int}/update")
+def update_campaign(campaign_id: int, body: CampaignUpdateIn,
+                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Edit a published campaign and re-publish it with the new content."""
+    c = db.get(Campaign, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if c.business_id != user.id:
+        raise HTTPException(status_code=403, detail="You don't own this campaign")
+
+    for f in ("title", "industry", "description", "budget"):
+        v = getattr(body, f)
+        if v is not None:
+            setattr(c, f, v)
+    terms = dict(c.terms or {})
+    for src, key in (("platforms", "platforms"), ("niches", "niches"),
+                     ("countries", "countries"), ("services", "services"),
+                     ("creator_sizes", "creatorSizes"), ("goals", "goals"),
+                     ("payment", "payment"), ("deliverables", "deliverables"),
+                     ("duration", "duration"), ("samples", "samples")):
+        v = getattr(body, src)
+        if v is not None:
+            terms[key] = v
+    c.terms = terms
+    db.commit()
+    db.refresh(c)
     return campaign_dict(db, c)
 
 

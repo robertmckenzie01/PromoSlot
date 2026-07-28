@@ -94,7 +94,8 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
     each party's name in a deal clickable through to who they actually are.
     """
     from ..models import Campaign, Platform, PlatformMedia, ProfileAsset
-    from .platforms import completed_campaigns_for, listing_dict, media_dict
+    from .platforms import (completed_campaigns_by_business, completed_campaigns_for,
+                            listing_dict, media_dict)
     from .campaigns import campaign_dict
     from .profiles import asset_dict
 
@@ -135,6 +136,8 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
         # Services & pricing / Audience & analytics / My Work / Past campaigns.
         "work": work_items,
         "past_campaigns": completed_campaigns_for(db, u.id) if u.is_platform_owner else [],
+        # Business side: campaigns they've completed and paid out for.
+        "business_past_campaigns": completed_campaigns_by_business(db, u.id) if u.is_business else [],
         "rating": round(float(avg), 1) if avg is not None else None,
         "review_count": count or 0,
         "reviews": [review_dict(r, db) for r in rows],

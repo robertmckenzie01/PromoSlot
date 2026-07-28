@@ -324,9 +324,9 @@ function matchCamp(c){
   if(f.max!=="" && c.budget>Number(f.max)) return false;
   return true;
 }
-function listingCard(l,i){
+function listingCard(l,i,owned){
   return `<article class="lcard${l.example?" example-card":""}" style="--d:${(i||0)*40}ms" onclick="openListing('${l.id}')" tabindex="0" onkeydown="if(event.key==='Enter')openListing('${l.id}')">
-    <div class="lcard-top">${exWrap(pfp(l.name,l.platform),l.example)}
+    <div class="lcard-top">${exWrap(pfp(l.name,l.platform,"",l.ownerAvatar),l.example)}
       <div class="who"><h4>${esc(l.name)} ${l.verified?'<span class="vtick" title="Verified analytics">✔︎</span>':""}</h4><div class="handle">${esc(l.handle)} · by ${esc(l.brand)}</div></div>
       ${pbadge(l.platform)}</div>
     <div class="tagrow">${l.niches.map(n=>`<span class="tag">${esc(n)}</span>`).join("")}${payTypesOf(l).slice(0,3).map(p=>`<span class="tag ind">${esc(p)}</span>`).join("")}</div>
@@ -337,11 +337,12 @@ function listingCard(l,i){
     </div>
     <div class="lcard-bio">${esc(l.bio)}</div>
     <div class="lcard-bot">${starsHtml(l.rating,l.reviewCount)}<div class="price-from">${priceFromHtml(l)}</div></div>
+    ${owned?`<div style="margin-top:10px"><button class="btn btn-o btn-sm" onclick="event.stopPropagation();openEditListing('${l.id}')">✏️ Edit listing</button></div>`:""}
   </article>`;
 }
-function campaignCard(c,i){
+function campaignCard(c,i,owned){
   return `<article class="lcard${c.example?" example-card":""}" style="--d:${(i||0)*40}ms" onclick="openCampaign('${c.id}')" tabindex="0" onkeydown="if(event.key==='Enter')openCampaign('${c.id}')">
-    <div class="ccard-head">${exWrap(pfp(c.company,null),c.example)}
+    <div class="ccard-head">${exWrap(pfp(c.company,null,"",c.companyAvatar),c.example)}
       <div class="who" style="min-width:0"><h4 style="font-size:15px">${esc(c.title)}</h4>
         <div class="handle">${esc(c.company)} ${c.verified?'<span class="vtick">✔︎ Verified</span>':""} · ${esc(c.industry)}</div></div>
       <div class="ccard-budget"><b>${c.budget?gbp(c.budget):"Commission"}</b><span>${c.budget?"budget":"only"}</span></div>
@@ -350,6 +351,7 @@ function campaignCard(c,i){
     <div class="payrow">${c.payment.slice(0,3).map(p=>`<div><span class="pico">💷</span>${esc(p.detail)}</div>`).join("")}</div>
     <div class="lcard-bot">
       <span class="applied-line">${starsHtml(c.rating,c.reviewCount)} · ${c.applicants} applicants</span>
+      ${owned?`<button class="btn btn-o btn-sm" onclick="event.stopPropagation();openEditCampaign('${c.id}')">✏️ Edit</button>`:""}
       <span class="tag grn">Posted ${esc(c.posted)}</span>
     </div>
   </article>`;
@@ -499,6 +501,131 @@ async function uploadWork(listingId){
   l._media=null;
   openListing(l.id,"work");
 }
+/* ============ EDIT A PUBLISHED LISTING / CAMPAIGN (from the dashboard) ============ */
+function editChips(field,opts){
+  const sel=S._edit.sets[field];
+  return `<div class="f-chips">${opts.map(o=>`<button type="button" class="chip ${sel.has(o)?"on":""}" data-v="${esc(o)}"
+    onclick="const s=S._edit.sets['${field}'];s.has(this.dataset.v)?s.delete(this.dataset.v):s.add(this.dataset.v);this.classList.toggle('on')">${esc(o)}</button>`).join("")}</div>`;
+}
+function editPriceRow(i,p){
+  p=p||{type:"fixed",label:"",detail:"",amount:0};
+  return `<div class="pm-slot" data-idx="${i}">
+    <div class="row2">
+      <div><label>Type</label><select id="ep-type-${i}">${PM_ORDER.map(k=>`<option value="${k}" ${p.type===k?"selected":""}>${PM_MODELS[k].label}</option>`).join("")}</select></div>
+      <div><label>Amount (£)</label><input type="number" id="ep-amount-${i}" value="${Number(p.amount)||0}"></div></div>
+    <div><label>What's included</label><input type="text" id="ep-label-${i}" value="${esc(p.label||"")}" placeholder="1 promotional video"></div>
+    <div><label>Details</label><input type="text" id="ep-detail-${i}" value="${esc(p.detail||"")}" placeholder="1 revision · draft approval"></div>
+    <div style="margin-top:6px"><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.pm-slot').remove()">Remove</button></div></div>`;
+}
+function addEditPriceRow(){
+  const w=$("ep-rows"); if(!w) return;
+  w.insertAdjacentHTML("beforeend", editPriceRow(Date.now()%100000));
+}
+function collectEditPricing(){
+  const out=[];
+  document.querySelectorAll("#ep-rows .pm-slot").forEach(r=>{
+    const i=r.dataset.idx;
+    const type=($("ep-type-"+i)||{}).value||"fixed";
+    const label=(($("ep-label-"+i)||{}).value||"").trim();
+    const detail=(($("ep-detail-"+i)||{}).value||"").trim();
+    const amount=Number((($("ep-amount-"+i)||{}).value)||0);
+    if(label||amount>0) out.push({type,label:label||PM_MODELS[type].label,detail,amount});
+  });
+  return out;
+}
+function openEditListing(id){
+  const l=findListing(id); if(!l) return;
+  if(!S.account || String(l.ownerId)!==String(S.account.id)){ toast("You can only edit your own listing"); return; }
+  S._edit={kind:"listing", id:l.id, sets:{
+    niches:new Set(l.niches||[]), services:new Set(l.services||[]),
+    countries:new Set(l.countries||[]), ages:new Set(l.ages||[]), interests:new Set(l.interests||[])}};
+  openModal(`<div class="m-pad"><h3 class="m-title">Edit listing</h3>
+    <p class="m-sub">Changes go live on your published listing as soon as you save.</p>
+    <div class="frm">
+      <div class="row2"><div><label>Platform name</label><input type="text" id="el-name" value="${esc(l.name)}"></div>
+        <div><label>Platform type</label><select id="el-type">${ALL_PLATFORMS.map(x=>`<option ${x===l.platform?"selected":""}>${x}</option>`).join("")}</select></div></div>
+      <div class="row2"><div><label>Handle</label><input type="text" id="el-handle" value="${esc(l.handle||"")}"></div>
+        <div><label>Brand</label><input type="text" id="el-brand" value="${esc(l.brand||"")}"></div></div>
+      <div><label>Bio</label><textarea id="el-bio">${esc(l.bio||"")}</textarea></div>
+      <div class="row2"><div><label>Audience</label><input type="number" id="el-aud" value="${l.audience||0}"></div>
+        <div><label>Avg views</label><input type="number" id="el-views" value="${l.avgViews||0}"></div></div>
+      <div class="row2"><div><label>Avg impressions</label><input type="number" id="el-imps" value="${l.impressions||0}"></div>
+        <div><label>Engagement rate (%)</label><input type="number" step="0.1" id="el-er" value="${l.er||0}"></div></div>
+      <div><label>Niches</label>${editChips("niches",ALL_NICHES)}</div>
+      <div><label>Services offered</label>${editChips("services",ALL_SERVICES)}</div>
+      <div><label>Audience countries</label>${editChips("countries",ALL_COUNTRIES)}</div>
+      <div><label>Age ranges</label>${editChips("ages",ALL_AGES)}</div>
+      <div><label>Offers &amp; pricing</label><div id="ep-rows">${(l.pricing||[]).map((p,i)=>editPriceRow(i,p)).join("")}</div>
+        <div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="addEditPriceRow()">＋ add a price</button></div></div>
+      <div class="hint-err hide" id="el-err"></div>
+    </div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" id="el-save" onclick="saveListingEdits()">Save changes &amp; publish</button></div></div>`,"wide");
+}
+async function saveListingEdits(){
+  const l=findListing(S._edit.id); const pid=String(l.id).slice(1);
+  const err=$("el-err"); if(err) err.classList.add("hide");
+  const name=($("el-name").value||"").trim();
+  if(!name){ if(err){err.textContent="Platform name is required.";err.classList.remove("hide");} return; }
+  const body={name, platform_type:$("el-type").value, handle:($("el-handle").value||"").trim(),
+    brand:($("el-brand").value||"").trim(), bio:($("el-bio").value||"").trim(),
+    audience:Number($("el-aud").value)||0, avg_views:Number($("el-views").value)||0,
+    impressions:Number($("el-imps").value)||0, engagement_rate:Number($("el-er").value)||0,
+    niches:[...S._edit.sets.niches], services:[...S._edit.sets.services],
+    countries:[...S._edit.sets.countries], ages:[...S._edit.sets.ages],
+    interests:[...S._edit.sets.interests], pricing:collectEditPricing()};
+  const btn=$("el-save"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Saving…`;
+  try{ await PSApi.post(`/platforms/${pid}/update`, body); }
+  catch(e){ btn.disabled=false; btn.textContent="Save changes & publish";
+    if(err){err.textContent=e.message||"Could not save";err.classList.remove("hide");} return; }
+  closeModal(); toast("Listing updated & republished ✓",true);
+  await loadMarket(); await loadMine(); openDash();
+}
+function openEditCampaign(id){
+  const c=findCampaign(id); if(!c) return;
+  if(!S.account || String(c.businessId)!==String(S.account.id)){ toast("You can only edit your own campaign"); return; }
+  S._edit={kind:"campaign", id:c.id, sets:{
+    platforms:new Set(c.platforms||[]), niches:new Set(c.niches||[]),
+    countries:new Set(c.countries||[]), services:new Set(c.services||[]),
+    creatorSizes:new Set(c.creatorSizes||[])}};
+  openModal(`<div class="m-pad"><h3 class="m-title">Edit campaign</h3>
+    <p class="m-sub">Changes go live on your published campaign as soon as you save.</p>
+    <div class="frm">
+      <div><label>Campaign title</label><input type="text" id="ec-title" value="${esc(c.title)}"></div>
+      <div class="row2"><div><label>Industry</label><input type="text" id="ec-industry" value="${esc(c.industry||"")}"></div>
+        <div><label>Budget (£)</label><input type="number" id="ec-budget" value="${c.budget||0}"></div></div>
+      <div><label>Description</label><textarea id="ec-desc">${esc(c.desc||"")}</textarea></div>
+      <div><label>Expected deliverables</label><textarea id="ec-deliv">${esc(c.deliverables||"")}</textarea></div>
+      <div><label>Campaign duration</label><select id="ec-dur">${["One-off","Video-by-video","2 weeks","4 weeks","6 weeks","3 months","Ongoing"].map(x=>`<option ${x===c.duration?"selected":""}>${x}</option>`).join("")}</select></div>
+      <div><label>Platforms wanted</label>${editChips("platforms",ALL_PLATFORMS)}</div>
+      <div><label>Niches</label>${editChips("niches",ALL_NICHES)}</div>
+      <div><label>Services wanted</label>${editChips("services",ALL_SERVICES)}</div>
+      <div><label>Target countries</label>${editChips("countries",ALL_COUNTRIES)}</div>
+      <div><label>Creator sizes</label>${editChips("creatorSizes",CREATOR_SIZES)}</div>
+      <div class="hint-err hide" id="ec-err"></div>
+    </div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" id="ec-save" onclick="saveCampaignEdits()">Save changes &amp; publish</button></div></div>`,"wide");
+}
+async function saveCampaignEdits(){
+  const c=findCampaign(S._edit.id); const cid=String(c.id).replace(/^c/,"");
+  const err=$("ec-err"); if(err) err.classList.add("hide");
+  const title=($("ec-title").value||"").trim();
+  if(!title){ if(err){err.textContent="Campaign title is required.";err.classList.remove("hide");} return; }
+  const body={title, industry:($("ec-industry").value||"").trim(), budget:Number($("ec-budget").value)||0,
+    description:($("ec-desc").value||"").trim(), deliverables:($("ec-deliv").value||"").trim(),
+    duration:$("ec-dur").value,
+    platforms:[...S._edit.sets.platforms], niches:[...S._edit.sets.niches],
+    services:[...S._edit.sets.services], countries:[...S._edit.sets.countries],
+    creator_sizes:[...S._edit.sets.creatorSizes]};
+  const btn=$("ec-save"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Saving…`;
+  try{ await PSApi.post(`/campaigns/${cid}/update`, body); }
+  catch(e){ btn.disabled=false; btn.textContent="Save changes & publish";
+    if(err){err.textContent=e.message||"Could not save";err.classList.remove("hide");} return; }
+  closeModal(); toast("Campaign updated & republished ✓",true);
+  await loadMarket(); await loadMine(); openDash();
+}
+
 // A completed campaign, derived automatically from a paid deal. Shows the
 // campaign, the business, views promised vs delivered, and the star review.
 function pastAutoHtml(x){
@@ -997,6 +1124,21 @@ async function openProfile(userId, backRef){
     }).join("")}</div></div>` : "";
   const pastAuto = (p.past_campaigns&&p.past_campaigns.length)
     ? `<div class="det-sec"><h5>Past campaigns (${p.past_campaigns.length})</h5><div class="pastc">${p.past_campaigns.map(pastAutoHtml).join("")}</div></div>` : "";
+  // Business side: campaigns they've completed and paid out for — evidence that
+  // they pay for real work. Derived from genuinely completed deals.
+  const bizPast = (p.business_past_campaigns&&p.business_past_campaigns.length)
+    ? `<div class="det-sec"><h5>Our previous campaigns (${p.business_past_campaigns.length})</h5>
+        <p class="mut" style="font-size:12.5px;margin:-4px 0 10px">Completed and paid out through PromoSlot escrow.</p>
+        <div class="pastc">${p.business_past_campaigns.map(x=>{
+          const n=v=>v!=null?Number(v).toLocaleString("en-GB"):"—";
+          const stars=x.rating?`<div class="pcs">${"★".repeat(x.rating)}${"☆".repeat(5-x.rating)}</div>`:"";
+          const txt=x.review_text?`<p class="det-p" style="margin:6px 0 0;font-size:12.5px">“${esc(x.review_text)}”</p>`:"";
+          const views=(x.views_promised!=null||x.views_delivered!=null)
+            ? `<div class="pcs">📈 ${n(x.views_promised)} promised → ${n(x.views_delivered)} delivered</div>`:"";
+          return `<div class="pc"><b>${esc(x.campaign||"")}</b><small>Delivered by ${esc(x.owner||"")}</small>
+            <div class="pcs">💷 ${gbpP(x.amount_paid||0)} paid</div>${views}${stars}${txt}
+            <div class="mut" style="font-size:11.5px;margin-top:6px">Completed ${x.completed_at?new Date(x.completed_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</div></div>`;
+        }).join("")}</div></div>` : "";
   const campaigns = p.campaigns&&p.campaigns.length ? `<div class="det-sec"><h5>Campaigns</h5>${p.campaigns.map(c=>`<div class="op-row" onclick="closeModal();openCampaign('${c.id}')">${pfp(c.company,null,"",c.companyAvatar)}<div><b>${esc(c.title)}</b><small>${esc(c.company)}</small></div><span class="op-go">View →</span></div>`).join("")}</div>` : "";
   const reviews = p.reviews&&p.reviews.length
     ? `<div class="det-sec"><h5>Reviews (${p.review_count})</h5>${p.reviews.map(r=>`<div class="rev-item"><div class="rvtop"><span class="rev-who">${pfp(r.author_name,null,"rev-dot",r.author_avatar)}<b>${esc(r.author_name||"")}</b></span><span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span></div>${r.text?`<p>${esc(r.text)}</p>`:""}</div>`).join("")}</div>`
@@ -1016,7 +1158,7 @@ async function openProfile(userId, backRef){
       <div class="det-title"><h3>${esc(p.display_name)}</h3>
         <div class="handle">${roles.join(" · ")||"Member"} · ${stars}</div></div>
       <div class="det-actions">${backBtn}</div></div>
-    <div class="det-body">${about}${intro}${links}${assets}${svc}${aud}${work}${pastAuto}${listings}${campaigns}${reviews}</div>`,"wide");
+    <div class="det-body">${about}${intro}${links}${assets}${svc}${aud}${work}${pastAuto}${bizPast}${listings}${campaigns}${reviews}</div>`,"wide");
 }
 async function renderRealDeal(dealId){
   let d;
@@ -2057,7 +2199,7 @@ function renderBizDash(){
     <div class="panel"><div class="panel-h"><h4>Account growth · spend over time</h4></div><div class="panel-b" id="bizGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel" id="yourCampaigns"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>
-        <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📢</div><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay — platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
+        <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i,true)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📢</div><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay — platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Start a deal</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
       <div class="panel"><div class="panel-h"><h4>Activity</h4></div><div class="panel-b">${notifRows()}</div></div>
@@ -2097,7 +2239,7 @@ function renderPlatDash(){
     <div class="panel"><div class="panel-h"><h4>Account growth · earnings over time</h4></div><div class="panel-b" id="platGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel" id="yourListings"><div class="panel-h"><h4>Your platform listings</h4><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add platform</button></div>
-        <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📣</div><h4>No listings yet</h4><p>Register each platform you control — its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
+        <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i,true)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📣</div><h4>No listings yet</h4><p>Register each platform you control — its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
         ${S.myPlatforms.length&&S.myPlatforms.length<3?`<div class="note blue" style="margin-top:14px">💡 Owners with multiple listings get seen by more campaigns — list each platform you own separately, each with its own audience and prices. <a href="#" onclick="openRegisterPlatform();return false">Register another platform →</a></div>`:""}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">Find campaigns</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
@@ -2678,7 +2820,8 @@ window.PSBoot=PSBoot;
 
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,scrollToPanel,openCompleted,
-renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset};
+renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
+openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

@@ -75,9 +75,9 @@ def listing_dict(db: Session, p: Platform) -> dict:
         "services": p.services or [],
         "pricing": p.pricing or [],
         "past": [],
-        # Defaults to the owner's profile picture until a listing-specific one is set.
-        "image_url": (f"/platforms/{p.id}/image" if p.image_path
-                      else (f"/users/{p.owner_id}/avatar" if (owner and owner.avatar_path) else None)),
+        # Optional listing cover image — entirely separate from the owner's
+        # identity avatar; neither ever defaults to the other.
+        "image_url": f"/platforms/{p.id}/image" if p.image_path else None,
         "has_own_image": bool(p.image_path),
         "ownerAvatar": f"/users/{p.owner_id}/avatar" if (owner and owner.avatar_path) else None,
     }
@@ -127,6 +127,48 @@ def get_platform(platform_id: int, db: Session = Depends(get_db)):
     p = db.get(Platform, platform_id)
     if p is None:
         raise HTTPException(status_code=404, detail="Platform not found")
+    return listing_dict(db, p)
+
+
+class PlatformUpdateIn(BaseModel):
+    """All fields optional — only what's sent is changed."""
+    name: Optional[str] = None
+    platform_type: Optional[str] = None
+    handle: Optional[str] = None
+    brand: Optional[str] = None
+    bio: Optional[str] = None
+    niches: Optional[List[str]] = None
+    audience: Optional[int] = None
+    avg_views: Optional[int] = None
+    impressions: Optional[int] = None
+    engagement_rate: Optional[float] = None
+    countries: Optional[List[str]] = None
+    ages: Optional[List[str]] = None
+    interests: Optional[List[str]] = None
+    services: Optional[List[str]] = None
+    pricing: Optional[List[dict]] = None
+
+
+@router.post("/{platform_id:int}/update")
+def update_platform(platform_id: int, body: PlatformUpdateIn,
+                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Edit a published listing and re-publish it with the new content."""
+    p = _own_platform(db, platform_id, user)
+    for f in ("name", "platform_type", "handle", "brand", "bio", "niches",
+              "audience", "avg_views", "impressions", "services", "pricing"):
+        v = getattr(body, f)
+        if v is not None:
+            setattr(p, f, v)
+    if body.engagement_rate is not None:
+        p.engagement_rate = round(body.engagement_rate * 100)
+    meta = dict(p.meta or {})
+    for f in ("countries", "ages", "interests"):
+        v = getattr(body, f)
+        if v is not None:
+            meta[f] = v
+    p.meta = meta
+    db.commit()
+    db.refresh(p)
     return listing_dict(db, p)
 
 
@@ -182,6 +224,44 @@ def completed_campaigns_for(db: Session, owner_id: int, platform_id=None) -> lis
             "campaign": name or f"Deal #{d.id}",
             "business": (biz.display_name or biz.email) if biz else "",
             "business_id": d.business_id,
+            "views_promised": d.views_promised,
+            "views_delivered": d.views_delivered,
+            "rating": rev.rating if rev else None,
+            "review_text": (rev.text or "") if rev else "",
+            "completed_at": d.paid_at.isoformat() if d.paid_at else None,
+        })
+    return out
+
+
+def completed_campaigns_by_business(db: Session, business_id: int) -> list:
+    """Campaigns a business has genuinely completed (paid out).
+
+    Evidence they pay for real work: the campaign, who delivered it, the views
+    promised vs delivered, and any review the owner left about the business.
+    """
+    from ..models import Campaign, Deal, DealStatus, Review
+
+    rows = (db.query(Deal).filter(Deal.business_id == business_id,
+                                  Deal.paid_at.isnot(None),
+                                  Deal.status != DealStatus.REFUNDED)
+            .order_by(Deal.paid_at.desc()).all())
+    out = []
+    for d in rows:
+        owner = db.get(User, d.platform_owner_id)
+        terms = d.terms or {}
+        name = terms.get("campaign_title") or terms.get("offer") or ""
+        if not name and d.campaign_id:
+            c = db.get(Campaign, d.campaign_id)
+            name = c.title if c else ""
+        rev = (db.query(Review)
+               .filter(Review.deal_id == d.id, Review.reviewee_id == business_id)
+               .order_by(Review.id.desc()).first())
+        out.append({
+            "deal_id": d.id,
+            "campaign": name or f"Deal #{d.id}",
+            "owner": (owner.display_name or owner.email) if owner else "",
+            "owner_id": d.platform_owner_id,
+            "amount_paid": d.listed_price,
             "views_promised": d.views_promised,
             "views_delivered": d.views_delivered,
             "rating": rev.rating if rev else None,
