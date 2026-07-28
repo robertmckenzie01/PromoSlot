@@ -118,7 +118,8 @@ const S = {
   roles:[], activeRole:null, biz:null, myPlatforms:[], myCampaigns:[], deals:[],
   notifications:[], marketTab:"platforms", filters:null, dealSeq:1,
   convos:[], activeConv:null, activeThread:null,
-  attn:{unread:0,review_pending:0,awaiting_payout:0}
+  attn:{unread:0,review_pending:0,awaiting_payout:0},
+  perms:[], myRole:"USER"
 };
 function resetFilters(){
   S.filters = {q:"",platforms:new Set(),niches:new Set(),services:new Set(),countries:new Set(),pay:new Set(),min:"",max:""};
@@ -1165,7 +1166,7 @@ async function renderRealDeal(dealId){
   try{ d=await PSApi.get("/deals/"+dealId); }catch(err){ toast(err.message||"Could not load deal"); return; }
   const meBiz = S.account && S.account.id===d.business_id;
   const meOwner = S.account && S.account.id===d.platform_owner_id;
-  const isReviewer = S.account && S.account.is_reviewer;
+  const isReviewer = can("deal.view_evidence");
   const bothApproved = d.business_approved && d.owner_approved;
   let proofs=[];
   if(d.funded && (meBiz||meOwner||isReviewer)){ try{ proofs=await PSApi.get("/deals/"+dealId+"/proofs"); }catch(e){} }
@@ -1381,9 +1382,21 @@ async function realSubmitProof(dealId){
   toast(items.length>1?`${items.length} evidence items submitted`:"Evidence submitted",true);
   renderRealDeal(dealId);
 }
+// The API requires a stated reason and an explicit confirmation that the
+// evidence was reviewed — these are enforced server-side, not just here.
+function adminReasonPrompt(title){
+  const reason=window.prompt(`${title}\n\nState a reason (recorded permanently in the audit log):`,"");
+  if(reason===null) return null;
+  if(reason.trim().length<3){ toast("A reason of at least 3 characters is required"); return null; }
+  if(!confirm("Confirm: you have reviewed the delivery evidence for this deal.")) return null;
+  return reason.trim();
+}
 async function realVerify(dealId, decision){
-  if(decision==="rejected" && !confirm("Send this delivery back to the owner for revision? They can resubmit evidence.")) return;
-  try{ await PSApi.post(`/review/deals/${dealId}/verify`,{decision}); }catch(err){ toast(err.message||"Verify failed"); return; }
+  const label={approved:"Verify this delivery",rejected:"Reject this delivery",
+               changes_requested:"Send back for revision"}[decision]||"Review decision";
+  const reason=adminReasonPrompt(label); if(reason===null) return;
+  try{ await PSApi.post(`/review/deals/${dealId}/verify`,{decision,reason,evidence_reviewed:true}); }
+  catch(err){ toast(err.message||"Verify failed"); return; }
   toast(decision==="approved"
     ? "Verified ✓ — moved to Awaiting Payouts (release payout separately when ready)"
     : "Sent back to the owner for revision", true);
@@ -1391,14 +1404,17 @@ async function realVerify(dealId, decision){
   renderRealDeal(dealId);
 }
 async function realRelease(dealId){
-  try{ const r=await PSApi.post(`/review/deals/${dealId}/release`); toast("Payout released — "+gbpP(r.net_to_owner)+" to owner 💸",true); }
+  const reason=adminReasonPrompt("Release this payout"); if(reason===null) return;
+  try{ const r=await PSApi.post(`/review/deals/${dealId}/release`,{reason,evidence_reviewed:true});
+    toast("Payout released — "+gbpP(r.net_to_owner)+" to owner 💸",true); }
   catch(err){ toast(err.message||"Release failed"); return; }
   loadNotifications();
   renderRealDeal(dealId);
 }
 async function realRefund(dealId){
   if(!confirm("Disapprove this delivery and refund the business? The escrowed funds are returned to the business and the deal is closed. This can't be undone.")) return;
-  try{ await PSApi.post(`/review/deals/${dealId}/refund`); toast("Business refunded ↩︎",true); }
+  const reason=adminReasonPrompt("Refund the business"); if(reason===null) return;
+  try{ await PSApi.post(`/review/deals/${dealId}/refund`,{reason,evidence_reviewed:true}); toast("Business refunded ↩︎",true); }
   catch(err){ toast(err.message||"Refund failed"); return; }
   loadNotifications();
   renderRealDeal(dealId);
@@ -2358,9 +2374,11 @@ function authReflect(){
   syncNav();  // toggles roleSwitch / dashboard / userChip / get-started from S.roles
   $("nav-login").classList.toggle("hide", !!a);
   $("nav-logout").classList.toggle("hide", !a);
-  $("nl-review").classList.toggle("hide", !(a && a.is_reviewer));
-  $("nl-payouts").classList.toggle("hide", !(a && a.is_reviewer));
-  $("nl-completed").classList.toggle("hide", !(a && a.is_reviewer));
+  const canReview=can("deal.view_evidence");
+  $("nl-review").classList.toggle("hide", !canReview);
+  $("nl-payouts").classList.toggle("hide", !canReview);
+  $("nl-completed").classList.toggle("hide", !canReview);
+  $("nl-admin").classList.toggle("hide", !can("admin.view"));
   if(a){
     $("userChip").classList.remove("hide");   // avatar shows whenever logged in (incl. reviewer)
     const ui=$("userInit");
@@ -2371,7 +2389,7 @@ function authReflect(){
   updateDots();
 }
 async function openReviewQueue(){
-  if(!S.account || !S.account.is_reviewer){ toast("Reviewer access required"); return; }
+  if(!can("deal.view_evidence")){ toast("Admin access required"); return; }
   showView("view-deal");
   let q=[]; try{ q=await PSApi.get("/review/queue"); }catch(e){}
   loadNotifications();
@@ -2386,6 +2404,103 @@ async function openReviewQueue(){
         <div class="dr-amt"><b>${gbpP(item.listed_price)}</b><small>listed</small></div></div>`).join("")
       :`<div class="empty-state"><div class="es-ico">✅</div><h4>Nothing to review</h4><p>Funded deals with submitted evidence appear here for verification.</p></div>`}</div></div>`;
 }
+/* ==================== ADMIN CONSOLE ====================
+   Permissions here only decide what to SHOW. Every action is independently
+   authorised by the API, so hiding a control is convenience, not security. */
+function can(permission){ return (S.perms||[]).indexOf(permission)>=0; }
+async function loadPerms(){
+  try{ const r=await PSApi.get("/admin/me"); S.perms=r.permissions||[]; S.myRole=r.role||"USER"; }
+  catch(e){ S.perms=[]; S.myRole="USER"; }
+}
+function roleBadge(role){
+  // Only privileged accounts are ever labelled — a regular member is
+  // represented by what they do (listing / campaign), never by "User".
+  if(role==="SUPER_ADMIN") return `<span class="tag role-tag super">Super-Admin</span>`;
+  if(role==="ADMIN") return `<span class="tag role-tag">Admin</span>`;
+  return "";
+}
+function adminCreds(){
+  const password=window.prompt("Confirm your password to authorise this action:","");
+  if(password===null) return null;
+  let mfa_code=null;
+  if(S.myRole==="SUPER_ADMIN"){
+    mfa_code=window.prompt("Enter your 6-digit authenticator code:","");
+    if(mfa_code===null) return null;
+  }
+  const reason=window.prompt("Reason (recorded permanently in the audit log):","");
+  if(reason===null) return null;
+  if(reason.trim().length<3){ toast("A reason of at least 3 characters is required"); return null; }
+  return {password, mfa_code, reason:reason.trim()};
+}
+async function openAdmin(tab){
+  if(!can("admin.view")){ toast("Super-Admin access required"); return; }
+  tab=tab||"admins";
+  showView("view-deal");
+  let admins=[], logs=[];
+  if(tab==="admins"){ try{ admins=await PSApi.get("/admin/admins"); }catch(e){} }
+  else { try{ logs=await PSApi.get("/admin/audit-log?limit=100"); }catch(e){} }
+  let body="";
+  if(tab==="admins"){
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Privileged accounts. Assigning or removing a role requires your password${S.myRole==="SUPER_ADMIN"?" and authenticator code":""}, and is written to the immutable audit log.</p>
+      <div class="panel"><div class="panel-b">
+      ${admins.length?admins.map(u=>`<div class="deal-row" style="cursor:default">
+        ${pfp(u.display_name||u.email,null)}
+        <div><div class="dr-t">${esc(u.display_name||u.email)} ${roleBadge(u.role)}</div>
+          <div class="dr-s">${esc(u.email)}${u.suspended?" · <b>suspended</b>":""} · MFA ${u.mfa_enabled?"on":"off"}</div></div>
+        <div class="btn-row">
+          ${u.suspended
+            ? `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Unsuspend</button>`
+            : `<button class="btn btn-danger btn-sm" onclick="adminSuspend(${u.id})">Suspend</button>`}
+          ${u.role!=="SUPER_ADMIN"?`<button class="btn btn-ghost btn-sm" onclick="adminSetRole(${u.id},'USER')">Remove admin</button>`:""}
+        </div></div>`).join("")
+        :`<div class="empty-state"><div class="es-ico">🛡️</div><h4>No admins yet</h4></div>`}
+      </div></div>
+      <div class="panel"><div class="panel-h"><h4>Grant a role</h4></div><div class="panel-b">
+        <div class="frm"><div class="row2">
+          <div><label>User ID</label><input type="number" id="ad-uid" placeholder="e.g. 7"></div>
+          <div><label>Role</label><select id="ad-role"><option value="ADMIN">Admin</option><option value="USER">User (remove admin)</option></select></div>
+        </div></div>
+        <div style="margin-top:10px"><button class="btn btn-p btn-sm" onclick="adminSetRole(parseInt(($('ad-uid')||{}).value,10),($('ad-role')||{}).value)">Assign role</button></div>
+      </div></div>`;
+  } else {
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Append-only. The database itself rejects any update or delete on this table — these entries cannot be edited or removed through any path.</p>
+      <div class="panel"><div class="panel-b">
+      ${logs.length?logs.map(r=>`<div class="proof-item got proof-block">
+        <div class="pb-head"><span class="pi-ico">🧾</span><b>${esc(r.action)}</b>
+          <span class="ok">${r.created_at?new Date(r.created_at).toLocaleString("en-GB"):""}</span></div>
+        <div class="pb-link">Admin ${r.actor_id==null?"—":r.actor_id} (${esc(r.actor_role||"—")}) → ${esc(r.target_type||"—")} ${esc(r.target_id||"")}</div>
+        ${r.reason?`<div class="mut" style="font-size:12.5px;margin-top:4px">Reason: ${esc(r.reason)}</div>`:""}
+        <div class="mut" style="font-size:11.5px;margin-top:4px">IP ${esc(r.ip_address||"—")} · request ${esc(String(r.request_id||"").slice(0,12))}</div>
+        <div class="mut" style="font-size:11.5px;margin-top:2px">was ${esc(JSON.stringify(r.previous_state||{}))} → now ${esc(JSON.stringify(r.new_state||{}))}</div>
+      </div>`).join("")
+        :`<div class="empty-state"><div class="es-ico">🧾</div><h4>No audit entries yet</h4></div>`}
+      </div></div>`;
+  }
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>Admin console</h2>
+      <span class="status-pill st-review">${esc(S.myRole==="SUPER_ADMIN"?"Super-Admin":"Admin")}</span></div>
+    <div class="det-tabs">${[["admins","Admins"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
+    ${body}`;
+}
+async function adminSetRole(userId, role){
+  if(!userId){ toast("Enter a user ID"); return; }
+  const c=adminCreds(); if(!c) return;
+  try{ await PSApi.post(`/admin/users/${userId}/role`, Object.assign({role}, c)); }
+  catch(e){ toast(e.message||"Could not assign role"); return; }
+  toast("Role updated ✓",true); openAdmin("admins");
+}
+async function adminSuspend(userId){
+  const c=adminCreds(); if(!c) return;
+  try{ await PSApi.post(`/admin/users/${userId}/suspend`, c); }
+  catch(e){ toast(e.message||"Could not suspend"); return; }
+  toast("Account suspended — sessions revoked",true); openAdmin("admins");
+}
+async function adminUnsuspend(userId){
+  const c=adminCreds(); if(!c) return;
+  try{ await PSApi.post(`/admin/users/${userId}/unsuspend`, c); }
+  catch(e){ toast(e.message||"Could not unsuspend"); return; }
+  toast("Account restored",true); openAdmin("admins");
+}
 function scrollToPanel(id){
   const el=$(id); if(!el) return;
   // scrollIntoView handles nested scroll containers; scroll-margin-top clears the nav.
@@ -2394,7 +2509,7 @@ function scrollToPanel(id){
   el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),1200);
 }
 async function openCompleted(){
-  if(!S.account || !S.account.is_reviewer){ toast("Reviewer access required"); return; }
+  if(!can("deal.view_evidence")){ toast("Admin access required"); return; }
   showView("view-deal");
   let q=[]; try{ q=await PSApi.get("/review/completed"); }catch(e){}
   const total=q.reduce((a,x)=>a+(x.platform_take||0),0);
@@ -2411,7 +2526,7 @@ async function openCompleted(){
       :`<div class="empty-state"><div class="es-ico">🗂️</div><h4>No completed deals yet</h4><p>Deals appear here once their payout has been released.</p></div>`}</div></div>`;
 }
 async function openPayouts(){
-  if(!S.account || !S.account.is_reviewer){ toast("Reviewer access required"); return; }
+  if(!can("deal.view_evidence")){ toast("Admin access required"); return; }
   showView("view-deal");
   let q=[]; try{ q=await PSApi.get("/review/payouts"); }catch(e){}
   loadNotifications();
@@ -2464,6 +2579,7 @@ async function doSignup(){
   const btn=$("au-submit"); btn.disabled=true; btn.textContent="Creating…";
   try{
     S.account=await PSApi.signup({email,password,display_name:display_name||null,is_business,is_platform_owner});
+    await loadPerms();
     closeModal(); authReflect(); await loadMine(); authReflect(); toast("Account created — you're signed in",true);
     _resumeAfterAuth();
   }catch(err){ btn.disabled=false; btn.textContent="Create account"; _authErr(err.message||"Signup failed"); }
@@ -2474,6 +2590,7 @@ async function doLogin(){
   const btn=$("au-submit"); btn.disabled=true; btn.textContent="Logging in…";
   try{
     S.account=await PSApi.login({email,password});
+    await loadPerms();
     closeModal(); authReflect(); await loadMine(); authReflect(); toast("Logged in",true);
     _resumeAfterAuth();
   }catch(err){
@@ -2536,14 +2653,23 @@ async function doResetPassword(token){
 }
 async function doLogout(){
   try{ await PSApi.logout(); }catch(e){}
-  S.account=null; authReflect(); goHome(); toast("Logged out");
+  S.account=null; S.perms=[]; S.myRole="USER";
+  // Wipe already-rendered privileged/account markup so nothing from the previous
+  // session lingers in the DOM (audit entries, admin emails, deal details).
+  ["dealWrap","accountWrap","msgsWrap","bizDash","platDash"].forEach(id=>{
+    const el=$(id); if(el) el.innerHTML="";
+  });
+  S.convos=[]; S.activeThread=null; S.realDeals=[]; S.realNotifs=[]; S._who=null;
+  authReflect(); goHome(); toast("Logged out");
 }
 /* ==================== MY ACCOUNT ==================== */
 function roleLabels(a){
   const r=[];
   if(a.is_business) r.push("Business");
   if(a.is_platform_owner) r.push("Platform owner");
-  if(a.is_reviewer) r.push("Reviewer");
+  // Role tier is shown ONLY for privileged accounts, never "User".
+  if(S.myRole==="SUPER_ADMIN") r.push("Super-Admin");
+  else if(S.myRole==="ADMIN") r.push("Admin");
   return r.length?r:["No role set"];
 }
 function avatarBlock(url, name, big){
@@ -2767,7 +2893,7 @@ async function doChangePassword(){
   toast("Password updated ✓",true);
 }
 async function restoreSession(){
-  try{ S.account=await PSApi.me(); await loadMine(); await loadNotifications(); }catch(e){ S.account=null; }
+  try{ S.account=await PSApi.me(); await loadPerms(); await loadMine(); await loadNotifications(); }catch(e){ S.account=null; S.perms=[]; S.myRole="USER"; }
   authReflect();
 }
 
@@ -2788,6 +2914,7 @@ const NAV_ACTIONS={
   "review-queue":()=>openReviewQueue(),
   "payouts":()=>openPayouts(),
   "completed":()=>openCompleted(),
+  "admin":()=>openAdmin(),
   "wiz-biz":()=>startWizard("biz"),
   "wiz-plat":()=>startWizard("plat"),
   "wiz-both":()=>startWizard("both"),
@@ -2821,7 +2948,8 @@ window.PSBoot=PSBoot;
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
-openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow};
+openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,
+openAdmin,adminSetRole,adminSuspend,adminUnsuspend,can,loadPerms};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

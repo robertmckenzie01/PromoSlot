@@ -563,6 +563,8 @@ b,strong{font-weight:700}
 .pm-slot{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
 .pm-slot label{font-size:12px}
 .link-row{margin-bottom:8px}
+.role-tag{background:var(--amber-soft);border-color:var(--amber-border);color:var(--amber);font-weight:800}
+.role-tag.super{background:var(--acc-soft);border-color:var(--acc-border);color:var(--acc-ink)}
 #yourDeals,#yourCampaigns,#yourListings{scroll-margin-top:84px}
 .panel.flash{animation:panelFlash 1.2s var(--ease)}
 @keyframes panelFlash{0%{box-shadow:0 0 0 0 rgba(79,70,229,.45)}70%{box-shadow:0 0 0 8px rgba(79,70,229,0)}100%{box-shadow:0 0 0 0 rgba(79,70,229,0)}}
@@ -720,6 +722,7 @@ b,strong{font-weight:700}
       <button class="nav-link hide" id="nl-review" data-act="review-queue">Review queue<span class="attn-dot hide" id="dot-review"></span></button>
       <button class="nav-link hide" id="nl-payouts" data-act="payouts">Awaiting payouts<span class="attn-dot hide" id="dot-payouts"></span></button>
       <button class="nav-link hide" id="nl-completed" data-act="completed">Completed deals</button>
+      <button class="nav-link hide" id="nl-admin" data-act="admin">Admin</button>
     </div>
     <div class="nav-right">
       <div class="role-switch hide" id="roleSwitch">
