@@ -2436,8 +2436,13 @@ async function openAdmin(tab){
   if(!can("admin.view")){ toast("Super-Admin access required"); return; }
   tab=tab||"admins";
   showView("view-deal");
-  let admins=[], logs=[];
+  let admins=[], logs=[], mods={listings:[],campaigns:[]};
   if(tab==="admins"){ try{ admins=await PSApi.get("/admin/admins"); }catch(e){} }
+  else if(tab==="moderation"){
+    try{ mods.listings=await PSApi.get("/platforms"); }catch(e){}
+    try{ mods.campaigns=await PSApi.get("/campaigns"); }catch(e){}
+    try{ mods.suspended=await PSApi.get("/admin/suspended"); }catch(e){ mods.suspended={listings:[],campaigns:[]}; }
+  }
   else { try{ logs=await PSApi.get("/admin/audit-log?limit=100"); }catch(e){} }
   let body="";
   if(tab==="admins"){
@@ -2462,6 +2467,30 @@ async function openAdmin(tab){
         </div></div>
         <div style="margin-top:10px"><button class="btn btn-p btn-sm" onclick="adminSetRole(parseInt(($('ad-uid')||{}).value,10),($('ad-role')||{}).value)">Assign role</button></div>
       </div></div>`;
+  } else if(tab==="moderation"){
+    const sus=mods.suspended||{listings:[],campaigns:[]};
+    const row=(title,sub,btn)=>`<div class="deal-row" style="cursor:default">
+        <div class="pfp" style="background:var(--acc)">${esc((title||"?").slice(0,1).toUpperCase())}</div>
+        <div><div class="dr-t">${esc(title)}</div><div class="dr-s">${sub}</div></div>
+        <div class="btn-row">${btn}</div></div>`;
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Suspending hides an item from the marketplace and blocks new bookings, but keeps it intact and reversible — a softer option than removal.</p>
+      <div class="panel"><div class="panel-h"><h4>Live listings</h4></div><div class="panel-b">
+        ${mods.listings.length?mods.listings.map(l=>row(l.name,`${esc(l.platform)} · by ${esc(l.owner||"")}`,
+          `<button class="btn btn-danger btn-sm" onclick="adminSuspendListing(${String(l.id).slice(1)})">Suspend</button>`)).join("")
+          :`<p class="mut" style="font-size:12.5px">No live listings.</p>`}
+      </div></div>
+      <div class="panel"><div class="panel-h"><h4>Live campaigns</h4></div><div class="panel-b">
+        ${mods.campaigns.length?mods.campaigns.map(c=>row(c.title,`by ${esc(c.company||"")}`,
+          `<button class="btn btn-danger btn-sm" onclick="adminSuspendCampaign(${String(c.id).replace(/^c/,'')})">Suspend</button>`)).join("")
+          :`<p class="mut" style="font-size:12.5px">No live campaigns.</p>`}
+      </div></div>
+      <div class="panel"><div class="panel-h"><h4>Suspended</h4></div><div class="panel-b">
+        ${(sus.listings||[]).map(l=>row(l.name,`Listing · ${esc(l.suspended_reason||"")}`,
+          `<button class="btn btn-o btn-sm" onclick="adminUnsuspendListing(${l.id})">Restore</button>`)).join("")}
+        ${(sus.campaigns||[]).map(c=>row(c.title,`Campaign · ${esc(c.suspended_reason||"")}`,
+          `<button class="btn btn-o btn-sm" onclick="adminUnsuspendCampaign(${c.id})">Restore</button>`)).join("")}
+        ${(!(sus.listings||[]).length && !(sus.campaigns||[]).length)?`<p class="mut" style="font-size:12.5px">Nothing suspended.</p>`:""}
+      </div></div>`;
   } else {
     body=`<p class="deal-sub" style="padding:0 2px 8px">Append-only. The database itself rejects any update or delete on this table — these entries cannot be edited or removed through any path.</p>
       <div class="panel"><div class="panel-b">
@@ -2479,9 +2508,19 @@ async function openAdmin(tab){
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>Admin console</h2>
       <span class="status-pill st-review">${esc(S.myRole==="SUPER_ADMIN"?"Super-Admin":"Admin")}</span></div>
-    <div class="det-tabs">${[["admins","Admins"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
+    <div class="det-tabs">${[["admins","Admins"],["moderation","Moderation"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
     ${body}`;
 }
+async function _modAction(path, okMsg){
+  const c=adminCreds(); if(!c) return;
+  try{ await PSApi.post(path, c); }catch(e){ toast(e.message||"Action failed"); return; }
+  toast(okMsg,true); loadMarket(); openAdmin("moderation");
+}
+const adminSuspendListing   = id => _modAction(`/admin/listings/${id}/suspend`,   "Listing suspended — hidden from the marketplace");
+const adminUnsuspendListing = id => _modAction(`/admin/listings/${id}/unsuspend`, "Listing restored");
+const adminSuspendCampaign  = id => _modAction(`/admin/campaigns/${id}/suspend`,  "Campaign suspended — hidden from the marketplace");
+const adminUnsuspendCampaign= id => _modAction(`/admin/campaigns/${id}/unsuspend`,"Campaign restored");
+
 async function adminSetRole(userId, role){
   if(!userId){ toast("Enter a user ID"); return; }
   const c=adminCreds(); if(!c) return;
@@ -2745,11 +2784,94 @@ function openAccount(){
         <div style="margin-top:10px"><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add a listing</button></div>
       </div></div>`:""}
 
+      <div class="panel" style="grid-column:1/-1"><div class="panel-b" id="mfaPanel"></div></div>
+
       <div class="panel" style="grid-column:1/-1"><div class="panel-b" id="whoPanel"></div></div>
 
       <div class="panel"><div class="panel-b" id="supportPanel">${supportFormHtml()}</div></div>
     </div>`;
   renderWhoWeAre();
+  renderMfaPanel();
+}
+/* ---------- Multi-factor authentication (TOTP) enrolment ----------
+   Mandatory for a Super-Admin: privileged actions stay blocked until this is
+   completed. Recovery codes are shown once, at enrolment. */
+async function renderMfaPanel(){
+  const host=$("mfaPanel"); if(!host||!S.account) return;
+  let st={enabled:false,required:false,recovery_codes_remaining:0};
+  try{ st=await PSApi.get("/mfa/status"); }catch(e){}
+  S._mfa=st;
+  const badge = st.enabled
+    ? `<span class="tag grn">Enabled ✓</span>`
+    : (st.required?`<span class="tag" style="background:var(--red-soft);border-color:var(--red-border);color:var(--red)">Required — not set up</span>`
+                  :`<span class="tag">Optional</span>`);
+  host.innerHTML=`<h5 style="margin-bottom:6px">Two-factor authentication ${badge}</h5>
+    <p class="mut" style="font-size:12.5px;margin-bottom:10px">
+      ${st.required
+        ? "Your account has Super-Admin privileges, so 2FA is mandatory. Privileged actions stay blocked until you finish setup."
+        : "Adds a second step at sign-in using an authenticator app (Google Authenticator, 1Password, Authy)."}
+    </p>
+    ${st.enabled
+      ? `<div class="mini-rows">
+           <div><span>Status</span><b>Active</b></div>
+           <div><span>Unused recovery codes</span><b>${st.recovery_codes_remaining}</b></div>
+         </div>
+         ${st.required?`<p class="mut" style="font-size:12.5px;margin-top:10px">2FA can't be turned off on a Super-Admin account.</p>`
+           :`<div style="margin-top:12px"><button class="btn btn-danger btn-sm" onclick="mfaDisable()">Turn off 2FA</button></div>`}`
+      : `<div id="mfa-setup">
+           <button class="btn btn-p btn-sm" onclick="mfaStart()">Set up 2FA</button>
+         </div>`}
+    <div class="hint-err hide" id="mfa-err"></div>`;
+}
+function _mfaErr(m){ const e=$("mfa-err"); if(e){ e.textContent=m; e.classList.remove("hide"); } }
+async function mfaStart(){
+  const pw=window.prompt("Confirm your password to begin 2FA setup:",""); if(pw===null) return;
+  let r; try{ r=await PSApi.post("/mfa/start",{password:pw}); }
+  catch(e){ _mfaErr(e.message||"Could not start setup"); return; }
+  const host=$("mfa-setup"); if(!host) return;
+  host.innerHTML=`
+    <div class="note blue" style="margin:0 0 10px">
+      <b>Step 1.</b> In your authenticator app choose “add account → enter a setup key”, then paste the key below.
+    </div>
+    <div><label style="font-size:12px;font-weight:700">Setup key</label>
+      <div class="mfa-secret" id="mfa-secret">${esc(r.secret)}</div>
+      <button class="btn btn-o btn-sm" style="margin-top:6px" onclick="copyMfaSecret()">Copy key</button>
+    </div>
+    <div class="note blue" style="margin:12px 0 10px"><b>Step 2.</b> Enter the 6-digit code your app is showing.</div>
+    <div class="frm"><div><label>6-digit code</label>
+      <input type="text" id="mfa-code" inputmode="numeric" maxlength="6" placeholder="123456"
+             onkeydown="if(event.key==='Enter')mfaConfirm()"></div></div>
+    <div style="margin-top:10px"><button class="btn btn-p btn-sm" onclick="mfaConfirm()">Verify &amp; enable</button></div>`;
+}
+function copyMfaSecret(){
+  const s=($("mfa-secret")||{}).textContent||"";
+  if(navigator.clipboard) navigator.clipboard.writeText(s).then(()=>toast("Setup key copied",true),()=>toast("Copy failed — select it manually"));
+  else toast("Select the key and copy it manually");
+}
+async function mfaConfirm(){
+  const code=(($("mfa-code")||{}).value||"").trim();
+  if(code.length<6){ _mfaErr("Enter the 6-digit code from your app."); return; }
+  let r; try{ r=await PSApi.post("/mfa/confirm",{code}); }
+  catch(e){ _mfaErr(e.message||"That code wasn't accepted — try the next one."); return; }
+  // Recovery codes are returned exactly once.
+  openModal(`<div class="m-pad"><h3 class="m-title">2FA enabled ✓</h3>
+    <p class="m-sub">Save these recovery codes now — they're shown <b>once</b>, and each works once. They're your way back in if you lose your authenticator device.</p>
+    <div class="recovery-codes">${(r.recovery_codes||[]).map(c=>`<code>${esc(c)}</code>`).join("")}</div>
+    <div class="m-actions">
+      <button class="btn btn-o" onclick="copyRecoveryCodes()">Copy all</button>
+      <button class="btn btn-p" onclick="closeModal();openAccount()">I've saved them</button></div></div>`,"narrow");
+  window._recoveryCodes=(r.recovery_codes||[]).join("\n");
+}
+function copyRecoveryCodes(){
+  const t=window._recoveryCodes||"";
+  if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>toast("Recovery codes copied",true),()=>toast("Copy failed"));
+}
+async function mfaDisable(){
+  const pw=window.prompt("Confirm your password:",""); if(pw===null) return;
+  const code=window.prompt("Enter a current 6-digit code:",""); if(code===null) return;
+  try{ await PSApi.post("/mfa/disable",{password:pw,code}); }
+  catch(e){ _mfaErr(e.message||"Could not disable 2FA"); return; }
+  toast("2FA turned off",true); renderMfaPanel();
 }
 /* ---------- "Who we are" profile content (text, links, files) ----------
    Shared by My Account and the campaign-setup wizard: same fields, same
@@ -2949,7 +3071,9 @@ const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggl
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
 openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,
-openAdmin,adminSetRole,adminSuspend,adminUnsuspend,can,loadPerms};
+openAdmin,adminSetRole,adminSuspend,adminUnsuspend,can,loadPerms,
+renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
+adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

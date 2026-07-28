@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import Deal, DealStatus, Notification, User
+from ..permissions import Perm, has_permission
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -48,7 +49,7 @@ def attention_summary(user: User = Depends(get_current_user), db: Session = Depe
     """
     unread = db.query(Notification).filter_by(user_id=user.id, read=False).count()
     review_pending = awaiting_payout = 0
-    if user.is_reviewer:
+    if has_permission(user, Perm.DEAL_VIEW_EVIDENCE):
         review_pending = (db.query(Deal)
                           .filter(Deal.funded_at.isnot(None), Deal.verified_at.is_(None),
                                   Deal.status == DealStatus.PROOF_SUBMITTED).count())

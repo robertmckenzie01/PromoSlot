@@ -230,7 +230,13 @@ def ban_user(user_id: int, body: ReasonIn, request: Request,
 # ------------------------------ listings ------------------------------
 
 def _listing_snapshot(p: Platform) -> dict:
-    return {"suspended": bool(getattr(p, "suspended", False)), "name": p.name}
+    return {"name": p.name, "suspended": p.suspended_at is not None,
+            "suspended_reason": p.suspended_reason}
+
+
+def _campaign_snapshot(c: Campaign) -> dict:
+    return {"title": c.title, "suspended": c.suspended_at is not None,
+            "suspended_reason": c.suspended_reason}
 
 
 @router.post("/listings/{platform_id}/request-changes")
@@ -249,6 +255,66 @@ def listing_request_changes(platform_id: int, body: ReasonIn, request: Request,
                  target_id=p.id, previous_state=_listing_snapshot(p),
                  new_state=_listing_snapshot(p), reason=body.reason, request=request)
     return {"ok": True, "listing_id": p.id}
+
+
+@router.get("/suspended")
+def list_suspended(actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
+                   db: Session = Depends(get_db)):
+    """Suspended listings/campaigns — withheld from the marketplace, restorable."""
+    ls = db.query(Platform).filter(Platform.suspended_at.isnot(None)).all()
+    cs = db.query(Campaign).filter(Campaign.suspended_at.isnot(None)).all()
+    return {
+        "listings": [{"id": p.id, "name": p.name, "owner_id": p.owner_id,
+                      "suspended_reason": p.suspended_reason,
+                      "suspended_at": p.suspended_at.isoformat() if p.suspended_at else None}
+                     for p in ls],
+        "campaigns": [{"id": c.id, "title": c.title, "business_id": c.business_id,
+                       "suspended_reason": c.suspended_reason,
+                       "suspended_at": c.suspended_at.isoformat() if c.suspended_at else None}
+                      for c in cs],
+    }
+
+
+@router.post("/listings/{platform_id}/suspend")
+def listing_suspend(platform_id: int, body: ReasonIn, request: Request,
+                    actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
+                    db: Session = Depends(get_db)):
+    """Hide a listing from the marketplace without deleting it (reversible)."""
+    from ..models import Notification
+    p = db.get(Platform, platform_id)
+    if p is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    before = _listing_snapshot(p)
+    p.suspended_at = datetime.utcnow()
+    p.suspended_reason = body.reason.strip()
+    db.add(Notification(user_id=p.owner_id, type="listing_suspended",
+                        body=f"Your listing “{p.name}” has been suspended: {body.reason.strip()}",
+                        ref=f"p{p.id}"))
+    db.commit(); db.refresh(p)
+    audit.record(db, actor=actor, action="listing.suspend", target_type="listing",
+                 target_id=p.id, previous_state=before, new_state=_listing_snapshot(p),
+                 reason=body.reason, request=request)
+    return {"ok": True, "listing_id": p.id, "suspended": True}
+
+
+@router.post("/listings/{platform_id}/unsuspend")
+def listing_unsuspend(platform_id: int, body: ReasonIn, request: Request,
+                      actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
+                      db: Session = Depends(get_db)):
+    from ..models import Notification
+    p = db.get(Platform, platform_id)
+    if p is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    before = _listing_snapshot(p)
+    p.suspended_at = None
+    p.suspended_reason = None
+    db.add(Notification(user_id=p.owner_id, type="listing_restored",
+                        body=f"Your listing “{p.name}” is live again.", ref=f"p{p.id}"))
+    db.commit(); db.refresh(p)
+    audit.record(db, actor=actor, action="listing.unsuspend", target_type="listing",
+                 target_id=p.id, previous_state=before, new_state=_listing_snapshot(p),
+                 reason=body.reason, request=request)
+    return {"ok": True, "listing_id": p.id, "suspended": False}
 
 
 @router.post("/listings/{platform_id}/remove")
@@ -288,6 +354,48 @@ def campaign_request_changes(campaign_id: int, body: ReasonIn, request: Request,
                  target_id=c.id, previous_state={"title": c.title},
                  new_state={"title": c.title}, reason=body.reason, request=request)
     return {"ok": True, "campaign_id": c.id}
+
+
+@router.post("/campaigns/{campaign_id}/suspend")
+def campaign_suspend(campaign_id: int, body: ReasonIn, request: Request,
+                     actor: User = Depends(RequirePerm(Perm.CAMPAIGN_SUSPEND)),
+                     db: Session = Depends(get_db)):
+    """Hide a campaign from the marketplace without deleting it (reversible)."""
+    from ..models import Notification
+    c = db.get(Campaign, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    before = _campaign_snapshot(c)
+    c.suspended_at = datetime.utcnow()
+    c.suspended_reason = body.reason.strip()
+    db.add(Notification(user_id=c.business_id, type="campaign_suspended",
+                        body=f"Your campaign “{c.title}” has been suspended: {body.reason.strip()}",
+                        ref=f"c{c.id}"))
+    db.commit(); db.refresh(c)
+    audit.record(db, actor=actor, action="campaign.suspend", target_type="campaign",
+                 target_id=c.id, previous_state=before, new_state=_campaign_snapshot(c),
+                 reason=body.reason, request=request)
+    return {"ok": True, "campaign_id": c.id, "suspended": True}
+
+
+@router.post("/campaigns/{campaign_id}/unsuspend")
+def campaign_unsuspend(campaign_id: int, body: ReasonIn, request: Request,
+                       actor: User = Depends(RequirePerm(Perm.CAMPAIGN_SUSPEND)),
+                       db: Session = Depends(get_db)):
+    from ..models import Notification
+    c = db.get(Campaign, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    before = _campaign_snapshot(c)
+    c.suspended_at = None
+    c.suspended_reason = None
+    db.add(Notification(user_id=c.business_id, type="campaign_restored",
+                        body=f"Your campaign “{c.title}” is live again.", ref=f"c{c.id}"))
+    db.commit(); db.refresh(c)
+    audit.record(db, actor=actor, action="campaign.unsuspend", target_type="campaign",
+                 target_id=c.id, previous_state=before, new_state=_campaign_snapshot(c),
+                 reason=body.reason, request=request)
+    return {"ok": True, "campaign_id": c.id, "suspended": False}
 
 
 @router.post("/campaigns/{campaign_id}/remove")

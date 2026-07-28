@@ -116,6 +116,10 @@ class Platform(Base):
     verified = Column(Boolean, default=False, nullable=False)  # only by human review
     image_path = Column(String)                  # listing picture
     image_content_type = Column(String)
+    # Moderation: a softer option than removal — hidden from the marketplace
+    # but preserved, and restorable by a Super-Admin.
+    suspended_at = Column(DateTime)
+    suspended_reason = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -159,6 +163,9 @@ class Campaign(Base):
     terms = Column(JSON, default=dict)
     image_path = Column(String)                  # campaign picture
     image_content_type = Column(String)
+    # Moderation: hidden from the marketplace but preserved and restorable.
+    suspended_at = Column(DateTime)
+    suspended_reason = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 

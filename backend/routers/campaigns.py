@@ -81,6 +81,8 @@ def campaign_dict(db: Session, c: Campaign) -> dict:
         # identity avatar; neither ever defaults to the other.
         "image_url": f"/campaigns/{c.id}/image" if c.image_path else None,
         "has_own_image": bool(c.image_path),
+        "suspended": c.suspended_at is not None,
+        "suspended_reason": c.suspended_reason,
         "companyAvatar": f"/users/{c.business_id}/avatar" if (biz and biz.avatar_path) else None,
     }
 
@@ -111,7 +113,9 @@ def create_campaign(body: CampaignCreateIn, user: User = Depends(get_current_use
 
 @router.get("")
 def browse_campaigns(db: Session = Depends(get_db)):
-    rows = db.query(Campaign).order_by(Campaign.id.desc()).all()
+    """Public marketplace — suspended campaigns are withheld (not deleted)."""
+    rows = (db.query(Campaign).filter(Campaign.suspended_at.is_(None))
+            .order_by(Campaign.id.desc()).all())
     return [campaign_dict(db, c) for c in rows]
 
 
@@ -238,6 +242,8 @@ def apply_to_campaign(campaign_id: int, body: ApplyIn,
         raise HTTPException(status_code=404, detail="Campaign not found")
     if c.business_id == user.id:
         raise HTTPException(status_code=422, detail="You can't apply to your own campaign")
+    if c.suspended_at is not None:
+        raise HTTPException(status_code=409, detail="This campaign is suspended and not accepting applications.")
 
     # One live application per owner per campaign (a declined one may be re-applied).
     existing = (db.query(Deal)

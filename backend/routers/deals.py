@@ -93,6 +93,15 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
         raise HTTPException(status_code=404, detail="Platform owner not found")
     if owner.id == user.id:
         raise HTTPException(status_code=422, detail="Cannot open a deal with yourself")
+    # A suspended owner or listing cannot transact.
+    if owner.suspended_at is not None or owner.banned_at is not None:
+        raise HTTPException(status_code=409, detail="That platform owner is not currently available.")
+    listing_ref = (body.terms or {}).get("listing_id")
+    if listing_ref and str(listing_ref).startswith("p"):
+        from ..models import Platform as _P
+        _p = db.get(_P, int(str(listing_ref)[1:]))
+        if _p is not None and _p.suspended_at is not None:
+            raise HTTPException(status_code=409, detail="That listing is suspended and cannot be booked.")
 
     d = Deal(
         business_id=user.id,
@@ -123,8 +132,10 @@ def get_deal(deal_id: int, user: User = Depends(get_current_user), db: Session =
     d = db.get(Deal, deal_id)
     if d is None:
         raise HTTPException(status_code=404, detail="Deal not found")
-    # Parties can view; reviewers can view (read-only) to verify delivery.
-    if user.id not in (d.business_id, d.platform_owner_id) and not user.is_reviewer:
+    # Parties can view; admins with evidence-review rights can view read-only.
+    from ..permissions import Perm, has_permission
+    if (user.id not in (d.business_id, d.platform_owner_id)
+            and not has_permission(user, Perm.DEAL_VIEW_EVIDENCE)):
         raise HTTPException(status_code=403, detail="Not a party to this deal")
     return deal_dict(d)
 

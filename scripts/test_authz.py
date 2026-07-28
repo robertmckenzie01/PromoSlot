@@ -192,6 +192,25 @@ def main():
     check("SUPER_ADMIN release big payout allowed past threshold (fails later on Stripe/account)",
           call(c_su, "POST", f"/review/deals/{big_id}/release", RM)[0], [409, 502])
 
+    print("\n--- Listing / campaign suspension (super-admin only) ---")
+    check("ADMIN suspend listing", call(c_ad, "POST", f"/admin/listings/{plat_id}/suspend", R)[0], 403)
+    # By now this USER has been suspended above, so their session is revoked:
+    # 401 (no session) is an even stronger denial than 403. Accept either.
+    check("USER suspend listing",
+          call(c_usr, "POST", f"/admin/listings/{plat_id}/suspend", R)[0], [401, 403])
+    check("ADMIN view suspended list", call(c_ad, "GET", "/admin/suspended")[0], 403)
+    before = len(call(c_su, "GET", "/platforms")[1] or [])
+    check("SUPER_ADMIN suspend listing",
+          call(c_su, "POST", f"/admin/listings/{plat_id}/suspend", RM)[0], 200)
+    after = len(call(c_su, "GET", "/platforms")[1] or [])
+    check("suspended listing hidden from marketplace", after, before - 1)
+    st, susp = call(c_su, "GET", "/admin/suspended")
+    check("appears in suspended list", any(x["id"] == plat_id for x in susp["listings"]), True)
+    check("SUPER_ADMIN restore listing",
+          call(c_su, "POST", f"/admin/listings/{plat_id}/unsuspend", RM)[0], 200)
+    check("restored listing back in marketplace",
+          len(call(c_su, "GET", "/platforms")[1] or []), before)
+
     print("\n--- Suspended admin loses access immediately ---")
     c_ad2 = login("admin2@authz.example", PW)
     check("admin2 can read queue before suspension", call(c_ad2, "GET", "/review/queue")[0], 200)

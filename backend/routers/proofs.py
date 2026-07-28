@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
+from ..permissions import Perm, has_permission
 from ..models import Deal, DealStatus, Notification, Proof, User
 from ..storage import save_proof_file
 
@@ -103,7 +104,7 @@ def submit_proof(
 @router.get("/deals/{deal_id}/proofs")
 def list_proofs(deal_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     d = _deal_or_404(db, deal_id)
-    if not (_is_party(d, user) or user.is_reviewer):
+    if not (_is_party(d, user) or has_permission(user, Perm.DEAL_VIEW_EVIDENCE)):
         raise HTTPException(status_code=403, detail="Not permitted")
     rows = db.query(Proof).filter_by(deal_id=d.id).order_by(Proof.id.desc()).all()
     return [proof_dict(p) for p in rows]
@@ -113,7 +114,7 @@ def list_proofs(deal_id: int, user: User = Depends(get_current_user), db: Sessio
 def get_proof_file(deal_id: int, proof_id: int, user: User = Depends(get_current_user),
                    db: Session = Depends(get_db)):
     d = _deal_or_404(db, deal_id)
-    if not (_is_party(d, user) or user.is_reviewer):
+    if not (_is_party(d, user) or has_permission(user, Perm.DEAL_VIEW_EVIDENCE)):
         raise HTTPException(status_code=403, detail="Not permitted")
     p = db.get(Proof, proof_id)
     if p is None or p.deal_id != d.id:

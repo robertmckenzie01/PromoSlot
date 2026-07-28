@@ -79,6 +79,8 @@ def listing_dict(db: Session, p: Platform) -> dict:
         # identity avatar; neither ever defaults to the other.
         "image_url": f"/platforms/{p.id}/image" if p.image_path else None,
         "has_own_image": bool(p.image_path),
+        "suspended": p.suspended_at is not None,
+        "suspended_reason": p.suspended_reason,
         "ownerAvatar": f"/users/{p.owner_id}/avatar" if (owner and owner.avatar_path) else None,
     }
 
@@ -112,7 +114,9 @@ def create_platform(body: PlatformCreateIn, user: User = Depends(get_current_use
 
 @router.get("")
 def browse_platforms(db: Session = Depends(get_db)):
-    rows = db.query(Platform).order_by(Platform.id.desc()).all()
+    """Public marketplace — suspended listings are withheld (not deleted)."""
+    rows = (db.query(Platform).filter(Platform.suspended_at.is_(None))
+            .order_by(Platform.id.desc()).all())
     return [listing_dict(db, p) for p in rows]
 
 
