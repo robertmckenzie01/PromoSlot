@@ -1557,7 +1557,7 @@ function startWizard(kind){
     return;
   }
   W={kind,d:defW(),i:0}; lastPct=0;
-  if(kind==="biz") W.steps=["b-intent","b-company","b-target","b-budget","b-review"];
+  if(kind==="biz") W.steps=["b-intent","b-company","b-target","b-budget","b-who","b-review"];
   else if(kind==="plat") W.steps=["p-intent","p-reg","p-aud","p-serv","p-review"];
   else W.steps=["x-intent","x-order"];
   renderWiz("fwd");
@@ -1631,6 +1631,26 @@ function wizStepHtml(step){
         ${extra?`<div class="row2">${extra}</div>`:""}</div>`,
       collect:()=>{d.budget=$("w-budget").value; d.duration=$("w-dur").value; if($("w-comm"))d.commission=$("w-comm").value; if($("w-prize"))d.prize=$("w-prize").value; if($("w-ugc"))d.ugcCount=$("w-ugc").value; if($("w-amb"))d.ambTerm=$("w-amb").value;},
       valid:()=>d.payMethods.size?null:"Select at least one payment method."};}
+    case "b-who": {
+      // Same "who we are" record as My Account — loaded once, saved on Next.
+      if(!W.d.whoLoaded){
+        W.d.whoLoaded="loading";
+        PSApi.get(`/users/${S.account.id}/public`)
+          .then(p=>{ W.d.who={about_text:p.about_text||"",links:p.links||[],assets:p.assets||[]}; W.d.whoLoaded=true; renderWiz(); })
+          .catch(()=>{ W.d.who={about_text:"",links:[],assets:[]}; W.d.whoLoaded=true; renderWiz(); });
+      }
+      const p=W.d.who||{about_text:"",links:[],assets:[]};
+      return {t:"Who we are",s:"Platform owners see this when they view your full profile from your campaign. All optional — and it's the same profile you can edit any time from My Account.",h:
+        W.d.whoLoaded===true
+          ? `<div class="frm">${whoEditorHtml("wz",p)}</div>`
+          : `<div class="frm"><div class="sk sk-line" style="width:60%"></div><div class="sk sk-block" style="height:80px;margin-top:10px"></div></div>`,
+        collect:()=>{
+          if(W.d.whoLoaded!==true) return;
+          W.d.who={...(W.d.who||{}), about_text:(($("wz-about")||{}).value||"").trim(), links:collectWhoLinks("wz")};
+          // Persist immediately so it's saved even if they exit before finishing.
+          saveWho("wz").catch(()=>{});
+        }};
+    }
     case "b-review": return {t:"Review your business profile",s:"This is how platform owners will see you. Your first campaign is created from these answers.",h:
       `<div class="review-card"><div class="rvh"><h4>${esc(d.company)}</h4><small>${esc(d.industry)} · ${esc(d.product)}</small></div>
        <div class="rv-rows">
@@ -2049,7 +2069,7 @@ function renderPlatDash(){
 }
 function openNewCampaign(){
   if(!S.biz){ startWizard("biz"); return; }
-  W={kind:"biz",d:defW(),i:0,steps:["b-intent","b-company","b-target","b-budget","b-review"]}; lastPct=0;
+  W={kind:"biz",d:defW(),i:0,steps:["b-intent","b-company","b-target","b-budget","b-who","b-review"]}; lastPct=0;
   const b=S.biz; const d=W.d;
   d.company=b.company; d.product=b.product; d.industry=b.industry; d.target=b.target;
   d.intentsB=new Set(b.intents); d.countries=new Set(b.countries); d.platforms=new Set(b.platforms); d.services=new Set(b.services); d.sizes=new Set(b.sizes); d.budget=String(b.budget); d.payMethods=new Set(b.payMethods); d.duration=b.duration;
@@ -2402,68 +2422,78 @@ function openAccount(){
     </div>`;
   renderWhoWeAre();
 }
-/* ---------- "Who we are" profile content (text, links, files) ---------- */
-function linkRowHtml(idx,l){
-  l=l||{label:"",url:""};
+/* ---------- "Who we are" profile content (text, links, files) ----------
+   Shared by My Account and the campaign-setup wizard: same fields, same
+   endpoints, one underlying record — edit it in either place.            */
+function linkRowHtml(idx,l,prefix){
+  prefix=prefix||"lk"; l=l||{label:"",url:""};
   return `<div class="link-row" data-idx="${idx}">
-    <div class="row2"><div><label>Label</label><input type="text" id="lk-label-${idx}" value="${esc(l.label||"")}" placeholder="Instagram"></div>
-    <div><label>URL</label><input type="text" id="lk-url-${idx}" value="${esc(l.url||"")}" placeholder="https://…"></div></div></div>`;
+    <div class="row2"><div><label>Label</label><input type="text" id="${prefix}-label-${idx}" value="${esc(l.label||"")}" placeholder="Instagram"></div>
+    <div><label>URL</label><input type="text" id="${prefix}-url-${idx}" value="${esc(l.url||"")}" placeholder="https://…"></div></div></div>`;
 }
-function addLinkRow(){
-  const w=$("lk-rows"); if(!w) return;
-  w.insertAdjacentHTML("beforeend", linkRowHtml(w.querySelectorAll(".link-row").length));
+function addLinkRow(prefix){
+  prefix=prefix||"lk";
+  const w=$(prefix+"-rows"); if(!w) return;
+  w.insertAdjacentHTML("beforeend", linkRowHtml(w.querySelectorAll(".link-row").length,null,prefix));
+}
+function collectWhoLinks(prefix){
+  prefix=prefix||"lk";
+  const links=[];
+  document.querySelectorAll(`#${prefix}-rows .link-row`).forEach(r=>{
+    const i=r.dataset.idx;
+    const url=(($(`${prefix}-url-${i}`)||{}).value||"").trim();
+    const label=(($(`${prefix}-label-${i}`)||{}).value||"").trim();
+    if(url) links.push({label,url});
+  });
+  return links;
+}
+function whoEditorHtml(prefix,p){
+  const links=(p.links&&p.links.length)?p.links:[{label:"",url:""}];
+  return `<div><label>About you / your business</label><textarea id="${prefix}-about" placeholder="Who you are, what you do, what you're looking for…">${esc(p.about_text||"")}</textarea></div>
+    <div><label>Links (social media, website — no limit)</label>
+      <div id="${prefix}-rows">${links.map((l,i)=>linkRowHtml(i,l,prefix)).join("")}</div>
+      <div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="addLinkRow('${prefix}')">＋ add another link</button></div></div>
+    <div><label>Files &amp; images</label>
+      ${(p.assets&&p.assets.length)?`<div class="work-grid" style="margin:6px 0">${p.assets.map(a=>`<div>${a.is_image
+          ? `<a href="${a.url}" target="_blank" rel="noopener" class="proof-thumb"><img src="${a.url}" alt="${esc(a.title)}"></a>`
+          : `<a href="${a.url}" target="_blank" rel="noopener" class="btn btn-o btn-sm">📄 ${esc(a.title)}</a>`}
+        <button type="button" class="btn btn-danger btn-sm" style="margin-top:6px" onclick="deleteAsset(${a.id},'${prefix}')">Delete</button></div>`).join("")}</div>`
+        :`<p class="mut" style="font-size:12.5px;margin:6px 0">No files yet.</p>`}
+      <label class="btn btn-o btn-sm" for="${prefix}-asset">＋ Add file or image</label>
+      <input type="file" id="${prefix}-asset" class="pf-file-input" onchange="uploadAsset('${prefix}')"></div>`;
+}
+async function saveWho(prefix){
+  const about_text=(($(prefix+"-about")||{}).value||"").trim();
+  return PSApi.post("/me/profile",{about_text,links:collectWhoLinks(prefix)});
 }
 async function renderWhoWeAre(){
   const host=$("whoPanel"); if(!host||!S.account) return;
   let p={about_text:"",links:[],assets:[]};
   try{ p=await PSApi.get(`/users/${S.account.id}/public`); }catch(e){}
   S._who=p;
-  const links=(p.links&&p.links.length)?p.links:[{label:"",url:""}];
   host.innerHTML=`<h5 style="margin-bottom:6px">Who we are — public profile</h5>
-    <p class="mut" style="font-size:12.5px;margin-bottom:10px">Shown to anyone viewing your profile from a campaign or listing. Add as much as you like — all optional, all editable any time (including during campaign setup).</p>
-    <div class="frm">
-      <div><label>About you / your business</label><textarea id="who-about" placeholder="Who you are, what you do, what you're looking for…">${esc(p.about_text||"")}</textarea></div>
-      <div><label>Links (social media, website — no limit)</label>
-        <div id="lk-rows">${links.map((l,i)=>linkRowHtml(i,l)).join("")}</div>
-        <div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="addLinkRow()">＋ add another link</button></div></div>
-      <div class="hint-err hide" id="who-err"></div>
-    </div>
-    <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="saveWhoWeAre()">Save profile</button></div>
-    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
-      <label style="font-size:12px;font-weight:700">Files &amp; images</label>
-      ${(p.assets&&p.assets.length)?`<div class="work-grid" style="margin:8px 0">${p.assets.map(a=>`<div>${a.is_image
-          ? `<a href="${a.url}" target="_blank" rel="noopener" class="proof-thumb"><img src="${a.url}" alt="${esc(a.title)}"></a>`
-          : `<a href="${a.url}" target="_blank" rel="noopener" class="btn btn-o btn-sm">📄 ${esc(a.title)}</a>`}
-        <button class="btn btn-danger btn-sm" style="margin-top:6px" onclick="deleteAsset(${a.id})">Delete</button></div>`).join("")}</div>`
-        :`<p class="mut" style="font-size:12.5px;margin:6px 0">No files yet.</p>`}
-      <label class="btn btn-o btn-sm" for="who-asset">＋ Add file or image</label>
-      <input type="file" id="who-asset" class="pf-file-input" onchange="uploadAsset()">
-    </div>`;
+    <p class="mut" style="font-size:12.5px;margin-bottom:10px">Shown to anyone viewing your profile from a campaign or listing. Add as much as you like — all optional, and editable here or during campaign setup (it's the same profile).</p>
+    <div class="frm">${whoEditorHtml("who",p)}<div class="hint-err hide" id="who-err"></div></div>
+    <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="saveWhoWeAre()">Save profile</button></div>`;
 }
 async function saveWhoWeAre(){
-  const about_text=($("who-about").value||"").trim();
-  const links=[];
-  document.querySelectorAll("#lk-rows .link-row").forEach(r=>{
-    const i=r.dataset.idx;
-    const url=(($("lk-url-"+i)||{}).value||"").trim();
-    const label=(($("lk-label-"+i)||{}).value||"").trim();
-    if(url) links.push({label,url});
-  });
   const err=$("who-err"); if(err) err.classList.add("hide");
-  try{ await PSApi.post("/me/profile",{about_text,links}); }
+  try{ await saveWho("who"); }
   catch(e){ if(err){err.textContent=e.message||"Could not save";err.classList.remove("hide");} return; }
   toast("Profile saved ✓",true); renderWhoWeAre();
 }
-async function uploadAsset(){
-  const f=$("who-asset")&&$("who-asset").files[0]; if(!f) return;
+async function uploadAsset(prefix){
+  prefix=prefix||"who";
+  const inp=$(prefix+"-asset"); const f=inp&&inp.files[0]; if(!f) return;
   const fd=new FormData(); fd.append("file",f);
   try{ await PSApi.postForm("/me/assets",fd); }catch(e){ toast(e.message||"Upload failed"); return; }
-  toast("Added ✓",true); renderWhoWeAre();
+  toast("Added ✓",true);
+  if(prefix==="wz") renderWiz(); else renderWhoWeAre();
 }
-async function deleteAsset(id){
+async function deleteAsset(id,prefix){
   if(!confirm("Delete this file?")) return;
   try{ await PSApi.del(`/me/assets/${id}`); }catch(e){ toast(e.message||"Delete failed"); return; }
-  renderWhoWeAre();
+  if(prefix==="wz") renderWiz(); else renderWhoWeAre();
 }
 async function uploadAvatar(){
   const f=$("acct-avatar")&&$("acct-avatar").files[0]; if(!f) return;
