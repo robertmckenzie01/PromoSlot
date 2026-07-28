@@ -18,6 +18,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import audit
@@ -129,6 +130,28 @@ def list_admins(actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
                 db: Session = Depends(get_db)):
     rows = (db.query(User).filter(User.role.in_(Role.PRIVILEGED))
             .order_by(User.id.asc()).all())
+    return [user_admin_dict(u) for u in rows]
+
+
+@router.get("/users/search")
+def search_users(q: str = "", limit: int = 20,
+                 actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
+                 db: Session = Depends(get_db)):
+    """Find an existing account by email or name, to promote/manage it.
+
+    Super-Admin only (ADMIN_VIEW). Requires a real query — this is a lookup,
+    not a bulk export of the member list.
+    """
+    term = (q or "").strip().lower()
+    if len(term) < 2:
+        raise HTTPException(status_code=422,
+                            detail="Enter at least 2 characters to search.")
+    like = f"%{term}%"
+    rows = (db.query(User)
+            .filter(func.lower(User.email).like(like) |
+                    func.lower(func.coalesce(User.display_name, "")).like(like))
+            .order_by(User.id.asc())
+            .limit(min(max(limit, 1), 50)).all())
     return [user_admin_dict(u) for u in rows]
 
 

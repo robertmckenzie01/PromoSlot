@@ -2460,12 +2460,13 @@ async function openAdmin(tab){
         </div></div>`).join("")
         :`<div class="empty-state"><div class="es-ico">🛡️</div><h4>No admins yet</h4></div>`}
       </div></div>
-      <div class="panel"><div class="panel-h"><h4>Grant a role</h4></div><div class="panel-b">
-        <div class="frm"><div class="row2">
-          <div><label>User ID</label><input type="number" id="ad-uid" placeholder="e.g. 7"></div>
-          <div><label>Role</label><select id="ad-role"><option value="ADMIN">Admin</option><option value="USER">User (remove admin)</option></select></div>
-        </div></div>
-        <div style="margin-top:10px"><button class="btn btn-p btn-sm" onclick="adminSetRole(parseInt(($('ad-uid')||{}).value,10),($('ad-role')||{}).value)">Assign role</button></div>
+      <div class="panel"><div class="panel-h"><h4>Find a member to promote</h4></div><div class="panel-b">
+        <p class="mut" style="font-size:12.5px;margin-bottom:10px">Search an existing account by email or name, then promote it to Admin. You'll confirm with your password and authenticator code, and the change is written to the audit log.</p>
+        <div class="frm"><div><label>Search by email or name</label>
+          <input type="text" id="ad-search" placeholder="e.g. sam@ or Sam Taylor"
+                 onkeydown="if(event.key==='Enter')adminSearchUsers()"></div></div>
+        <div style="margin-top:10px"><button class="btn btn-p btn-sm" onclick="adminSearchUsers()">Search</button></div>
+        <div id="ad-results" style="margin-top:12px"></div>
       </div></div>`;
   } else if(tab==="moderation"){
     const sus=mods.suspended||{listings:[],campaigns:[]};
@@ -2510,6 +2511,33 @@ async function openAdmin(tab){
       <span class="status-pill st-review">${esc(S.myRole==="SUPER_ADMIN"?"Super-Admin":"Admin")}</span></div>
     <div class="det-tabs">${[["admins","Admins"],["moderation","Moderation"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
     ${body}`;
+}
+// Look up an existing member by email/name so real team members can be promoted
+// without knowing their numeric id.
+async function adminSearchUsers(){
+  const host=$("ad-results"); if(!host) return;
+  const q=(($("ad-search")||{}).value||"").trim();
+  if(q.length<2){ host.innerHTML=`<p class="mut" style="font-size:12.5px">Enter at least 2 characters.</p>`; return; }
+  host.innerHTML=`<p class="mut" style="font-size:12.5px"><span class="spin"></span> Searching…</p>`;
+  let rows=[];
+  try{ rows=await PSApi.get(`/admin/users/search?q=${encodeURIComponent(q)}`); }
+  catch(e){ host.innerHTML=`<p class="hint-err">${esc(e.message||"Search failed")}</p>`; return; }
+  if(!rows.length){ host.innerHTML=`<p class="mut" style="font-size:12.5px">No accounts match “${esc(q)}”.</p>`; return; }
+  host.innerHTML=rows.map(u=>{
+    const isSelf = S.account && u.id===S.account.id;
+    let action;
+    if(isSelf) action=`<span class="mut" style="font-size:12.5px">That's you — you can't change your own role.</span>`;
+    else if(u.role==="SUPER_ADMIN") action=`<span class="mut" style="font-size:12.5px">Super-Admin</span>`;
+    else if(u.role==="ADMIN") action=`<button class="btn btn-ghost btn-sm" onclick="adminSetRole(${u.id},'USER')">Remove admin</button>`;
+    else action=`<button class="btn btn-p btn-sm" onclick="adminSetRole(${u.id},'ADMIN')">Promote to Admin</button>`;
+    const what=[u.is_business?"business":null,u.is_platform_owner?"platform owner":null]
+      .filter(Boolean).join(" · ")||"member";
+    return `<div class="deal-row" style="cursor:default">
+      ${pfp(u.display_name||u.email,null)}
+      <div><div class="dr-t">${esc(u.display_name||u.email)} ${roleBadge(u.role)}</div>
+        <div class="dr-s">${esc(u.email)} · ${what}${u.suspended?" · <b>suspended</b>":""}</div></div>
+      <div class="btn-row">${action}</div></div>`;
+  }).join("");
 }
 async function _modAction(path, okMsg){
   const c=adminCreds(); if(!c) return;
@@ -3071,7 +3099,7 @@ const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggl
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
 openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,
-openAdmin,adminSetRole,adminSuspend,adminUnsuspend,can,loadPerms,
+openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
 renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign};
 Object.assign(window,EXPORTS);

@@ -192,6 +192,22 @@ def main():
     check("SUPER_ADMIN release big payout allowed past threshold (fails later on Stripe/account)",
           call(c_su, "POST", f"/review/deals/{big_id}/release", RM)[0], [409, 502])
 
+    print("\n--- User lookup for promotion (super-admin only) ---")
+    check("USER search users", call(c_usr, "GET", "/admin/users/search?q=authz")[0], [401, 403])
+    check("ADMIN search users", call(c_ad, "GET", "/admin/users/search?q=authz")[0], 403)
+    st, found = call(c_su, "GET", "/admin/users/search?q=user@authz")
+    check("SUPER_ADMIN search users", st, 200)
+    check("search finds the account", any(u["email"] == "user@authz.example" for u in (found or [])), True)
+    check("search rejects too-short query", call(c_su, "GET", "/admin/users/search?q=a")[0], 422)
+    # promote a found account by id, then demote it again
+    target = [u for u in found if u["email"] == "user@authz.example"][0]
+    check("SUPER_ADMIN promotes searched user",
+          call(c_su, "POST", f"/admin/users/{target['id']}/role", {**RM, "role": "ADMIN"})[0], 200)
+    st, after = call(c_su, "GET", "/admin/users/search?q=user@authz")
+    check("promotion reflected in lookup", after[0]["role"], "ADMIN")
+    check("SUPER_ADMIN demotes them back",
+          call(c_su, "POST", f"/admin/users/{target['id']}/role", {**RM, "role": "USER"})[0], 200)
+
     print("\n--- Listing / campaign suspension (super-admin only) ---")
     check("ADMIN suspend listing", call(c_ad, "POST", f"/admin/listings/{plat_id}/suspend", R)[0], 403)
     # By now this USER has been suspended above, so their session is revoked:
