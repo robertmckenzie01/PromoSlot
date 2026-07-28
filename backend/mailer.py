@@ -23,7 +23,11 @@ def send_email(to: str, subject: str, html: str, text: str = "") -> tuple:
     req = urllib.request.Request(
         _ENDPOINT, data=json.dumps(payload).encode(), method="POST",
         headers={"Authorization": f"Bearer {settings.resend_api_key}",
-                 "Content-Type": "application/json"},
+                 "Content-Type": "application/json",
+                 # An explicit User-Agent is required: the default urllib agent is
+                 # rejected by the API's edge/WAF with a 403 (Cloudflare 1010).
+                 "User-Agent": "PromoSlot/1.0 (+https://promoslot.app)",
+                 "Accept": "application/json"},
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
