@@ -24,6 +24,10 @@ class Settings:
     max_upload_bytes: int = int(os.environ.get("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
     max_video_bytes: int = int(os.environ.get("MAX_VIDEO_BYTES", str(200 * 1024 * 1024)))
 
+    # Payout authority: an ADMIN may release payouts up to this net amount
+    # (pence). Anything larger requires SUPER_ADMIN approval.
+    payout_admin_limit_pence: int = int(os.environ.get("PAYOUT_ADMIN_LIMIT_PENCE", str(50000)))
+
     # Transactional email (Resend) — real password-reset delivery.
     resend_api_key: str = os.environ.get("RESEND_API_KEY", "")
     mail_from: str = os.environ.get("MAIL_FROM", "PromoSlot <onboarding@resend.dev>")

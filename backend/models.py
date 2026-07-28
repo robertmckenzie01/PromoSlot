@@ -24,7 +24,10 @@ class DealStatus:
     FUNDED = "funded"
     IN_DELIVERY = "in_delivery"
     PROOF_SUBMITTED = "proof_submitted"
-    VERIFIED = "verified"
+    UNDER_REVIEW = "under_review"     # an admin has picked up the evidence
+    CHANGES_REQUESTED = "changes_requested"
+    REJECTED = "rejected"
+    VERIFIED = "verified"             # == eligible for payout
     PAID = "paid"
     REFUNDED = "refunded"
     CANCELLED = "cancelled"
@@ -42,6 +45,18 @@ class User(Base):
     # Not self-serve: granted out-of-band (scripts/make_reviewer.py). A reviewer
     # is a human on the PromoSlot side who verifies delivery evidence.
     is_reviewer = Column(Boolean, default=False, nullable=False)
+
+    # ---- Authorization tier (backend permission concept; never a public badge) ----
+    # USER | ADMIN | SUPER_ADMIN. Re-read from the DB on every protected request.
+    role = Column(String, default="USER", nullable=False, index=True)
+    suspended_at = Column(DateTime)             # set -> all power + access revoked
+    suspended_reason = Column(String)
+    banned_at = Column(DateTime)
+    # TOTP multi-factor (mandatory for SUPER_ADMIN) + hashed single-use recovery codes.
+    mfa_secret = Column(String)
+    mfa_enabled = Column(Boolean, default=False, nullable=False)
+    mfa_recovery_codes = Column(JSON, default=list)
+
     # Public "who we are" profile content (editable from My Account / campaign setup).
     about_text = Column(Text)
     links = Column(JSON, default=list)          # [{label, url}, …] — no cap
@@ -305,6 +320,28 @@ class Conversation(Base):
     context_ref = Column(String, index=True)   # "p12" | "c7" | None (general DM)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_message_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class AdminAuditLog(Base):
+    """Immutable record of every administrative action.
+
+    Append-only: database triggers (see the Alembic migration) reject UPDATE and
+    DELETE on this table on both Postgres and SQLite, so the history cannot be
+    rewritten through the ORM, the API, or a direct SQL console.
+    """
+    __tablename__ = "admin_audit_log"
+    id = Column(Integer, primary_key=True)
+    actor_id = Column(Integer, ForeignKey("users.id"), index=True)      # acting admin
+    actor_role = Column(String)
+    action = Column(String, nullable=False, index=True)                 # e.g. "deal.verify"
+    target_type = Column(String)                                        # user | deal | listing | campaign
+    target_id = Column(String, index=True)
+    previous_state = Column(JSON)
+    new_state = Column(JSON)
+    reason = Column(Text)
+    ip_address = Column(String)
+    request_id = Column(String, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
 class ProfileAsset(Base):

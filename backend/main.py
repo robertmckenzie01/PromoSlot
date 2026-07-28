@@ -8,8 +8,8 @@ from fastapi.staticfiles import StaticFiles
 from . import models  # noqa: F401  (ensure models are registered on Base)
 from .config import settings
 from .routers import (
-    auth, campaigns, connect, deals, health, messages, notifications, platforms,
-    profiles, proofs, review, reviews, support, webhooks,
+    admin, auth, campaigns, connect, deals, health, messages, mfa, notifications,
+    platforms, profiles, proofs, review, reviews, support, webhooks,
 )
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
@@ -33,6 +33,8 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(webhooks.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
+app.include_router(mfa.router)
 app.include_router(connect.router)
 app.include_router(deals.router)
 app.include_router(proofs.router)
