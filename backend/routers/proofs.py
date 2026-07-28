@@ -55,6 +55,7 @@ def submit_proof(
     deal_id: int,
     kind: str = Form(...),
     url: Optional[str] = Form(None),
+    views_delivered: Optional[int] = Form(None),
     file: Optional[UploadFile] = File(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -86,6 +87,9 @@ def submit_proof(
         submitted_by=user.id,
     )
     db.add(p)
+    # Owner-reported delivered views, backed by the evidence they just supplied.
+    if views_delivered is not None and views_delivered >= 0:
+        d.views_delivered = views_delivered
     if d.status in (DealStatus.FUNDED, DealStatus.IN_DELIVERY):
         d.status = DealStatus.PROOF_SUBMITTED
     # Real event -> notify the business that evidence was submitted.

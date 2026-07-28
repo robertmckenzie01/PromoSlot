@@ -54,6 +54,10 @@ def deal_dict(d: Deal) -> dict:
         # Real identities of both parties (never "You"), with refs to their profiles.
         "business_name": _name(d.business),
         "owner_name": _name(d.platform_owner),
+        "business_avatar": (f"/users/{d.business_id}/avatar"
+                            if (d.business and d.business.avatar_path) else None),
+        "owner_avatar": (f"/users/{d.platform_owner_id}/avatar"
+                         if (d.platform_owner and d.platform_owner.avatar_path) else None),
         "owner_listing_ref": (f"p{d.platform_id}" if d.platform_id
                               else (d.terms or {}).get("listing_id")),
         "business_approved": d.business_approved,

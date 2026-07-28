@@ -150,6 +150,56 @@ def media_dict(m: PlatformMedia) -> dict:
     }
 
 
+def completed_campaigns_for(db: Session, owner_id: int, platform_id=None) -> list:
+    """Past campaigns derived from genuinely completed (paid) deals.
+
+    One entry per completed deal: the campaign/offer name, the business, the
+    views promised vs delivered, and the review left about the owner for that
+    deal (if any). Updates automatically as deals complete — nothing manual.
+    """
+    from ..models import Campaign, Deal, DealStatus, Review
+
+    q = db.query(Deal).filter(Deal.platform_owner_id == owner_id,
+                              Deal.paid_at.isnot(None),
+                              Deal.status != DealStatus.REFUNDED)
+    if platform_id is not None:
+        q = q.filter(Deal.platform_id == platform_id)
+
+    out = []
+    for d in q.order_by(Deal.paid_at.desc()).all():
+        biz = db.get(User, d.business_id)
+        terms = d.terms or {}
+        name = terms.get("campaign_title") or terms.get("offer") or ""
+        if not name and d.campaign_id:
+            c = db.get(Campaign, d.campaign_id)
+            name = c.title if c else ""
+        rev = (db.query(Review)
+               .filter(Review.deal_id == d.id, Review.reviewee_id == owner_id)
+               .order_by(Review.id.desc()).first())
+        out.append({
+            "deal_id": d.id,
+            "platform_id": d.platform_id,
+            "campaign": name or f"Deal #{d.id}",
+            "business": (biz.display_name or biz.email) if biz else "",
+            "business_id": d.business_id,
+            "views_promised": d.views_promised,
+            "views_delivered": d.views_delivered,
+            "rating": rev.rating if rev else None,
+            "review_text": (rev.text or "") if rev else "",
+            "completed_at": d.paid_at.isoformat() if d.paid_at else None,
+        })
+    return out
+
+
+@router.get("/{platform_id:int}/past-campaigns")
+def platform_past_campaigns(platform_id: int, db: Session = Depends(get_db)):
+    """Public: completed campaigns for this listing (auto-derived from deals)."""
+    p = db.get(Platform, platform_id)
+    if p is None:
+        raise HTTPException(status_code=404, detail="Platform not found")
+    return completed_campaigns_for(db, p.owner_id, platform_id)
+
+
 def _own_platform(db: Session, platform_id: int, user: User) -> Platform:
     p = db.get(Platform, platform_id)
     if p is None:

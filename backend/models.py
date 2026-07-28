@@ -178,6 +178,12 @@ class Deal(Base):
     business_approved = Column(Boolean, default=False, nullable=False)
     owner_approved = Column(Boolean, default=False, nullable=False)
 
+    # Delivery metrics shown on the owner's Past campaigns once completed.
+    # promised: from the agreed terms; delivered: reported by the owner with
+    # their delivery evidence (never inferred or invented).
+    views_promised = Column(Integer)
+    views_delivered = Column(Integer)
+
     # Money-state gates — set ONLY from real confirmed events
     funded_at = Column(DateTime)     # set on payment_intent.succeeded webhook
     verified_at = Column(DateTime)   # set by a human reviewer action

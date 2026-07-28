@@ -138,7 +138,11 @@ function toast(msg,grn){
 }
 function starsHtml(r,c){ if(r==null||c==null||c===0||c==="New"){ return `<span class="stars no-rating">No ratings yet</span>`; } return `<span class="stars">★ ${Number(r).toFixed(1)} <span class="rc">(${c})</span></span>`; }
 function initials(name){ return String(name||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
-function pfp(name,platform,cls){
+// Identity avatar: the member's real uploaded profile picture when they have
+// one, falling back to initials. (Listing/campaign cover images are a separate,
+// optional feature — see image_url — and never replace the identity avatar.)
+function pfp(name,platform,cls,avatarUrl){
+  if(avatarUrl) return `<div class="pfp ${cls||""} has-img" style="background-image:url('${avatarUrl}')"></div>`;
   const col = platform ? PLATFORM_META[platform].color : "var(--acc)";
   return `<div class="pfp ${cls||""}" style="background:${col}">${esc(initials(name))}</div>`;
 }
@@ -425,6 +429,9 @@ async function openListing(id,tab){
     // Reviews are fetched fresh every open so a just-left review shows immediately.
     try{ l._reviews=await PSApi.get(`/users/${l.ownerId}/reviews`); }
     catch(e){ l._reviews=l._reviews||{count:0,average:null,reviews:[]}; }
+    // Completed deals auto-populate Past campaigns — refreshed on every open.
+    try{ l._pastAuto=await PSApi.get(`/platforms/${pid}/past-campaigns`); }
+    catch(e){ l._pastAuto=l._pastAuto||[]; }
   }
   renderListingModal(l,tab);
 }
@@ -491,6 +498,21 @@ async function uploadWork(listingId){
   toast(jobs.length>1?`${jobs.length} work samples added`:"Work sample added",true);
   l._media=null;
   openListing(l.id,"work");
+}
+// A completed campaign, derived automatically from a paid deal. Shows the
+// campaign, the business, views promised vs delivered, and the star review.
+function pastAutoHtml(x){
+  const stars = x.rating ? `<div class="pcs">${"★".repeat(x.rating)}${"☆".repeat(5-x.rating)}</div>` : "";
+  const txt = x.review_text ? `<p class="det-p" style="margin:6px 0 0;font-size:12.5px">“${esc(x.review_text)}”</p>` : "";
+  // Exact figures, not abbreviations — this is a delivery claim, so 12,500 must
+  // not be shown as "13K".
+  const n = v => v!=null ? Number(v).toLocaleString("en-GB") : "—";
+  const views = (x.views_promised!=null || x.views_delivered!=null)
+    ? `<div class="pcs">📈 ${n(x.views_promised)} promised → ${n(x.views_delivered)} delivered</div>`
+    : "";
+  return `<div class="pc"><b>${esc(x.business||"")}</b><small>${esc(x.campaign||"")}</small>
+    ${views}${stars}${txt}
+    <div class="mut" style="font-size:11.5px;margin-top:6px">Completed ${x.completed_at?new Date(x.completed_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""} · verified deal</div></div>`;
 }
 // A My Work sample card: an uploaded video, or a link with its cover image.
 function workCardHtml(l,m,meOwner){
@@ -616,11 +638,14 @@ function renderListingModal(l,tab){
     const past = l.example
       ? (l.past||[]).map(p=>({brand:p.brand,title:p.what,stat:p.stat,video_url:null,id:null}))
       : ((l._media&&l._media.past)||[]);
-    body = `<div class="det-sec"><h5>Past campaigns</h5><div class="pastc">
-      ${past.length?past.map(p=>`<div class="pc"><b>${esc(p.brand||"")}</b><small>${esc(p.title||"")}</small>${p.stat?`<div class="pcs">📈 ${esc(p.stat)}</div>`:""}
+    const auto = l._pastAuto||[];
+    const nothing = !past.length && !auto.length;
+    body = `<div class="det-sec"><h5>Past campaigns${auto.length?` (${auto.length} completed on PromoSlot)`:""}</h5><div class="pastc">
+      ${auto.map(pastAutoHtml).join("")}
+      ${past.map(p=>`<div class="pc"><b>${esc(p.brand||"")}</b><small>${esc(p.title||"")}</small>${p.stat?`<div class="pcs">📈 ${esc(p.stat)}</div>`:""}
         ${p.video_url?`<video controls preload="metadata" src="${p.video_url}" style="width:100%;margin-top:8px;border-radius:8px;background:#000;max-height:260px"></video>`:""}
-        ${meOwner&&p.id?`<button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="deleteMedia('${l.id}',${p.id},'past')">Delete</button>`:""}</div>`).join("")
-        :`<p class="det-p" style="grid-column:1/-1">${meOwner?"Add a previous campaign below — attach a video if you have one.":"No campaigns completed yet — every completed deal appears here automatically with its verified results."}</p>`}
+        ${meOwner&&p.id?`<button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="deleteMedia('${l.id}',${p.id},'past')">Delete</button>`:""}</div>`).join("")}
+      ${nothing?`<p class="det-p" style="grid-column:1/-1">${meOwner?"Add a previous campaign below — attach a video if you have one.":"No campaigns completed yet — every completed deal appears here automatically with its verified results."}</p>`:""}
     </div>${meOwner&&!l.example?mediaUploadForm(l,"past_campaign"):""}
     <div class="note" style="margin-top:14px">Delivery ≠ performance: past results are evidence of reach, not a guarantee of sales or virality — unless written into a funded performance agreement.</div></div>`;
   } else {
@@ -633,7 +658,7 @@ function renderListingModal(l,tab){
         : `<div class="det-sec"><h5>What businesses say</h5><div class="empty-state small"><div class="es-ico">📝</div><h4>No reviews yet</h4><p>Reviews appear here once a business completes a deal with ${esc(l.name)} and leaves feedback — every review is tied to a real, funded transaction.</p></div></div>`);
   }
   openModal(`
-    <div class="det-head">${exWrap(pfp(l.name,l.platform),l.example)}
+    <div class="det-head">${exWrap(pfp(l.name,l.platform,"",l.ownerAvatar),l.example)}
       <div class="det-title"><h3>${esc(l.name)} ${l.verified?'<span class="vtick">✔︎ Verified</span>':""}</h3>
         <div class="handle">${esc(l.handle)} · run by <b>${esc(l.brand)}</b> (${esc(l.owner)})</div>
         <div class="metaline">${l.example?'<span class="tag ex-tag">EXAMPLE PROFILE</span>':""}${pbadge(l.platform)}${l.niches.map(n=>`<span class="tag">${esc(n)}</span>`).join("")}${l.example?"":starsHtml(realRevAvg,realRevCount)}</div>
@@ -696,7 +721,7 @@ function applicantsHtml(c, apps){
   if(!apps.length) return `<div class="det-sec"><h5>Applicants</h5><div class="empty-state small"><div class="es-ico">📭</div><h4>No applications yet</h4><p>Platform owners who apply to “${esc(c.title)}” appear here. Each application is a real, escrow-ready deal you can review, approve, and fund.</p></div></div>`;
   return `<div class="det-sec"><h5>${apps.length} applicant${apps.length>1?"s":""}</h5>
     ${apps.map(a=>`<div class="op-row" style="align-items:flex-start;cursor:default">
-      ${pfp(a.applicant,null)}
+      ${pfp(a.applicant,null,"",a.applicant_avatar)}
       <div style="flex:1;min-width:0">
         <b>${esc(a.applicant)}</b>
         <small>Proposes ${gbpP(a.listed_price)} · you'd pay ${gbpP(a.total_charged)} · owner receives ${gbpP(a.net_to_owner)}</small>
@@ -750,7 +775,7 @@ function renderCampaignModal(c,tab){
         : `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}</h5><div class="empty-state small"><div class="es-ico">📝</div><h4>No reviews yet</h4><p>Reviews appear here once a platform owner completes a deal with ${esc(c.company)} and leaves feedback — every review is tied to a real, funded transaction.</p></div></div>`);
   }
   openModal(`
-    <div class="det-head">${exWrap(pfp(c.company,null),c.example)}
+    <div class="det-head">${exWrap(pfp(c.company,null,"",c.companyAvatar),c.example)}
       <div class="det-title"><h3>${esc(c.title)}</h3>
         <div class="handle">by <b>${esc(c.company)}</b> ${c.verified?'<span class="vtick">✔︎ Verified business</span>':""} · ${esc(c.industry)} · posted ${esc(c.posted)}</div>
         <div class="metaline">${c.example?'<span class="tag ex-tag">EXAMPLE CAMPAIGN</span>':starsHtml(c._reviews?cRevAvg:c.rating, c._reviews?cRevCount:c.reviewCount)}<span class="tag grn">${c.budget?gbp(c.budget)+" budget":"Commission only"}</span>${c.example?"":`<span class="tag">${c.applicants} applicants</span>`}</div>
@@ -869,7 +894,7 @@ function renderMessages(showThread){
   }
   const act=S.activeConv;
   const list=convos.map(c=>`<div class="conv ${String(c.id)===String(act)?"on":""}" onclick="openConv(${c.id})">
-      ${pfp(c.other_name,null)}
+      ${pfp(c.other_name,null,"",c.other_avatar)}
       <div class="cv-main"><div class="cv-top"><b>${esc(c.other_name)}</b><span class="cv-time">${msgTime(c.last_at)}</span></div>
       <div class="cv-prev">${c.last_mine&&c.last_body?"You: ":""}${esc(c.last_body||"No messages yet")}</div></div>
       ${c.unread?'<span class="unread-dot"></span>':""}</div>`).join("");
@@ -950,10 +975,31 @@ async function openProfile(userId, backRef){
   let p; try{ p=await PSApi.get(`/users/${userId}/public`); }catch(e){ toast("Couldn't load that profile"); return; }
   const roles=[]; if(p.is_business)roles.push("Business"); if(p.is_platform_owner)roles.push("Platform owner");
   const stars = p.rating!=null ? `⭐ ${p.rating.toFixed(1)} (${p.review_count})` : "No rating yet";
-  const listings = p.listings&&p.listings.length ? `<div class="det-sec"><h5>Listings</h5>${p.listings.map(l=>`<div class="op-row" onclick="closeModal();openListing('${l.id}')">${pfp(l.name,l.platform)}<div><b>${esc(l.name)}</b><small>${esc(l.platform)} · ${fmtN(l.audience)}</small></div><span class="op-go">View →</span></div>`).join("")}</div>` : "";
-  const campaigns = p.campaigns&&p.campaigns.length ? `<div class="det-sec"><h5>Campaigns</h5>${p.campaigns.map(c=>`<div class="op-row" onclick="closeModal();openCampaign('${c.id}')">${pfp(c.company,null)}<div><b>${esc(c.title)}</b><small>${esc(c.company)}</small></div><span class="op-go">View →</span></div>`).join("")}</div>` : "";
+  const listings = p.listings&&p.listings.length ? `<div class="det-sec"><h5>Listings</h5>${p.listings.map(l=>`<div class="op-row" onclick="closeModal();openListing('${l.id}')">${pfp(l.name,l.platform,"",l.ownerAvatar)}<div><b>${esc(l.name)}</b><small>${esc(l.platform)} · ${fmtN(l.audience)}</small></div><span class="op-go">View →</span></div>`).join("")}</div>` : "";
+  // Mirror the listing's sections on the profile: services & pricing, audience
+  // & analytics, My Work, past campaigns — all from the same real data.
+  const svc = (p.listings||[]).filter(l=>(l.services&&l.services.length)||(l.pricing&&l.pricing.length)).map(l=>
+    `<div class="det-sec"><h5>Services &amp; pricing — ${esc(l.name)}</h5>
+      ${l.services&&l.services.length?`<div class="tagrow" style="margin-bottom:8px">${l.services.map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
+      ${(l.pricing||[]).map(pr=>`<div class="offer-row"><span class="tag ind offer-kind">${esc(PM_LABEL[pr.type]||pr.type||"")}</span>
+        <div class="oi"><b>${esc(pr.label||"")}</b><small>${esc(pr.detail||"")}</small></div>
+        <span class="op">${pr.amount>0?gbp(pr.amount):"Quote"}</span></div>`).join("")}</div>`).join("");
+  const aud = (p.listings||[]).map(l=>
+    `<div class="det-sec"><h5>Audience &amp; analytics — ${esc(l.name)} ${l.verified?'<span class="tag grn">Verified ✔</span>':'<span class="tag">Self-reported</span>'}</h5>
+      <div class="statrow big"><div><b>${fmtN(l.audience)}</b><span>Followers</span></div>
+      <div><b>${fmtN(l.avgViews)}</b><span>Avg views</span></div>
+      <div><b>${fmtN(l.impressions)}</b><span>Avg impressions</span></div>
+      <div><b>${l.er}%</b><span>Engagement</span></div></div></div>`).join("");
+  const work = (p.work&&p.work.length) ? `<div class="det-sec"><h5>My Work</h5><div class="work-grid">${p.work.map(m=>{
+      if(m.has_video&&m.video_url) return `<div><video controls preload="metadata" src="${m.video_url}" style="width:100%;border-radius:10px;background:#000;max-height:300px"></video><small class="mut" style="font-size:12.5px">${esc(m.title||"Sample")}</small></div>`;
+      if(m.link_url) return `<div><a href="${esc(m.link_url)}" target="_blank" rel="noopener" class="work-link-card">${m.cover_url?`<img src="${m.cover_url}" alt="${esc(m.title||'sample')}">`:`<div class="work-link-ph">🔗</div>`}<span class="work-link-go">Open link ↗</span></a><small class="mut" style="font-size:12.5px">${esc(m.title||"Sample")}</small></div>`;
+      return "";
+    }).join("")}</div></div>` : "";
+  const pastAuto = (p.past_campaigns&&p.past_campaigns.length)
+    ? `<div class="det-sec"><h5>Past campaigns (${p.past_campaigns.length})</h5><div class="pastc">${p.past_campaigns.map(pastAutoHtml).join("")}</div></div>` : "";
+  const campaigns = p.campaigns&&p.campaigns.length ? `<div class="det-sec"><h5>Campaigns</h5>${p.campaigns.map(c=>`<div class="op-row" onclick="closeModal();openCampaign('${c.id}')">${pfp(c.company,null,"",c.companyAvatar)}<div><b>${esc(c.title)}</b><small>${esc(c.company)}</small></div><span class="op-go">View →</span></div>`).join("")}</div>` : "";
   const reviews = p.reviews&&p.reviews.length
-    ? `<div class="det-sec"><h5>Reviews (${p.review_count})</h5>${p.reviews.map(r=>`<div class="rev-item"><div class="rvtop"><span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span></div>${r.text?`<p>${esc(r.text)}</p>`:""}</div>`).join("")}</div>`
+    ? `<div class="det-sec"><h5>Reviews (${p.review_count})</h5>${p.reviews.map(r=>`<div class="rev-item"><div class="rvtop"><span class="rev-who">${pfp(r.author_name,null,"rev-dot",r.author_avatar)}<b>${esc(r.author_name||"")}</b></span><span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span></div>${r.text?`<p>${esc(r.text)}</p>`:""}</div>`).join("")}</div>`
     : `<div class="det-sec"><h5>Reviews</h5><p class="mut" style="font-size:13px">No reviews yet — a rating appears after a completed deal.</p></div>`;
   const intro = p.intro_video_url ? `<div class="det-sec pintro"><h5>Who we are — video</h5><video controls preload="metadata" src="${p.intro_video_url}"></video></div>` : "";
   const about = p.about_text ? `<div class="det-sec"><h5>Who we are</h5><p class="det-p" style="white-space:pre-wrap">${esc(p.about_text)}</p></div>` : "";
@@ -970,7 +1016,7 @@ async function openProfile(userId, backRef){
       <div class="det-title"><h3>${esc(p.display_name)}</h3>
         <div class="handle">${roles.join(" · ")||"Member"} · ${stars}</div></div>
       <div class="det-actions">${backBtn}</div></div>
-    <div class="det-body">${about}${intro}${links}${assets}${listings}${campaigns}${reviews}</div>`,"wide");
+    <div class="det-body">${about}${intro}${links}${assets}${svc}${aud}${work}${pastAuto}${listings}${campaigns}${reviews}</div>`,"wide");
 }
 async function renderRealDeal(dealId){
   let d;
@@ -1037,6 +1083,8 @@ async function renderRealDeal(dealId){
     <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
       ${meOwner && proofs.length ? `<p class="review-thanks" style="margin-top:10px">Thank you for submitting proof of delivery, your submission will be reviewed by our team shortly</p>` : ""}
       ${meOwner && !d.verified ? `<div class="frm" style="margin-top:10px">
+        <div><label>Views delivered (optional — shown on your Past campaigns)${d.views_promised?` · ${fmtN(d.views_promised)} promised`:""}</label>
+          <input type="number" id="pf-views" min="0" placeholder="e.g. 12500" value="${d.views_delivered!=null?d.views_delivered:""}"></div>
         <div id="pf-slots">${proofSlotHtml(0)}</div>
         <div style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="addProofSlot()">＋ Add another item</button></div>
         <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="realSubmitProof(${d.id})">Submit evidence</button></div>` : ""}</div>
@@ -1178,10 +1226,13 @@ async function realSubmitProof(dealId){
     if(url||file) items.push({kind,url,file});
   });
   if(!items.length){ toast("Add at least one link or file"); return; }
+  const vd=(($("pf-views")||{}).value||"").trim();
   try{
-    for(const it of items){
+    for(let i=0;i<items.length;i++){
+      const it=items[i];
       const fd=new FormData(); fd.append("kind",it.kind||"screenshot");
       if(it.url) fd.append("url",it.url); if(it.file) fd.append("file",it.file);
+      if(i===0 && vd!=="") fd.append("views_delivered", vd);   // owner-reported, once
       await PSApi.postForm(`/deals/${dealId}/proof`, fd);
     }
   }catch(err){ toast(err.message||"Could not submit evidence"); renderRealDeal(dealId); return; }
@@ -1893,7 +1944,7 @@ function dealRows(){
     const stCls=d.paid?"st-done":awaitingPayout?"st-review":d.funded?"st-escrow":"st-review";
     const stLabel=awaitingPayout?"Verified — awaiting payout":esc(d.status);
     return `<div class="deal-row" onclick="showView('view-deal');renderRealDeal(${d.id})">
-      ${pfp(other,d.terms&&d.terms.platform)}<div><div class="dr-t">Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</div>
+      ${pfp(other,d.terms&&d.terms.platform,"",meBiz?d.owner_avatar:d.business_avatar)}<div><div class="dr-t">Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</div>
       <div class="dr-s">${meBiz?"You buy · "+esc(other):"You deliver · "+esc(other)}</div></div>
       <span class="status-pill ${stCls}">${stLabel}</span>
       <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":awaitingPayout?"awaiting payout":d.funded?"in escrow":"pending"}</small></div></div>`;
@@ -2002,10 +2053,10 @@ function renderBizDash(){
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('platforms')">Browse platform listings</button>
         <button class="btn btn-p" onclick="openNewCampaign()">＋ New campaign</button></div></div>
-    <div class="kpis">${kpi({i:0,to:S.myCampaigns.length,label:"Live campaigns",delta:S.myCampaigns.length?"↑ published today":"none yet — post one",cls:S.myCampaigns.length?"up":"neu",spark:"#4f46e5",act:"openMarket('campaigns')"})}${kpi({i:1,to:applicants,label:"Applicants",delta:applicants?"↑ new applications":"awaiting first applications",cls:applicants?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,val:escrowPence?gbpP(escrowPence):"—",to:escrowPence?escrowPence/100:null,pre:"£",dec:2,label:"Secured in escrow",delta:escrowPence?"released on verified delivery":"fund a deal to protect it",cls:"neu",spark:"#4f46e5",act:"openMarket('platforms')"})}${kpi({i:3,to:completedCount,label:"Completed deals",delta:completedCount?"fee only on completion":"none yet",cls:"neu",spark:"#4f46e5"})}    </div>
+    <div class="kpis">${kpi({i:0,to:S.myCampaigns.length,label:"Live campaigns",delta:S.myCampaigns.length?"↑ published today":"none yet — post one",cls:S.myCampaigns.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourCampaigns')"})}${kpi({i:1,to:applicants,label:"Applicants",delta:applicants?"↑ new applications":"awaiting first applications",cls:applicants?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:2,val:escrowPence?gbpP(escrowPence):"—",to:escrowPence?escrowPence/100:null,pre:"£",dec:2,label:"Secured in escrow",delta:escrowPence?"released on verified delivery":"fund a deal to protect it",cls:"neu",spark:"#4f46e5",act:"openMarket('platforms')"})}${kpi({i:3,to:completedCount,label:"Completed deals",delta:completedCount?"fee only on completion":"none yet",cls:"neu",spark:"#4f46e5"})}    </div>
     <div class="panel"><div class="panel-h"><h4>Account growth · spend over time</h4></div><div class="panel-b" id="bizGrowth"></div></div>
     <div class="dash-cols"><div>
-      <div class="panel"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>
+      <div class="panel" id="yourCampaigns"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>
         <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📢</div><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay — platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Start a deal</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
@@ -2042,17 +2093,17 @@ function renderPlatDash(){
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('campaigns')">Browse campaigns</button>
         <button class="btn btn-p" onclick="openRegisterPlatform()">＋ Register another platform</button></div></div>
-    <div class="kpis">${kpi({i:0,to:S.myPlatforms.length,label:"Live listings",delta:S.myPlatforms.length?"live in the marketplace":"list one to get seen",cls:S.myPlatforms.length?"up":"neu",spark:"#4f46e5",act:"openMarket('campaigns')"})}${kpi({i:1,val:earnedPence?gbpP(earnedPence):"—",to:earnedPence?earnedPence/100:null,pre:"£",dec:2,label:"Earned (after 10% seller fee)",delta:earnedPence?`from ${paidReal.length} completed deal${paidReal.length>1?"s":""}`:"complete a deal to earn",cls:earnedPence?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,to:inEscrow,label:"Deals in escrow",delta:inEscrow?"funds secured before you work":"none in escrow",cls:"neu",spark:"#4f46e5",act:"scrollToDeals()"})}${kpi({i:3,val:rAvg!=null?"⭐ "+rAvg.toFixed(1):"—",label:"Your rating",delta:rAvg!=null?`${rCount} review${rCount===1?"":"s"}`:"appears after your first completed deal",cls:rAvg!=null?"up":"neu",spark:"#4f46e5"})}    </div>
+    <div class="kpis">${kpi({i:0,to:S.myPlatforms.length,label:"Live listings",delta:S.myPlatforms.length?"live in the marketplace":"list one to get seen",cls:S.myPlatforms.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourListings')"})}${kpi({i:1,val:earnedPence?gbpP(earnedPence):"—",to:earnedPence?earnedPence/100:null,pre:"£",dec:2,label:"Earned (after 10% seller fee)",delta:earnedPence?`from ${paidReal.length} completed deal${paidReal.length>1?"s":""}`:"complete a deal to earn",cls:earnedPence?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,to:inEscrow,label:"Deals in escrow",delta:inEscrow?"funds secured before you work":"none in escrow",cls:"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:3,val:rAvg!=null?"⭐ "+rAvg.toFixed(1):"—",label:"Your rating",delta:rAvg!=null?`${rCount} review${rCount===1?"":"s"}`:"appears after your first completed deal",cls:rAvg!=null?"up":"neu",spark:"#4f46e5"})}    </div>
     <div class="panel"><div class="panel-h"><h4>Account growth · earnings over time</h4></div><div class="panel-b" id="platGrowth"></div></div>
     <div class="dash-cols"><div>
-      <div class="panel"><div class="panel-h"><h4>Your platform listings</h4><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add platform</button></div>
+      <div class="panel" id="yourListings"><div class="panel-h"><h4>Your platform listings</h4><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add platform</button></div>
         <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📣</div><h4>No listings yet</h4><p>Register each platform you control — its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
         ${S.myPlatforms.length&&S.myPlatforms.length<3?`<div class="note blue" style="margin-top:14px">💡 Owners with multiple listings get seen by more campaigns — list each platform you own separately, each with its own audience and prices. <a href="#" onclick="openRegisterPlatform();return false">Register another platform →</a></div>`:""}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">Find campaigns</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
       <div class="panel"><div class="panel-h"><h4>Activity</h4></div><div class="panel-b">${notifRows()}</div></div>
       <div class="panel"><div class="panel-h"><h4>Campaigns matching your niches</h4></div><div class="panel-b">
-        ${matches.map(c=>`<div class="op-row" style="margin-bottom:8px" onclick="openCampaign('${c.id}')">${pfp(c.company,null)}<div><b>${esc(c.title)}</b><small>${esc(c.company)} · ${c.budget?gbp(c.budget)+" budget":"commission"}</small></div><span class="op-go">Apply →</span></div>`).join("")}
+        ${matches.map(c=>`<div class="op-row" style="margin-bottom:8px" onclick="openCampaign('${c.id}')">${pfp(c.company,null,"",c.companyAvatar)}<div><b>${esc(c.title)}</b><small>${esc(c.company)} · ${c.budget?gbp(c.budget)+" budget":"commission"}</small></div><span class="op-go">Apply →</span></div>`).join("")}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Verification</h4></div><div class="panel-b mini-rows">
         <div><span>Analytics evidence</span><b>${S.myPlatforms.some(p=>p.verified)?'<span style="color:var(--money)">Verified ✔</span>':"Self-reported"}</b></div>
@@ -2193,8 +2244,8 @@ async function openReviewQueue(){
         <div class="dr-amt"><b>${gbpP(item.listed_price)}</b><small>listed</small></div></div>`).join("")
       :`<div class="empty-state"><div class="es-ico">✅</div><h4>Nothing to review</h4><p>Funded deals with submitted evidence appear here for verification.</p></div>`}</div></div>`;
 }
-function scrollToDeals(){
-  const el=$("yourDeals"); if(!el) return;
+function scrollToPanel(id){
+  const el=$(id); if(!el) return;
   // scrollIntoView handles nested scroll containers; scroll-margin-top clears the nav.
   if(el.scrollIntoView) el.scrollIntoView({behavior:"smooth", block:"start"});
   else smoothTo(el);
@@ -2416,6 +2467,16 @@ function openAccount(){
         <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="doChangePassword()">Update password</button></div>
       </div></div>
 
+      ${a.is_platform_owner?`<div class="panel" style="grid-column:1/-1"><div class="panel-b">
+        <h5 style="margin-bottom:6px">Your listings — services, pricing &amp; analytics</h5>
+        <p class="mut" style="font-size:12.5px;margin-bottom:10px">These sections also appear on your public profile. Edit a listing to change what people see.</p>
+        ${(S.myPlatforms||[]).length?(S.myPlatforms||[]).map(l=>`<div class="op-row">${pfp(l.name,l.platform,"",l.ownerAvatar)}
+            <div><b>${esc(l.name)}</b><small>${esc(l.platform)} · ${(l.services||[]).length} service(s) · ${(l.pricing||[]).length} price(s)</small></div>
+            <button class="btn btn-o btn-sm" onclick="openListing('${l.id}')">Open</button></div>`).join("")
+          :`<p class="mut" style="font-size:12.5px">No listings yet.</p>`}
+        <div style="margin-top:10px"><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add a listing</button></div>
+      </div></div>`:""}
+
       <div class="panel" style="grid-column:1/-1"><div class="panel-b" id="whoPanel"></div></div>
 
       <div class="panel"><div class="panel-b" id="supportPanel">${supportFormHtml()}</div></div>
@@ -2471,6 +2532,14 @@ async function renderWhoWeAre(){
   let p={about_text:"",links:[],assets:[]};
   try{ p=await PSApi.get(`/users/${S.account.id}/public`); }catch(e){}
   S._who=p;
+  paintWho(host,p);
+}
+// Re-render from local state so unsaved text/links survive a file add/delete.
+function renderWhoWeArePreserving(){
+  const host=$("whoPanel"); if(!host) return;
+  paintWho(host, S._who||{about_text:"",links:[],assets:[]});
+}
+function paintWho(host,p){
   host.innerHTML=`<h5 style="margin-bottom:6px">Who we are — public profile</h5>
     <p class="mut" style="font-size:12.5px;margin-bottom:10px">Shown to anyone viewing your profile from a campaign or listing. Add as much as you like — all optional, and editable here or during campaign setup (it's the same profile).</p>
     <div class="frm">${whoEditorHtml("who",p)}<div class="hint-err hide" id="who-err"></div></div>
@@ -2482,18 +2551,38 @@ async function saveWhoWeAre(){
   catch(e){ if(err){err.textContent=e.message||"Could not save";err.classList.remove("hide");} return; }
   toast("Profile saved ✓",true); renderWhoWeAre();
 }
+// Snapshot whatever is typed so re-rendering after a file add/delete never
+// discards unsaved text or links — text and files accumulate independently.
+function stashWho(prefix){
+  const about=$(prefix+"-about"); if(!about) return null;
+  return {about_text:about.value||"", links:collectWhoLinks(prefix)};
+}
+async function refreshWho(prefix,stash){
+  let assets=[];
+  try{ const p=await PSApi.get(`/users/${S.account.id}/public`); assets=p.assets||[]; }catch(e){}
+  if(prefix==="wz"){
+    W.d.who={...(W.d.who||{}), ...(stash||{}), assets};
+    renderWiz();
+  } else {
+    S._who={...(S._who||{}), ...(stash||{}), assets};
+    renderWhoWeArePreserving();
+  }
+}
 async function uploadAsset(prefix){
   prefix=prefix||"who";
   const inp=$(prefix+"-asset"); const f=inp&&inp.files[0]; if(!f) return;
+  const stash=stashWho(prefix);          // keep in-progress text/links
   const fd=new FormData(); fd.append("file",f);
   try{ await PSApi.postForm("/me/assets",fd); }catch(e){ toast(e.message||"Upload failed"); return; }
   toast("Added ✓",true);
-  if(prefix==="wz") renderWiz(); else renderWhoWeAre();
+  await refreshWho(prefix,stash);
 }
 async function deleteAsset(id,prefix){
+  prefix=prefix||"who";
   if(!confirm("Delete this file?")) return;
+  const stash=stashWho(prefix);
   try{ await PSApi.del(`/me/assets/${id}`); }catch(e){ toast(e.message||"Delete failed"); return; }
-  if(prefix==="wz") renderWiz(); else renderWhoWeAre();
+  await refreshWho(prefix,stash);
 }
 async function uploadAvatar(){
   const f=$("acct-avatar")&&$("acct-avatar").files[0]; if(!f) return;
@@ -2588,7 +2677,7 @@ function PSBoot(){
 window.PSBoot=PSBoot;
 
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,
-forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,scrollToDeals,openCompleted,
+forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset};
 Object.assign(window,EXPORTS);
 window.S=S;

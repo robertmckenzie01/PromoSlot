@@ -208,11 +208,24 @@ def apply_to_campaign(campaign_id: int, body: ApplyIn,
             raise HTTPException(status_code=422, detail="That platform isn't one of yours")
         platform_id = p.id
 
+    # Views promised come from the applicant's own per-view/impression terms.
+    promised = None
+    for pm in (body.pricing or []):
+        f = pm.get("fields") or {}
+        for k in ("views", "imps"):
+            try:
+                v = int(float(f.get(k) or 0))
+            except (TypeError, ValueError):
+                v = 0
+            if v > 0:
+                promised = (promised or 0) + v
+
     d = Deal(
         business_id=c.business_id,
         platform_owner_id=user.id,
         campaign_id=c.id,
         platform_id=platform_id,
+        views_promised=promised,
         listed_price=body.listed_price,
         currency=body.currency.lower(),
         seller_fee_percent=settings.seller_fee_percent,
@@ -264,6 +277,8 @@ def campaign_applications(campaign_id: int,
             "deal_id": d.id,
             "applicant": owner.display_name if owner else "",
             "applicant_id": d.platform_owner_id,
+            "applicant_avatar": (f"/users/{d.platform_owner_id}/avatar"
+                                 if (owner and owner.avatar_path) else None),
             "platform_id": d.platform_id,
             "pitch": (d.terms or {}).get("pitch", ""),
             "listed_price": d.listed_price,

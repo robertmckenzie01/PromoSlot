@@ -100,6 +100,7 @@ def list_conversations(user: User = Depends(get_current_user), db: Session = Dep
             "id": c.id,
             "other_id": other_id,
             "other_name": other.display_name if other else "Unknown",
+            "other_avatar": (f"/users/{other_id}/avatar" if (other and other.avatar_path) else None),
             "context_ref": c.context_ref,
             "last_body": last.body if last else "",
             "last_mine": (last.sender_id == user.id) if last else False,
@@ -132,6 +133,7 @@ def get_thread(convo_id: int, user: User = Depends(get_current_user), db: Sessio
         "id": c.id,
         "other_id": other_id,
         "other_name": other.display_name if other else "Unknown",
+        "other_avatar": (f"/users/{other_id}/avatar" if (other and other.avatar_path) else None),
         "context_ref": c.context_ref,
         "messages": [_msg_dict(m, user.id) for m in msgs],
     }

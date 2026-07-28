@@ -24,8 +24,8 @@ class ReviewIn(BaseModel):
     text: Optional[str] = Field(default=None, max_length=2000)
 
 
-def review_dict(r: Review) -> dict:
-    return {
+def review_dict(r: Review, db: Session = None) -> dict:
+    d = {
         "id": r.id,
         "deal_id": r.deal_id,
         "author_id": r.author_id,
@@ -34,6 +34,11 @@ def review_dict(r: Review) -> dict:
         "text": r.text,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
+    if db is not None:
+        a = db.get(User, r.author_id)
+        d["author_name"] = (a.display_name or a.email) if a else ""
+        d["author_avatar"] = f"/users/{a.id}/avatar" if (a and a.avatar_path) else None
+    return d
 
 
 @router.post("/deals/{deal_id}/review", status_code=201)
@@ -63,7 +68,7 @@ def create_review(deal_id: int, body: ReviewIn,
 @router.get("/deals/{deal_id}/reviews")
 def deal_reviews(deal_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     rows = db.query(Review).filter_by(deal_id=deal_id).order_by(Review.id.desc()).all()
-    return [review_dict(r) for r in rows]
+    return [review_dict(r, db) for r in rows]
 
 
 @router.get("/users/{user_id}/reviews")
@@ -78,7 +83,7 @@ def user_reviews(user_id: int, user: User = Depends(get_current_user), db: Sessi
         "user_id": user_id,
         "count": count,
         "average": round(float(avg), 2) if avg is not None else None,
-        "reviews": [review_dict(r) for r in rows],
+        "reviews": [review_dict(r, db) for r in rows],
     }
 
 
@@ -88,8 +93,8 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
     listings (if a platform owner) / campaigns (if a business). Used to make
     each party's name in a deal clickable through to who they actually are.
     """
-    from ..models import Platform, Campaign, ProfileAsset
-    from .platforms import listing_dict
+    from ..models import Campaign, Platform, PlatformMedia, ProfileAsset
+    from .platforms import completed_campaigns_for, listing_dict, media_dict
     from .campaigns import campaign_dict
     from .profiles import asset_dict
 
@@ -100,9 +105,17 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
             .order_by(Review.id.desc()).all())
     count, avg = (db.query(func.count(Review.id), func.avg(Review.rating))
                   .filter(Review.reviewee_id == user_id).one())
-    listings = ([listing_dict(db, p) for p in
-                 db.query(Platform).filter_by(owner_id=user_id).order_by(Platform.id.desc()).all()]
-                if u.is_platform_owner else [])
+    plats = (db.query(Platform).filter_by(owner_id=user_id).order_by(Platform.id.desc()).all()
+             if u.is_platform_owner else [])
+    listings = [listing_dict(db, p) for p in plats]
+    # All of the owner's My Work samples across their listings.
+    work_items = []
+    if plats:
+        work_items = [media_dict(m) for m in
+                      db.query(PlatformMedia)
+                        .filter(PlatformMedia.platform_id.in_([p.id for p in plats]),
+                                PlatformMedia.kind == "work")
+                        .order_by(PlatformMedia.id.desc()).all()]
     campaigns = ([campaign_dict(db, c) for c in
                   db.query(Campaign).filter_by(business_id=user_id).order_by(Campaign.id.desc()).all()]
                  if u.is_business else [])
@@ -118,9 +131,13 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
         "links": u.links or [],
         "assets": [asset_dict(a) for a in
                    db.query(ProfileAsset).filter_by(user_id=u.id).order_by(ProfileAsset.id.desc()).all()],
+        # Mirror of the listing's own sections, so the profile shows the same
+        # Services & pricing / Audience & analytics / My Work / Past campaigns.
+        "work": work_items,
+        "past_campaigns": completed_campaigns_for(db, u.id) if u.is_platform_owner else [],
         "rating": round(float(avg), 1) if avg is not None else None,
         "review_count": count or 0,
-        "reviews": [review_dict(r) for r in rows],
+        "reviews": [review_dict(r, db) for r in rows],
         "listings": listings,
         "campaigns": campaigns,
     }
