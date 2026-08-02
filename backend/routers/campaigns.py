@@ -3,6 +3,7 @@
 Serializers return objects shaped like the front end's campaign objects.
 Ratings/applicants come only from real data (a new campaign has none).
 """
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -81,6 +82,7 @@ def campaign_dict(db: Session, c: Campaign) -> dict:
         "image_url": f"/campaigns/{c.id}/image" if c.image_path else None,
         "has_own_image": bool(c.image_path),
         "suspended": c.suspended_at is not None,
+        "removed": c.removed_at is not None,
         "suspended_reason": c.suspended_reason,
         "companyAvatar": f"/users/{c.business_id}/avatar" if (biz and biz.avatar_path) else None,
     }
@@ -112,15 +114,18 @@ def create_campaign(body: CampaignCreateIn, user: User = Depends(get_current_use
 
 @router.get("")
 def browse_campaigns(db: Session = Depends(get_db)):
-    """Public marketplace — suspended campaigns are withheld (not deleted)."""
-    rows = (db.query(Campaign).filter(Campaign.suspended_at.is_(None))
+    """Public marketplace — suspended and owner-removed campaigns are withheld."""
+    rows = (db.query(Campaign).filter(Campaign.suspended_at.is_(None),
+                                      Campaign.removed_at.is_(None))
             .order_by(Campaign.id.desc()).all())
     return [campaign_dict(db, c) for c in rows]
 
 
 @router.get("/mine")
 def my_campaigns(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    rows = db.query(Campaign).filter_by(business_id=user.id).order_by(Campaign.id.desc()).all()
+    rows = (db.query(Campaign).filter(Campaign.business_id == user.id,
+                                      Campaign.removed_at.is_(None))
+            .order_by(Campaign.id.desc()).all())
     return [campaign_dict(db, c) for c in rows]
 
 
@@ -238,6 +243,9 @@ def apply_to_campaign(campaign_id: int, body: ApplyIn,
         raise HTTPException(status_code=422, detail="You can't apply to your own campaign")
     if c.suspended_at is not None:
         raise HTTPException(status_code=409, detail="This campaign is suspended and not accepting applications.")
+    if c.removed_at is not None:
+        raise HTTPException(status_code=409,
+                            detail="This campaign has been removed and is no longer accepting applications.")
 
     # One live application per owner per campaign (a declined one may be re-applied).
     existing = (db.query(Deal)
@@ -337,3 +345,57 @@ def campaign_applications(campaign_id: int,
             "funded": d.funded_at is not None,
         })
     return out
+
+
+# -------------------- Owner removal of a campaign --------------------
+# Mirrors listing removal (see platforms.py): hard-delete only when nothing real
+# is attached, otherwise archive so the deals built on this campaign — and the
+# completed-campaign history derived from them — keep resolving.
+
+def _campaign_deal_counts(db: Session, campaign_id: int) -> tuple:
+    """(total, still-live) deals referencing this campaign."""
+    from ..deal_state import FINAL_STATES
+    total = db.query(func.count(Deal.id)).filter(Deal.campaign_id == campaign_id).scalar() or 0
+    active = (db.query(func.count(Deal.id))
+              .filter(Deal.campaign_id == campaign_id,
+                      Deal.status.notin_(list(FINAL_STATES))).scalar() or 0)
+    return total, active
+
+
+def _own_campaign(db: Session, campaign_id: int, user: User) -> Campaign:
+    c = db.get(Campaign, campaign_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if c.business_id != user.id:
+        raise HTTPException(status_code=403, detail="You don't own this campaign")
+    return c
+
+
+@router.get("/{campaign_id:int}/removal-preview")
+def preview_campaign_removal(campaign_id: int, user: User = Depends(get_current_user),
+                             db: Session = Depends(get_db)):
+    """What removing this campaign would do — so the confirmation can be honest."""
+    c = _own_campaign(db, campaign_id, user)
+    total, active = _campaign_deal_counts(db, c.id)
+    return {"title": c.title, "deals_total": total, "deals_active": active,
+            "mode": "archive" if total else "delete"}
+
+
+@router.delete("/{campaign_id:int}")
+def remove_campaign(campaign_id: int, user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    c = _own_campaign(db, campaign_id, user)
+    if c.removed_at is not None:
+        raise HTTPException(status_code=409, detail="This campaign has already been removed")
+    total, active = _campaign_deal_counts(db, c.id)
+
+    if total:
+        c.removed_at = datetime.utcnow()
+        db.commit()
+        return {"id": f"c{c.id}", "mode": "archived", "deals_total": total,
+                "deals_active": active}
+
+    delete_stored(c.image_path)
+    db.delete(c)
+    db.commit()
+    return {"id": f"c{campaign_id}", "mode": "deleted", "deals_total": 0, "deals_active": 0}

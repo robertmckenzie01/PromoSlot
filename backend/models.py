@@ -120,6 +120,11 @@ class Platform(Base):
     # but preserved, and restorable by a Super-Admin.
     suspended_at = Column(DateTime)
     suspended_reason = Column(String)
+    # Owner-initiated removal, kept distinct from admin suspension above. Set
+    # only when real deals reference this listing: the row must survive so those
+    # deals (and the reviews/past-campaign history built on them) still resolve.
+    # With no deals attached the row is hard-deleted instead and this stays NULL.
+    removed_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -166,6 +171,8 @@ class Campaign(Base):
     # Moderation: hidden from the marketplace but preserved and restorable.
     suspended_at = Column(DateTime)
     suspended_reason = Column(String)
+    # Owner-initiated removal — see Platform.removed_at.
+    removed_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 

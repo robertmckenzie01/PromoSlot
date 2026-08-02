@@ -4,6 +4,7 @@ Serializers return objects shaped like the front end's listing objects so the UI
 can render real data unchanged. Ratings are derived purely from real reviews of
 the owner (a brand-new listing has no rating).
 """
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -80,6 +81,7 @@ def listing_dict(db: Session, p: Platform) -> dict:
         "image_url": f"/platforms/{p.id}/image" if p.image_path else None,
         "has_own_image": bool(p.image_path),
         "suspended": p.suspended_at is not None,
+        "removed": p.removed_at is not None,
         "suspended_reason": p.suspended_reason,
         "ownerAvatar": f"/users/{p.owner_id}/avatar" if (owner and owner.avatar_path) else None,
     }
@@ -114,15 +116,18 @@ def create_platform(body: PlatformCreateIn, user: User = Depends(get_current_use
 
 @router.get("")
 def browse_platforms(db: Session = Depends(get_db)):
-    """Public marketplace — suspended listings are withheld (not deleted)."""
-    rows = (db.query(Platform).filter(Platform.suspended_at.is_(None))
+    """Public marketplace — suspended and owner-removed listings are withheld."""
+    rows = (db.query(Platform).filter(Platform.suspended_at.is_(None),
+                                      Platform.removed_at.is_(None))
             .order_by(Platform.id.desc()).all())
     return [listing_dict(db, p) for p in rows]
 
 
 @router.get("/mine")
 def my_platforms(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    rows = db.query(Platform).filter_by(owner_id=user.id).order_by(Platform.id.desc()).all()
+    rows = (db.query(Platform).filter(Platform.owner_id == user.id,
+                                      Platform.removed_at.is_(None))
+            .order_by(Platform.id.desc()).all())
     return [listing_dict(db, p) for p in rows]
 
 
@@ -412,3 +417,58 @@ def delete_media(platform_id: int, media_id: int, user: User = Depends(get_curre
     db.delete(m)
     db.commit()
     return {"deleted": media_id}
+
+
+# -------------------- Owner removal of a listing --------------------
+# Two outcomes, chosen by the data rather than by the caller:
+#   no deals attached  -> hard delete (row, My Work media rows, stored files)
+#   any deals attached -> archive (removed_at set, row preserved)
+# Deals reference platforms.id, and reviews / past-campaign history are built on
+# those deals, so a listing that has ever been transacted on can never be
+# hard-deleted without orphaning real records.
+
+def _deal_counts(db: Session, platform_id: int) -> tuple:
+    """(total, still-live) deals referencing this listing."""
+    from ..models import Deal
+    from ..deal_state import FINAL_STATES
+    total = db.query(func.count(Deal.id)).filter(Deal.platform_id == platform_id).scalar() or 0
+    active = (db.query(func.count(Deal.id))
+              .filter(Deal.platform_id == platform_id,
+                      Deal.status.notin_(list(FINAL_STATES))).scalar() or 0)
+    return total, active
+
+
+@router.get("/{platform_id:int}/removal-preview")
+def preview_removal(platform_id: int, user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    """What removing this listing would do — so the confirmation can be honest."""
+    p = _own_platform(db, platform_id, user)
+    total, active = _deal_counts(db, p.id)
+    return {"name": p.name, "deals_total": total, "deals_active": active,
+            "mode": "archive" if total else "delete"}
+
+
+@router.delete("/{platform_id:int}")
+def remove_platform(platform_id: int, user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    p = _own_platform(db, platform_id, user)
+    if p.removed_at is not None:
+        raise HTTPException(status_code=409, detail="This listing has already been removed")
+    # Recomputed here rather than trusted from the preview call.
+    total, active = _deal_counts(db, p.id)
+
+    if total:
+        p.removed_at = datetime.utcnow()
+        db.commit()
+        return {"id": f"p{p.id}", "mode": "archived", "deals_total": total,
+                "deals_active": active}
+
+    media = db.query(PlatformMedia).filter_by(platform_id=p.id).all()
+    for m in media:
+        for path in (m.video_path, m.cover_path):
+            delete_stored(path)
+        db.delete(m)
+    delete_stored(p.image_path)
+    db.delete(p)
+    db.commit()
+    return {"id": f"p{platform_id}", "mode": "deleted", "deals_total": 0, "deals_active": 0}

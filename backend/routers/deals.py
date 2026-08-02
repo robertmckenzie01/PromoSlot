@@ -102,6 +102,9 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
         _p = db.get(_P, int(str(listing_ref)[1:]))
         if _p is not None and _p.suspended_at is not None:
             raise HTTPException(status_code=409, detail="That listing is suspended and cannot be booked.")
+        if _p is not None and _p.removed_at is not None:
+            raise HTTPException(status_code=409,
+                                detail="That listing has been removed by its owner and cannot be booked.")
 
     d = Deal(
         business_id=user.id,

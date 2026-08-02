@@ -560,7 +560,9 @@ function openEditListing(id){
         <div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="addEditPriceRow()">＋ add a price</button></div></div>
       <div class="hint-err hide" id="el-err"></div>
     </div>
-    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Cancel</button>
+    <div class="m-actions">
+      <button class="btn btn-danger" style="margin-right:auto" onclick="confirmRemoveListing('${l.id}')">Remove listing</button>
+      <button class="btn btn-o" onclick="closeModal()">Cancel</button>
       <button class="btn btn-p" id="el-save" onclick="saveListingEdits()">Save changes &amp; publish</button></div></div>`,"wide");
 }
 async function saveListingEdits(){
@@ -605,7 +607,9 @@ function openEditCampaign(id){
       <div><label>Creator sizes</label>${editChips("creatorSizes",CREATOR_SIZES)}</div>
       <div class="hint-err hide" id="ec-err"></div>
     </div>
-    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Cancel</button>
+    <div class="m-actions">
+      <button class="btn btn-danger" style="margin-right:auto" onclick="confirmRemoveCampaign('${c.id}')">Remove campaign</button>
+      <button class="btn btn-o" onclick="closeModal()">Cancel</button>
       <button class="btn btn-p" id="ec-save" onclick="saveCampaignEdits()">Save changes &amp; publish</button></div></div>`,"wide");
 }
 async function saveCampaignEdits(){
@@ -625,6 +629,60 @@ async function saveCampaignEdits(){
     if(err){err.textContent=e.message||"Could not save";err.classList.remove("hide");} return; }
   closeModal(); toast("Campaign updated & republished ✓",true);
   await loadMarket(); await loadMine(); openDash();
+}
+
+// ---- Removing a listing / campaign from the Edit screen ----
+// The backend decides the outcome from the data: nothing attached -> the row is
+// deleted outright; real deals attached -> it is archived so those deals, and
+// the reviews and past-campaign history built on them, keep resolving. The
+// confirmation below asks the backend first so it states what will actually
+// happen rather than guessing.
+
+function removalConfirmHtml(kind, label, info){
+  const noun = kind==="listing" ? "listing" : "campaign";
+  const archiving = info.mode==="archive";
+  const n = info.deals_total, live = info.deals_active;
+  const dealLine = archiving
+    ? `<p class="m-sub">This ${noun} has <b>${n} deal${n===1?"":"s"}</b> attached${live?` (<b>${live}</b> still live)`:""}, so it can't be deleted outright — those records, and any reviews and completed-campaign history built on them, would be lost.</p>
+       <p class="m-sub">Instead it will be <b>removed from the marketplace</b>: nobody can find, book or apply to it again, and it disappears from your dashboard. The deal records stay intact${live?", and any live deal carries on to completion as normal":""}.</p>`
+    : `<p class="m-sub">No deals have ever been attached to this ${noun}, so it will be <b>permanently deleted</b>${kind==="listing"?", along with its My Work samples and images":" along with its image"}. This can't be undone.</p>`;
+  return `<div class="m-pad"><h3 class="m-title">Remove &ldquo;${esc(label)}&rdquo;?</h3>
+    ${dealLine}
+    <div class="hint-err hide" id="rm-err"></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Keep it</button>
+      <button class="btn btn-danger" id="rm-go">${archiving?`Remove from marketplace`:`Delete permanently`}</button></div></div>`;
+}
+
+async function openRemoveConfirm(kind, uiId, apiPath, label){
+  let info;
+  try{ info = await PSApi.get(`${apiPath}/removal-preview`); }
+  catch(e){ toast(e.message||"Could not check this before removing"); return; }
+  openModal(removalConfirmHtml(kind, label, info));
+  const btn=$("rm-go"), err=$("rm-err");
+  btn.onclick = async () => {
+    btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Removing…`;
+    let res;
+    try{ res = await PSApi.del(apiPath); }
+    catch(e){ btn.disabled=false; btn.textContent="Try again";
+      if(err){ err.textContent=e.message||"Could not remove"; err.classList.remove("hide"); } return; }
+    closeModal();
+    toast(res.mode==="archived"
+      ? `Removed from the marketplace — ${res.deals_total} deal record${res.deals_total===1?"":"s"} kept ✓`
+      : `${kind==="listing"?"Listing":"Campaign"} deleted ✓`, true);
+    await loadMarket(); await loadMine(); openDash();
+  };
+}
+
+function confirmRemoveListing(id){
+  const l=findListing(id); if(!l) return;
+  if(!S.account || String(l.ownerId)!==String(S.account.id)){ toast("You can only remove your own listing"); return; }
+  openRemoveConfirm("listing", id, `/platforms/${String(l.id).slice(1)}`, l.name);
+}
+
+function confirmRemoveCampaign(id){
+  const c=findCampaign(id); if(!c) return;
+  if(!S.account || String(c.businessId)!==String(S.account.id)){ toast("You can only remove your own campaign"); return; }
+  openRemoveConfirm("campaign", id, `/campaigns/${String(c.id).replace(/^c/,"")}`, c.title);
 }
 
 // A completed campaign, derived automatically from a paid deal. Shows the
@@ -3095,7 +3153,7 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
 openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,
