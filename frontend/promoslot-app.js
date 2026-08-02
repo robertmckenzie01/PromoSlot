@@ -1260,15 +1260,25 @@ async function renderRealDeal(dealId){
     <p class="deal-sub">This deal was cancelled before funding — no money moved. ${d.terms&&d.terms.kind==="application"?"The application is closed; the owner can apply again with new terms.":""}</p>
     ${doc}`;
   } else if(!d.funded){
-    main=`<h3 class="deal-h">${bothApproved?"Fund the deal":"Approve the agreement"}</h3>
-    <p class="deal-sub">${bothApproved?"Both parties approved. The business funds the agreed amount into escrow before work starts.":"Both parties approve the same agreement before any money moves."}</p>
+    // The other side withdrew the listing/campaign this deal came from before it
+    // was funded. Say so plainly instead of showing "waiting for funding"
+    // indefinitely — the deal stays in history either way.
+    const gone = d.source_removed;                       // "listing" | "campaign" | null
+    const goneWord = gone==="campaign" ? "Campaign" : "Listing";
+    const goneNote = gone ? `<div class="note" style="margin-top:0;margin-bottom:14px">
+      <b>${goneWord} removed by ${gone==="campaign"?"the business":"the owner"}.</b>
+      This deal was approved but never funded, and the ${gone} it came from has since been
+      taken down — so it is not going ahead. No money moved. It stays here in your deal
+      history for your records.</div>` : "";
+    main=`${goneNote}<h3 class="deal-h">${gone?`${goneWord} removed — deal not going ahead`:(bothApproved?"Fund the deal":"Approve the agreement")}</h3>
+    <p class="deal-sub">${gone?"Nothing further is expected from either side.":(bothApproved?"Both parties approved. The business funds the agreed amount into escrow before work starts.":"Both parties approve the same agreement before any money moves.")}</p>
     ${doc}
     <div class="approve-row">
       <div class="appr ${d.business_approved?"ok":""}"><b>${partyLink(d.business_id,d.business_name)}</b><small>business · funds the deal</small><div class="st">${d.business_approved?'<span class="ok-txt">✓ Approved</span>':(meBiz?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
       <div class="appr ${d.owner_approved?"ok":""}"><b>${partyLink(d.platform_owner_id,d.owner_name)}</b><small>platform owner · delivers</small><div class="st">${d.owner_approved?'<span class="ok-txt">✓ Approved</span>':(meOwner?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
     </div>
-    ${bothApproved&&meBiz?`<div id="fundArea"><button class="btn btn-g btn-lg" style="margin-top:16px" onclick="realFund(${d.id})">🔒 Fund ${gbpP(d.total_charged)} into escrow</button></div>`:""}
-    ${bothApproved&&!meBiz?`<div class="note blue" style="margin-top:16px">Waiting for the business to fund ${gbpP(d.total_charged)} into escrow.</div>`:""}
+    ${!gone&&bothApproved&&meBiz?`<div id="fundArea"><button class="btn btn-g btn-lg" style="margin-top:16px" onclick="realFund(${d.id})">🔒 Fund ${gbpP(d.total_charged)} into escrow</button></div>`:""}
+    ${!gone&&bothApproved&&!meBiz?`<div class="note blue" style="margin-top:16px">Waiting for the business to fund ${gbpP(d.total_charged)} into escrow.</div>`:""}
     ${(meBiz||meOwner)?`<div style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="realDecline(${d.id})">Decline &amp; cancel</button></div>`:""}`;
   } else {
     const proofList = proofs.length
@@ -1296,7 +1306,7 @@ async function renderRealDeal(dealId){
   }
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="openDash()">← Dashboard</button><h2>Deal ${d.id}</h2>
-      <span class="deal-status status-pill ${d.paid?"st-done":d.funded?"st-escrow":"st-review"}">${esc(d.status)}</span></div>
+      <span class="deal-status status-pill ${d.paid?"st-done":d.funded?"st-escrow":"st-review"}">${d.source_removed?esc(d.source_removed==="campaign"?"Campaign removed":"Listing removed"):esc(d.status)}</span></div>
     ${stepper}
     <div class="deal-grid"><div class="deal-main view-anim">${main}</div>
       <div class="deal-side">
@@ -2168,12 +2178,14 @@ function dealRows(){
     // Verified-but-unpaid is called out here (not only in notifications) so it can't be missed.
     const awaitingPayout = d.verified && !d.paid && d.status!=="refunded";
     const stCls=d.paid?"st-done":awaitingPayout?"st-review":d.funded?"st-escrow":"st-review";
-    const stLabel=awaitingPayout?"Verified — awaiting payout":esc(d.status);
+    const stLabel=d.source_removed
+      ? (d.source_removed==="campaign"?"Campaign removed by business":"Listing removed by owner")
+      : (awaitingPayout?"Verified — awaiting payout":esc(d.status));
     return `<div class="deal-row" onclick="showView('view-deal');renderRealDeal(${d.id})">
       ${pfp(other,d.terms&&d.terms.platform,"",meBiz?d.owner_avatar:d.business_avatar)}<div><div class="dr-t">Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</div>
       <div class="dr-s">${meBiz?"You buy · "+esc(other):"You deliver · "+esc(other)}</div></div>
       <span class="status-pill ${stCls}">${stLabel}</span>
-      <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":awaitingPayout?"awaiting payout":d.funded?"in escrow":"pending"}</small></div></div>`;
+      <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":awaitingPayout?"awaiting payout":d.funded?"in escrow":d.source_removed?"not going ahead":"pending"}</small></div></div>`;
   }).join("");
 }
 function notifRows(){

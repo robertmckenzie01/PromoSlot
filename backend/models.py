@@ -223,6 +223,10 @@ class Deal(Base):
     # The two real parties (for showing each side's actual identity, never "You").
     business = relationship("User", foreign_keys=[business_id])
     platform_owner = relationship("User", foreign_keys=[platform_owner_id])
+    # Read-only links to what the deal came from, so a deal can tell whether its
+    # listing/campaign was removed by the other side (see deals.deal_dict).
+    platform = relationship("Platform", foreign_keys=[platform_id])
+    campaign = relationship("Campaign", foreign_keys=[campaign_id])
 
 
 class Payment(Base):

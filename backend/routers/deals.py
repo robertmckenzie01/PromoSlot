@@ -32,6 +32,27 @@ def _name(u) -> str:
     return (u.display_name or u.email) if u else ""
 
 
+def _source_removed(d: Deal):
+    """Was this deal's listing/campaign removed while it was still pre-funding?
+
+    Derived, never stored: it is read from the linked row every time, so it can
+    never drift from reality and it disappears by itself if the row is restored.
+
+    Deliberately gated on funded_at being unset AND the status still being
+    approved-but-unfunded. Once real money is in escrow the deal resolves on its
+    own terms no matter what happens to the listing it came from.
+    """
+    if d.funded_at is not None:
+        return None
+    if d.status not in (DealStatus.APPROVED, DealStatus.AWAITING_FUNDING):
+        return None
+    if d.platform is not None and d.platform.removed_at is not None:
+        return "listing"
+    if d.campaign is not None and d.campaign.removed_at is not None:
+        return "campaign"
+    return None
+
+
 def deal_dict(d: Deal) -> dict:
     m = deal_money_for(d)
     return {
@@ -70,6 +91,9 @@ def deal_dict(d: Deal) -> dict:
         "funded_at": d.funded_at.isoformat() if d.funded_at else None,
         "paid_at": d.paid_at.isoformat() if d.paid_at else None,
         "payment_intent_id": d.payment_intent_id,
+        # "listing" | "campaign" when the other side withdrew what this deal came
+        # from before it was funded; None otherwise. Never set once funded.
+        "source_removed": _source_removed(d),
         "terms": d.terms,
     }
 
