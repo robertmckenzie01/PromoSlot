@@ -1,9 +1,8 @@
 """User profile media: account avatar + profile intro video.
 
 Uploaded from My Account; served publicly so anyone viewing a profile sees them.
-Same disk-storage flow as proofs/media (migrates together to object storage).
+Stored via backend.storage, so these live in R2 (durable) when configured.
 """
-import os
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -15,7 +14,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import ProfileAsset, User
-from ..storage import save_generic
+from ..storage import delete_stored, save_generic, serve_stored, stored_exists
 
 router = APIRouter(tags=["profiles"])
 
@@ -33,11 +32,8 @@ def asset_dict(a: ProfileAsset) -> dict:
 
 
 def _replace(old_path):
-    if old_path and os.path.exists(old_path):
-        try:
-            os.remove(old_path)
-        except OSError:
-            pass
+    """Remove the previously stored object/file, wherever it lived."""
+    delete_stored(old_path)
 
 
 @router.post("/me/avatar", status_code=201)
@@ -56,10 +52,9 @@ def upload_avatar(file: UploadFile = File(...), user: User = Depends(get_current
 @router.get("/users/{user_id}/avatar")
 def get_avatar(user_id: int, db: Session = Depends(get_db)):
     u = db.get(User, user_id)
-    if u is None or not u.avatar_path or not os.path.exists(u.avatar_path):
+    if u is None or not u.avatar_path or not stored_exists(u.avatar_path):
         raise HTTPException(status_code=404, detail="No avatar")
-    return FileResponse(u.avatar_path, media_type=u.avatar_content_type or "image/jpeg",
-                        content_disposition_type="inline")
+    return serve_stored(u.avatar_path, u.avatar_content_type or "image/jpeg")
 
 
 @router.post("/me/intro-video", status_code=201)
@@ -78,9 +73,9 @@ def upload_intro_video(file: UploadFile = File(...), user: User = Depends(get_cu
 @router.get("/users/{user_id}/intro-video")
 def get_intro_video(user_id: int, db: Session = Depends(get_db)):
     u = db.get(User, user_id)
-    if u is None or not u.intro_video_path or not os.path.exists(u.intro_video_path):
+    if u is None or not u.intro_video_path or not stored_exists(u.intro_video_path):
         raise HTTPException(status_code=404, detail="No intro video")
-    return FileResponse(u.intro_video_path, media_type=u.intro_video_content_type or "video/mp4")
+    return serve_stored(u.intro_video_path, u.intro_video_content_type or "video/mp4")
 
 
 # ---------------- "Who we are": about text, links, and files/images ----------------
@@ -136,7 +131,6 @@ def delete_asset(asset_id: int, user: User = Depends(get_current_user),
 @router.get("/users/{user_id}/assets/{asset_id}/file")
 def get_asset_file(user_id: int, asset_id: int, db: Session = Depends(get_db)):
     a = db.get(ProfileAsset, asset_id)
-    if a is None or a.user_id != user_id or not os.path.exists(a.path):
+    if a is None or a.user_id != user_id or not stored_exists(a.path):
         raise HTTPException(status_code=404, detail="Asset not found")
-    return FileResponse(a.path, media_type=a.content_type or "application/octet-stream",
-                        content_disposition_type="inline")
+    return serve_stored(a.path, a.content_type or "application/octet-stream")

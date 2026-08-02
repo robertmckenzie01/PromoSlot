@@ -4,7 +4,6 @@ Serializers return objects shaped like the front end's listing objects so the UI
 can render real data unchanged. Ratings are derived purely from real reviews of
 the owner (a brand-new listing has no rating).
 """
-import os
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -17,7 +16,8 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import Platform, PlatformMedia, Review, User
-from ..storage import save_generic, save_media_file
+from ..storage import (delete_stored, save_generic, save_media_file,
+                       serve_stored, stored_exists)
 
 router = APIRouter(prefix="/platforms", tags=["platforms"])
 
@@ -363,21 +363,19 @@ def add_media(
 @router.get("/{platform_id:int}/media/{media_id:int}/video")
 def get_media_video(platform_id: int, media_id: int, db: Session = Depends(get_db)):
     m = db.get(PlatformMedia, media_id)
-    if m is None or m.platform_id != platform_id or not m.video_path or not os.path.exists(m.video_path):
+    if m is None or m.platform_id != platform_id or not m.video_path or not stored_exists(m.video_path):
         raise HTTPException(status_code=404, detail="Video not found")
-    # Public showcase. NOTE: dev serves via FileResponse (limited range/seeking);
-    # production moves to object storage + CDN/signed URLs with range support —
-    # migrated together with proof-of-delivery storage.
-    return FileResponse(m.video_path, media_type=m.content_type or "video/mp4")
+    # Served from object storage via a short-lived signed URL, which gives the
+    # browser native HTTP range support (so video seeking works).
+    return serve_stored(m.video_path, m.content_type or "video/mp4")
 
 
 @router.get("/{platform_id:int}/media/{media_id:int}/cover")
 def get_media_cover(platform_id: int, media_id: int, db: Session = Depends(get_db)):
     m = db.get(PlatformMedia, media_id)
-    if m is None or m.platform_id != platform_id or not m.cover_path or not os.path.exists(m.cover_path):
+    if m is None or m.platform_id != platform_id or not m.cover_path or not stored_exists(m.cover_path):
         raise HTTPException(status_code=404, detail="Cover not found")
-    return FileResponse(m.cover_path, media_type=m.cover_content_type or "image/jpeg",
-                        content_disposition_type="inline")
+    return serve_stored(m.cover_path, m.cover_content_type or "image/jpeg")
 
 
 @router.post("/{platform_id:int}/image", status_code=201)
@@ -388,11 +386,7 @@ def upload_platform_image(platform_id: int, file: UploadFile = File(...),
         path, _ = save_generic(f"platform_img/platform_{p.id}", file, _COVER_MAX_BYTES)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    if p.image_path and os.path.exists(p.image_path):
-        try:
-            os.remove(p.image_path)
-        except OSError:
-            pass
+    delete_stored(p.image_path)
     p.image_path, p.image_content_type = path, file.content_type
     db.commit()
     return {"image_url": f"/platforms/{p.id}/image"}
@@ -401,10 +395,9 @@ def upload_platform_image(platform_id: int, file: UploadFile = File(...),
 @router.get("/{platform_id:int}/image")
 def get_platform_image(platform_id: int, db: Session = Depends(get_db)):
     p = db.get(Platform, platform_id)
-    if p is None or not p.image_path or not os.path.exists(p.image_path):
+    if p is None or not p.image_path or not stored_exists(p.image_path):
         raise HTTPException(status_code=404, detail="No image")
-    return FileResponse(p.image_path, media_type=p.image_content_type or "image/jpeg",
-                        content_disposition_type="inline")
+    return serve_stored(p.image_path, p.image_content_type or "image/jpeg")
 
 
 @router.delete("/{platform_id:int}/media/{media_id:int}")
@@ -415,11 +408,7 @@ def delete_media(platform_id: int, media_id: int, user: User = Depends(get_curre
     if m is None or m.platform_id != platform_id:
         raise HTTPException(status_code=404, detail="Media not found")
     for path in (m.video_path, m.cover_path):
-        if path and os.path.exists(path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass
+        delete_stored(path)
     db.delete(m)
     db.commit()
     return {"deleted": media_id}

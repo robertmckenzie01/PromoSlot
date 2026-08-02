@@ -12,6 +12,32 @@ def health():
     return {"status": "ok", "service": "promoslot-api"}
 
 
+@router.get("/health/storage")
+def storage_health():
+    """Which storage backend is live, and is the bucket actually reachable?
+
+    Use this after a deploy to confirm uploads are going to object storage
+    rather than the container's ephemeral disk.
+    """
+    from ..storage import backend_name, remote_enabled
+    info = {"backend": backend_name(), "remote": remote_enabled(),
+            "durable_across_redeploys": remote_enabled()}
+    if not remote_enabled():
+        info["warning"] = ("Local disk is EPHEMERAL on Render: uploads are destroyed "
+                           "on every deploy/restart. Set the R2_* env vars.")
+        return info
+    # Prove the credentials really work, rather than just being present.
+    try:
+        from ..storage import _s3
+        from ..config import settings
+        _s3().head_bucket(Bucket=settings.r2_bucket)
+        info["bucket_reachable"] = True
+    except Exception as e:
+        info["bucket_reachable"] = False
+        info["error"] = str(e)[:200]
+    return info
+
+
 @router.get("/stripe/health")
 def stripe_health():
     """Proves live Stripe connectivity from real backend code (not simulated)."""

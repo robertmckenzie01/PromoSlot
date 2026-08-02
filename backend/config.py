@@ -24,6 +24,14 @@ class Settings:
     max_upload_bytes: int = int(os.environ.get("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
     max_video_bytes: int = int(os.environ.get("MAX_VIDEO_BYTES", str(200 * 1024 * 1024)))
 
+    # Object storage (Cloudflare R2, S3-compatible). When these are set, ALL
+    # uploads go to the bucket and survive redeploys. Unset -> local disk (dev).
+    r2_endpoint_url: str = os.environ.get("R2_ENDPOINT_URL", "")
+    r2_access_key_id: str = os.environ.get("R2_ACCESS_KEY_ID", "")
+    r2_secret_access_key: str = os.environ.get("R2_SECRET_ACCESS_KEY", "")
+    r2_bucket: str = os.environ.get("R2_BUCKET", "")
+    r2_url_ttl_seconds: int = int(os.environ.get("R2_URL_TTL_SECONDS", "900"))
+
     # Payout authority: an ADMIN may release payouts up to this net amount
     # (pence). Anything larger requires SUPER_ADMIN approval.
     payout_admin_limit_pence: int = int(os.environ.get("PAYOUT_ADMIN_LIMIT_PENCE", str(50000)))
@@ -35,6 +43,11 @@ class Settings:
     @property
     def stripe_configured(self) -> bool:
         return self.stripe_secret_key.startswith("sk_")
+
+    @property
+    def storage_remote(self) -> bool:
+        return bool(self.r2_endpoint_url and self.r2_access_key_id
+                    and self.r2_secret_access_key and self.r2_bucket)
 
     @property
     def email_configured(self) -> bool:

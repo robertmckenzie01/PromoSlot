@@ -3,7 +3,6 @@
 Serializers return objects shaped like the front end's campaign objects.
 Ratings/applicants come only from real data (a new campaign has none).
 """
-import os
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -17,7 +16,7 @@ from ..db import get_db
 from ..deps import get_current_user
 from ..models import Campaign, Deal, DealStatus, Notification, Platform, Review, User
 from ..services import deal_money_for
-from ..storage import save_generic
+from ..storage import delete_stored, save_generic, serve_stored, stored_exists
 from .deals import deal_dict
 
 _IMG_MAX = 2 * 1024 * 1024 * 1024  # campaign pictures: no meaningful size limit
@@ -192,11 +191,7 @@ def upload_campaign_image(campaign_id: int, file: UploadFile = File(...),
         path, _ = save_generic(f"campaign_img/campaign_{c.id}", file, _IMG_MAX)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    if c.image_path and os.path.exists(c.image_path):
-        try:
-            os.remove(c.image_path)
-        except OSError:
-            pass
+    delete_stored(c.image_path)
     c.image_path, c.image_content_type = path, file.content_type
     db.commit()
     return {"image_url": f"/campaigns/{c.id}/image"}
@@ -205,10 +200,9 @@ def upload_campaign_image(campaign_id: int, file: UploadFile = File(...),
 @router.get("/{campaign_id:int}/image")
 def get_campaign_image(campaign_id: int, db: Session = Depends(get_db)):
     c = db.get(Campaign, campaign_id)
-    if c is None or not c.image_path or not os.path.exists(c.image_path):
+    if c is None or not c.image_path or not stored_exists(c.image_path):
         raise HTTPException(status_code=404, detail="No image")
-    return FileResponse(c.image_path, media_type=c.image_content_type or "image/jpeg",
-                        content_disposition_type="inline")
+    return serve_stored(c.image_path, c.image_content_type or "image/jpeg")
 
 
 # -------------------- Applications (owner-initiated deals) --------------------

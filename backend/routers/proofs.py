@@ -3,7 +3,6 @@
 The platform owner (the deliverer) submits evidence for a FUNDED deal. Proof
 only counts once a real file is stored server-side, or a real URL is provided.
 """
-import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -15,7 +14,7 @@ from ..db import get_db
 from ..deps import get_current_user
 from ..permissions import Perm, has_permission
 from ..models import Deal, DealStatus, Notification, Proof, User
-from ..storage import save_proof_file
+from ..storage import save_proof_file, serve_stored, stored_exists
 
 router = APIRouter(tags=["proofs"])
 
@@ -119,7 +118,7 @@ def get_proof_file(deal_id: int, proof_id: int, user: User = Depends(get_current
     p = db.get(Proof, proof_id)
     if p is None or p.deal_id != d.id:
         raise HTTPException(status_code=404, detail="Proof not found")
-    if not p.stored_path or not os.path.exists(p.stored_path):
+    if not p.stored_path or not stored_exists(p.stored_path):
         raise HTTPException(status_code=404, detail="No stored file for this proof")
     # inline so the review UI can render images (and preview PDFs) in-page.
-    return FileResponse(p.stored_path, content_disposition_type="inline")
+    return serve_stored(p.stored_path, inline=True)
