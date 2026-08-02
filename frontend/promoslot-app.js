@@ -297,7 +297,7 @@ function buildFilters(){
 }
 function payTypesOf(l){ return [...new Set(l.pricing.map(p=>PM_LABEL[p.type]))]; }
 function campPayTypes(c){
-  const map={fixed:"Fixed price","per-view":"Per view","per-imp":"Per impression",time:"Time-based",affiliate:"Affiliate",hybrid:"Hybrid",product:"Free product"};
+  const map={fixed:"Fixed price","per-view":"Per view","per-imp":"Per impression",time:"Time-based",affiliate:"Affiliate",hybrid:"Hybrid",product:"Free product",giveaway:"Giveaway prize"};
   return [...new Set(c.payment.map(p=>map[p.type]||p.type))];
 }
 function matchPlat(l){
@@ -1795,6 +1795,8 @@ function leaveReview(id){
 
 /* ==================== ONBOARDING WIZARDS ==================== */
 let W=null, lastPct=0;
+// Payment method offered only on the giveaway path (see the b-budget step).
+const GIVEAWAY_PM="Giveaway prize";
 const BIZ_INTENTS=[["📦","Looking to market a product","Get your product in front of the right audiences"],["🤝","Looking to offer affiliate partnerships","Pay commission on verified sales"],["🎁","Wanting to run a giveaway","Grow awareness with hosted giveaways"],["🌟","Looking for long-term brand ambassadors","Monthly retainers with creators you trust"],["🎬","Wanting UGC content","Videos for your own ads — not posted to creator pages"],["🧪","Testing a new market","Small campaigns to validate a niche or country"]];
 const PLAT_INTENTS=[["🎵","I want to monetize my TikTok","Turn views into deal flow"],["🗂","I have multiple platforms to list","Each platform gets its own listing, audience & prices"],["💼","I'm looking for brand deals","Sponsored posts, integrations, reviews"],["🔗","I want to offer affiliate promotions","Earn commission on verified sales"],["📮","I run a community/newsletter","Discord, Substack, forums — communities monetise too"]];
 
@@ -1886,15 +1888,21 @@ function wizStepHtml(step){
       valid:()=>d.platforms.size&&d.services.size?null:"Pick at least one platform and one service."};
     case "b-budget": {
       let extra="";
+      // The prize is what the AUDIENCE wins, so it is not by itself what the
+      // creator is paid. Giveaway campaigns therefore get their own payment
+      // method rather than the prize field silently standing in for one — see
+      // GIVEAWAY_PM below.
+      const giveaway=d.intentsB.has("Wanting to run a giveaway");
+      if(giveaway && !d.giveawayPmSeeded){ d.payMethods.add(GIVEAWAY_PM); d.giveawayPmSeeded=true; }
       if(d.intentsB.has("Looking to offer affiliate partnerships")) extra+=pmIn("w-comm","Default commission % per verified sale",d.commission);
-      if(d.intentsB.has("Wanting to run a giveaway")) extra+=pmIn("w-prize","Giveaway prize value (£)",d.prize);
+      if(giveaway) extra+=pmIn("w-prize","Giveaway prize value (£)",d.prize);
       if(d.intentsB.has("Wanting UGC content")) extra+=pmIn("w-ugc","UGC videos needed",d.ugcCount);
       if(d.intentsB.has("Looking for long-term brand ambassadors")) extra+=`<div><label>Ambassador term</label><select id="w-amb">${["1 month","3 months","6 months","12 months"].map(x=>`<option ${x===d.ambTerm?"selected":""}>${x}</option>`).join("")}</select></div>`;
       return {t:"Budget & payment",s:"Offer several payment methods — you set every amount yourself, and creators pick what suits their audience.",h:
       `<div class="frm"><div class="row2">
         <div><label>Campaign budget (£)</label><input type="number" id="w-budget" value="${esc(d.budget)}"></div>
         <div><label>Campaign duration</label><select id="w-dur">${["One-off","Video-by-video","2 weeks","4 weeks","6 weeks","3 months","Ongoing"].map(x=>`<option ${x===d.duration?"selected":""}>${x}</option>`).join("")}</select></div></div>
-        <div><label>Payment methods you'll offer</label>${wchipsHtml("payMethods",["Fixed payment","Price per view","Affiliate commission","Free product"])}</div>
+        <div><label>Payment methods you'll offer</label>${wchipsHtml("payMethods",["Fixed payment","Price per view","Affiliate commission","Free product"].concat(giveaway?[GIVEAWAY_PM]:[]))}</div>
         ${extra?`<div class="row2">${extra}</div>`:""}</div>`,
       collect:()=>{d.budget=$("w-budget").value; d.duration=$("w-dur").value; if($("w-comm"))d.commission=$("w-comm").value; if($("w-prize"))d.prize=$("w-prize").value; if($("w-ugc"))d.ugcCount=$("w-ugc").value; if($("w-amb"))d.ambTerm=$("w-amb").value;},
       valid:()=>d.payMethods.size?null:"Select at least one payment method."};}
@@ -2048,6 +2056,8 @@ async function finishBiz(){
   if(d.payMethods.has("Price per view")) pays.push({type:"per-view",detail:`£5 per 1,000 views (14-day measurement)`});
   if(d.payMethods.has("Affiliate commission")) pays.push({type:"affiliate",detail:`${d.commission||12}% commission per referred sale · 30-day cookie`});
   if(d.payMethods.has("Free product")) pays.push({type:"product",detail:"Free product supplied"});
+  if(d.payMethods.has(GIVEAWAY_PM)) pays.push({type:"giveaway",
+    detail:`${gbp(Number(d.prize)||0)} giveaway prize supplied by the brand`});
   const niche=d.industry.includes("Beauty")?"Beauty":d.industry.includes("Fitness")?"Fitness":d.industry.includes("Food")?"Food":d.industry.includes("Fin")?"Finance":d.industry.includes("Gam")?"Gaming":d.industry.includes("parent")||d.industry.includes("Kids")?"Parenting":"Tech";
   const title=`${d.product.split(" ").slice(0,3).join(" ")} — Launch Campaign`;
   const payload={title,industry:d.industry,description:`${d.company} is looking for creators to promote: ${d.product}. ${d.target}.`,
@@ -2340,6 +2350,9 @@ function openNewCampaign(){
   const b=S.biz; const d=W.d;
   d.company=b.company; d.product=b.product; d.industry=b.industry; d.target=b.target;
   d.intentsB=new Set(b.intents); d.countries=new Set(b.countries); d.platforms=new Set(b.platforms); d.services=new Set(b.services); d.sizes=new Set(b.sizes); d.budget=String(b.budget); d.payMethods=new Set(b.payMethods); d.duration=b.duration;
+  // Their saved payment methods are their real answer — don't re-seed the
+  // giveaway default over a choice they already made.
+  d.giveawayPmSeeded=true;
   W.i=0; renderWiz("fwd"); toast("Campaign builder — prefilled from your profile");
 }
 
