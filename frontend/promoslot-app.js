@@ -1267,15 +1267,15 @@ async function renderRealDeal(dealId){
     const goneWord = gone==="campaign" ? "Campaign" : "Listing";
     const goneNote = gone ? `<div class="note" style="margin-top:0;margin-bottom:14px">
       <b>${goneWord} removed by ${gone==="campaign"?"the business":"the owner"}.</b>
-      This deal was approved but never funded, and the ${gone} it came from has since been
-      taken down — so it is not going ahead. No money moved. It stays here in your deal
-      history for your records.</div>` : "";
+      This deal was never funded, and the ${gone} it came from has since been taken down —
+      so it is not going ahead. No money moved. It stays here in your deal history for
+      your records.</div>` : "";
     main=`${goneNote}<h3 class="deal-h">${gone?`${goneWord} removed — deal not going ahead`:(bothApproved?"Fund the deal":"Approve the agreement")}</h3>
     <p class="deal-sub">${gone?"Nothing further is expected from either side.":(bothApproved?"Both parties approved. The business funds the agreed amount into escrow before work starts.":"Both parties approve the same agreement before any money moves.")}</p>
     ${doc}
     <div class="approve-row">
-      <div class="appr ${d.business_approved?"ok":""}"><b>${partyLink(d.business_id,d.business_name)}</b><small>business · funds the deal</small><div class="st">${d.business_approved?'<span class="ok-txt">✓ Approved</span>':(meBiz?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
-      <div class="appr ${d.owner_approved?"ok":""}"><b>${partyLink(d.platform_owner_id,d.owner_name)}</b><small>platform owner · delivers</small><div class="st">${d.owner_approved?'<span class="ok-txt">✓ Approved</span>':(meOwner?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
+      <div class="appr ${d.business_approved?"ok":""}"><b>${partyLink(d.business_id,d.business_name)}</b><small>business · funds the deal</small><div class="st">${d.business_approved?'<span class="ok-txt">✓ Approved</span>':(gone?'<span class="mut">—</span>':meBiz?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
+      <div class="appr ${d.owner_approved?"ok":""}"><b>${partyLink(d.platform_owner_id,d.owner_name)}</b><small>platform owner · delivers</small><div class="st">${d.owner_approved?'<span class="ok-txt">✓ Approved</span>':(gone?'<span class="mut">—</span>':meOwner?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
     </div>
     ${!gone&&bothApproved&&meBiz?`<div id="fundArea"><button class="btn btn-g btn-lg" style="margin-top:16px" onclick="realFund(${d.id})">🔒 Fund ${gbpP(d.total_charged)} into escrow</button></div>`:""}
     ${!gone&&bothApproved&&!meBiz?`<div class="note blue" style="margin-top:16px">Waiting for the business to fund ${gbpP(d.total_charged)} into escrow.</div>`:""}

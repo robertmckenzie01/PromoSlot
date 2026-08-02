@@ -38,13 +38,16 @@ def _source_removed(d: Deal):
     Derived, never stored: it is read from the linked row every time, so it can
     never drift from reality and it disappears by itself if the row is restored.
 
-    Deliberately gated on funded_at being unset AND the status still being
-    approved-but-unfunded. Once real money is in escrow the deal resolves on its
-    own terms no matter what happens to the listing it came from.
+    Covers every pre-funding stage: an application still awaiting approval is
+    just as dead as an approved one once the other side withdraws the listing.
+    Gated on funded_at being unset AND a pre-funding status, so once real money
+    is in escrow the deal resolves on its own terms no matter what happens to
+    the listing it came from.
     """
     if d.funded_at is not None:
         return None
-    if d.status not in (DealStatus.APPROVED, DealStatus.AWAITING_FUNDING):
+    if d.status not in (DealStatus.AWAITING_APPROVAL, DealStatus.APPROVED,
+                        DealStatus.AWAITING_FUNDING):
         return None
     if d.platform is not None and d.platform.removed_at is not None:
         return "listing"
@@ -197,6 +200,15 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
         raise HTTPException(status_code=409, detail="Deal already funded")
     if not (d.business_approved and d.owner_approved):
         raise HTTPException(status_code=409, detail="Both parties must approve before funding")
+    # The listing/campaign this deal came from was withdrawn before it was funded.
+    # Enforced here, not just hidden in the UI: this is the money path.
+    gone = _source_removed(d)
+    if gone is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(f"The {gone} this deal came from has been removed by "
+                    f"{'the business' if gone == 'campaign' else 'the owner'}. "
+                    "This deal can no longer be funded."))
 
     m = deal_money_for(d)  # listed price + 5% buyer protection fee = amount charged
 
