@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from .. import bulk
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
@@ -49,9 +50,16 @@ def _owner_rating(db: Session, owner_id: int):
     return (round(float(avg), 1) if avg is not None else None), (count or 0)
 
 
-def listing_dict(db: Session, p: Platform) -> dict:
-    owner = db.get(User, p.owner_id)
-    rating, review_count = _owner_rating(db, p.owner_id)
+def listing_dict(db: Session, p: Platform, ctx=None) -> dict:
+    """ctx (see backend.bulk) pre-resolves the owner and their rating for a whole
+    page in two queries. Without it this falls back to per-row lookups, which is
+    what the single-row callers want."""
+    if ctx is not None:
+        owner = ctx.user(p.owner_id, db)
+        rating, review_count = ctx.rating(p.owner_id, db)
+    else:
+        owner = db.get(User, p.owner_id)
+        rating, review_count = _owner_rating(db, p.owner_id)
     meta = p.meta or {}
     return {
         "id": f"p{p.id}",
@@ -120,7 +128,8 @@ def browse_platforms(db: Session = Depends(get_db)):
     rows = (db.query(Platform).filter(Platform.suspended_at.is_(None),
                                       Platform.removed_at.is_(None))
             .order_by(Platform.id.desc()).all())
-    return [listing_dict(db, p) for p in rows]
+    ctx = bulk.for_listings(db, rows)
+    return [listing_dict(db, p, ctx) for p in rows]
 
 
 @router.get("/mine")
@@ -128,7 +137,8 @@ def my_platforms(user: User = Depends(get_current_user), db: Session = Depends(g
     rows = (db.query(Platform).filter(Platform.owner_id == user.id,
                                       Platform.removed_at.is_(None))
             .order_by(Platform.id.desc()).all())
-    return [listing_dict(db, p) for p in rows]
+    ctx = bulk.for_listings(db, rows)
+    return [listing_dict(db, p, ctx) for p in rows]
 
 
 @router.get("/{platform_id:int}")
@@ -216,17 +226,28 @@ def completed_campaigns_for(db: Session, owner_id: int, platform_id=None) -> lis
     if platform_id is not None:
         q = q.filter(Deal.platform_id == platform_id)
 
+    rows = q.order_by(Deal.paid_at.desc()).all()
+    # Three grouped lookups instead of three queries per deal.
+    biz_by_id = {u.id: u for u in db.query(User)
+                 .filter(User.id.in_({d.business_id for d in rows} or {0})).all()}
+    camp_by_id = {c.id: c for c in db.query(Campaign)
+                  .filter(Campaign.id.in_({d.campaign_id for d in rows if d.campaign_id} or {0})).all()}
+    rev_by_deal = {}
+    for r in (db.query(Review)
+              .filter(Review.deal_id.in_({d.id for d in rows} or {0}),
+                      Review.reviewee_id == owner_id)
+              .order_by(Review.id.asc()).all()):
+        rev_by_deal[r.deal_id] = r          # ascending, so the last write is the newest
+
     out = []
-    for d in q.order_by(Deal.paid_at.desc()).all():
-        biz = db.get(User, d.business_id)
+    for d in rows:
+        biz = biz_by_id.get(d.business_id)
         terms = d.terms or {}
         name = terms.get("campaign_title") or terms.get("offer") or ""
         if not name and d.campaign_id:
-            c = db.get(Campaign, d.campaign_id)
+            c = camp_by_id.get(d.campaign_id)
             name = c.title if c else ""
-        rev = (db.query(Review)
-               .filter(Review.deal_id == d.id, Review.reviewee_id == owner_id)
-               .order_by(Review.id.desc()).first())
+        rev = rev_by_deal.get(d.id)
         out.append({
             "deal_id": d.id,
             "platform_id": d.platform_id,
@@ -254,17 +275,26 @@ def completed_campaigns_by_business(db: Session, business_id: int) -> list:
                                   Deal.paid_at.isnot(None),
                                   Deal.status != DealStatus.REFUNDED)
             .order_by(Deal.paid_at.desc()).all())
+    owner_by_id = {u.id: u for u in db.query(User)
+                   .filter(User.id.in_({d.platform_owner_id for d in rows} or {0})).all()}
+    camp_by_id = {c.id: c for c in db.query(Campaign)
+                  .filter(Campaign.id.in_({d.campaign_id for d in rows if d.campaign_id} or {0})).all()}
+    rev_by_deal = {}
+    for r in (db.query(Review)
+              .filter(Review.deal_id.in_({d.id for d in rows} or {0}),
+                      Review.reviewee_id == business_id)
+              .order_by(Review.id.asc()).all()):
+        rev_by_deal[r.deal_id] = r
+
     out = []
     for d in rows:
-        owner = db.get(User, d.platform_owner_id)
+        owner = owner_by_id.get(d.platform_owner_id)
         terms = d.terms or {}
         name = terms.get("campaign_title") or terms.get("offer") or ""
         if not name and d.campaign_id:
-            c = db.get(Campaign, d.campaign_id)
+            c = camp_by_id.get(d.campaign_id)
             name = c.title if c else ""
-        rev = (db.query(Review)
-               .filter(Review.deal_id == d.id, Review.reviewee_id == business_id)
-               .order_by(Review.id.desc()).first())
+        rev = rev_by_deal.get(d.id)
         out.append({
             "deal_id": d.id,
             "campaign": name or f"Deal #{d.id}",

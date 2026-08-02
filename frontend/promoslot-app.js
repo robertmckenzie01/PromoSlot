@@ -183,16 +183,22 @@ function goHow(){ showView("view-landing"); setTimeout(()=>smoothTo($("sec-how")
 async function openDash(){
   if(!S.account){ authModal("login"); return; }
   if(!S.roles.includes(S.activeRole)) S.activeRole=S.roles[0];
-  await loadMine();
-  await loadDeals();
-  await loadNotifications();
-  try{ S.myRating=await PSApi.get(`/users/${S.account.id}/reviews`); }catch(e){ S.myRating=null; }
+  // Switch the view FIRST. This used to run only after every fetch resolved, so
+  // "Go to my dashboard" appeared to do nothing until the slowest call returned —
+  // and if the user had navigated away by then, it yanked them back.
+  showView(S.activeRole==="biz"?"view-bizdash":"view-platdash");
+  // These six calls are independent; they were awaited one after another.
+  await Promise.all([
+    loadMine(),
+    loadDeals(),
+    loadNotifications(),
+    PSApi.get(`/users/${S.account.id}/reviews`).then(r=>{S.myRating=r;}).catch(()=>{S.myRating=null;}),
+  ]);
   if(S.activeRole==="biz" && !S.biz){
     S.biz={company:S.account.display_name||S.account.email,product:"—",industry:"—",target:"",
       intents:[],countries:[],platforms:[],services:[],sizes:[],budget:0,payMethods:[],duration:"—"};
   }
   if(S.activeRole==="biz") renderBizDash(); else renderPlatDash();
-  showView(S.activeRole==="biz"?"view-bizdash":"view-platdash");
 }
 function switchRole(r){
   if(!S.roles.includes(r)){
@@ -243,8 +249,10 @@ function overlayClick(e){ if(e.target===$("overlay") && !modalLock) closeModal()
 function allListings(){ return LISTINGS.concat(S.marketPlatforms||[]); }
 function allCampaigns(){ return (S.marketCampaigns||[]).concat(CAMPAIGNS); }
 async function loadMarket(){
-  try{ S.marketPlatforms = await PSApi.get("/platforms"); }catch(e){ S.marketPlatforms=[]; }
-  try{ S.marketCampaigns = await PSApi.get("/campaigns"); }catch(e){ S.marketCampaigns=[]; }
+  await Promise.all([
+    PSApi.get("/platforms").then(r=>{S.marketPlatforms=r;}).catch(()=>{S.marketPlatforms=[];}),
+    PSApi.get("/campaigns").then(r=>{S.marketCampaigns=r;}).catch(()=>{S.marketCampaigns=[];}),
+  ]);
 }
 
 async function openMarket(tab){
@@ -2394,8 +2402,11 @@ function relTime(iso){ if(!iso) return ""; const d=new Date(iso), s=(Date.now()-
   if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return d.toLocaleDateString(); }
 async function loadNotifications(){
   if(!S.account){ S.realNotifs=[]; S.attn={unread:0,review_pending:0,awaiting_payout:0}; setBell(0); updateDots(); return; }
-  try{ S.realNotifs=await PSApi.get("/notifications"); }catch(e){ S.realNotifs=[]; }
-  try{ S.attn=await PSApi.get("/notifications/summary"); }catch(e){ S.attn={unread:0,review_pending:0,awaiting_payout:0}; }
+  await Promise.all([
+    PSApi.get("/notifications").then(r=>{S.realNotifs=r;}).catch(()=>{S.realNotifs=[];}),
+    PSApi.get("/notifications/summary").then(r=>{S.attn=r;})
+      .catch(()=>{S.attn={unread:0,review_pending:0,awaiting_payout:0};}),
+  ]);
   setBell((S.attn&&S.attn.unread)||0);
   updateDots();
 }
@@ -2695,8 +2706,14 @@ async function openPayouts(){
 }
 async function loadMine(){
   if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; return; }
-  try{ S.myPlatforms = S.account.is_platform_owner ? await PSApi.get("/platforms/mine") : []; }catch(e){ S.myPlatforms=[]; }
-  try{ S.myCampaigns = S.account.is_business ? await PSApi.get("/campaigns/mine") : []; }catch(e){ S.myCampaigns=[]; }
+  await Promise.all([
+    S.account.is_platform_owner
+      ? PSApi.get("/platforms/mine").then(r=>{S.myPlatforms=r;}).catch(()=>{S.myPlatforms=[];})
+      : Promise.resolve(S.myPlatforms=[]),
+    S.account.is_business
+      ? PSApi.get("/campaigns/mine").then(r=>{S.myCampaigns=r;}).catch(()=>{S.myCampaigns=[];})
+      : Promise.resolve(S.myCampaigns=[]),
+  ]);
 }
 function authModal(mode){
   const isSignup = mode==="signup";

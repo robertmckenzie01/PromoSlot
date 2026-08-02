@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from .. import bulk
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
@@ -43,15 +44,21 @@ class CampaignCreateIn(BaseModel):
     profile: dict = Field(default_factory=dict)
 
 
-def campaign_dict(db: Session, c: Campaign) -> dict:
-    biz = db.get(User, c.business_id)
-    count, avg = (db.query(func.count(Review.id), func.avg(Review.rating))
-                  .filter(Review.reviewee_id == c.business_id).one())
+def campaign_dict(db: Session, c: Campaign, ctx=None) -> dict:
+    """ctx (see backend.bulk) pre-resolves the business, its rating and the
+    applicant counts for a whole page in three queries. Without it this falls
+    back to per-row lookups, which is what the single-row callers want."""
+    if ctx is not None:
+        biz = ctx.user(c.business_id, db)
+        avg, count = ctx.rating(c.business_id, db)
+    else:
+        biz = db.get(User, c.business_id)
+        count, avg = (db.query(func.count(Review.id), func.avg(Review.rating))
+                      .filter(Review.reviewee_id == c.business_id).one())
+        avg = round(float(avg), 1) if avg is not None else None
     # Real applicant count: platform owners who have a live (non-declined)
     # application to this campaign. Zero for a brand-new campaign.
-    applicants = (db.query(func.count(Deal.id))
-                  .filter(Deal.campaign_id == c.id, Deal.status != DealStatus.CANCELLED)
-                  .scalar() or 0)
+    applicants = bulk.applicants_for(ctx, db, c.id)
     t = c.terms or {}
     return {
         "id": f"c{c.id}",
@@ -60,7 +67,7 @@ def campaign_dict(db: Session, c: Campaign) -> dict:
         "industry": c.industry or "",
         "title": c.title,
         "verified": False,
-        "rating": round(float(avg), 1) if avg is not None else None,
+        "rating": avg,
         "reviewCount": count or 0,
         "posted": "just now",
         "applicants": applicants,
@@ -118,7 +125,8 @@ def browse_campaigns(db: Session = Depends(get_db)):
     rows = (db.query(Campaign).filter(Campaign.suspended_at.is_(None),
                                       Campaign.removed_at.is_(None))
             .order_by(Campaign.id.desc()).all())
-    return [campaign_dict(db, c) for c in rows]
+    ctx = bulk.for_campaigns(db, rows)
+    return [campaign_dict(db, c, ctx) for c in rows]
 
 
 @router.get("/mine")
@@ -126,7 +134,8 @@ def my_campaigns(user: User = Depends(get_current_user), db: Session = Depends(g
     rows = (db.query(Campaign).filter(Campaign.business_id == user.id,
                                       Campaign.removed_at.is_(None))
             .order_by(Campaign.id.desc()).all())
-    return [campaign_dict(db, c) for c in rows]
+    ctx = bulk.for_campaigns(db, rows)
+    return [campaign_dict(db, c, ctx) for c in rows]
 
 
 @router.get("/{campaign_id:int}")

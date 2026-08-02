@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..config import settings
 from ..db import get_db
@@ -151,7 +151,11 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
 
 @router.get("")
 def list_deals(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # selectinload: _source_removed() reads d.platform / d.campaign, which would
+    # otherwise lazy-load one query per unfunded deal.
     rows = (db.query(Deal)
+            .options(selectinload(Deal.platform), selectinload(Deal.campaign),
+                     selectinload(Deal.business), selectinload(Deal.platform_owner))
             .filter((Deal.business_id == user.id) | (Deal.platform_owner_id == user.id))
             .order_by(Deal.id.desc()).all())
     return [deal_dict(d) for d in rows]

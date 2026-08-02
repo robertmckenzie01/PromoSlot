@@ -108,7 +108,9 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
                   .filter(Review.reviewee_id == user_id).one())
     plats = (db.query(Platform).filter_by(owner_id=user_id).order_by(Platform.id.desc()).all()
              if u.is_platform_owner else [])
-    listings = [listing_dict(db, p) for p in plats]
+    from .. import bulk
+    plat_ctx = bulk.for_listings(db, plats) if plats else None
+    listings = [listing_dict(db, p, plat_ctx) for p in plats]
     # All of the owner's My Work samples across their listings.
     work_items = []
     if plats:
@@ -117,9 +119,10 @@ def public_profile(user_id: int, user: User = Depends(get_current_user), db: Ses
                         .filter(PlatformMedia.platform_id.in_([p.id for p in plats]),
                                 PlatformMedia.kind == "work")
                         .order_by(PlatformMedia.id.desc()).all()]
-    campaigns = ([campaign_dict(db, c) for c in
-                  db.query(Campaign).filter_by(business_id=user_id).order_by(Campaign.id.desc()).all()]
-                 if u.is_business else [])
+    camp_rows = (db.query(Campaign).filter_by(business_id=user_id)
+                 .order_by(Campaign.id.desc()).all() if u.is_business else [])
+    camp_ctx = bulk.for_campaigns(db, camp_rows) if camp_rows else None
+    campaigns = [campaign_dict(db, c, camp_ctx) for c in camp_rows]
     return {
         "id": u.id,
         "display_name": u.display_name or u.email,
