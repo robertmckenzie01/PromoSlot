@@ -2066,9 +2066,27 @@ function wizNext(){
   if(step==="x-order"){
     W.steps = W.d.order==="biz" ? ["x-intent","x-order","b-company","b-target","b-budget","b-review"] : ["x-intent","x-order","p-reg","p-aud","p-serv","p-review"];
   }
-  if(step==="b-review"){ finishBiz(); return; }
-  if(step==="p-review"){ finishPlat(); return; }
+  // Publishing is a real POST. The wizard stays on the review step while it is
+  // in flight, so without this a second click fired a second create and
+  // published a duplicate. The flag is set synchronously, before any await, so
+  // two clicks in the same tick cannot both get through.
+  if(step==="b-review"||step==="p-review"){
+    if(W._publishing) return;
+    W._publishing=true;
+    const btn=document.querySelector(".wiz-foot .btn-p");
+    if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Publishing…`; }
+    (step==="b-review"?finishBiz:finishPlat)();
+    return;
+  }
   W.i++; renderWiz("fwd");
+}
+
+// Publishing failed — let them try again rather than stranding the wizard.
+function wizPublishFailed(label){
+  if(!W) return;
+  W._publishing=false;
+  const btn=document.querySelector(".wiz-foot .btn-p");
+  if(btn){ btn.disabled=false; btn.textContent=label; }
 }
 async function finishBiz(){
   const d=W.d;
@@ -2090,7 +2108,7 @@ async function finishBiz(){
     duration:d.duration,samples:d.payMethods.has("Free product"),
     profile:{product:d.product,target:d.target,payMethods:[...d.payMethods],collabs:"New to PromoSlot"}};
   try{ await PSApi.post("/campaigns",payload); }
-  catch(err){ toast(err.message||"Could not publish campaign"); return; }
+  catch(err){ toast(err.message||"Could not publish campaign"); wizPublishFailed("Create my business profile"); return; }
   await loadMine(); authReflect();
   S.activeRole="biz"; setTheme();
   const created=S.myCampaigns[0];
@@ -2103,7 +2121,7 @@ async function finishPlat(){
     audience:l.audience,avg_views:l.avgViews,impressions:l.impressions,engagement_rate:l.er,
     countries:l.countries,ages:l.ages,interests:l.interests,services:l.services,pricing:l.pricing};
   try{ await PSApi.post("/platforms",payload); }
-  catch(err){ toast(err.message||"Could not publish listing"); return; }
+  catch(err){ toast(err.message||"Could not publish listing"); wizPublishFailed("Publish my listing"); return; }
   await loadMine(); authReflect();
   S.activeRole="plat"; setTheme();
   const created=S.myPlatforms[0];
@@ -2218,10 +2236,16 @@ function animateKpis(){
   document.querySelectorAll(".kpi .kv[data-to]").forEach(el=>{
     const to=parseFloat(el.dataset.to); if(isNaN(to)) return;
     const pre=el.dataset.pre||"", suf=el.dataset.suf||"", dec=+el.dataset.dec||0;
+    if(el.dataset.done==="1") return;                 // already counted up
+    el.dataset.done="1";
+    // Nothing is being painted — don't animate from 0, the correct value is
+    // already in place from kpi().
+    if(document.visibilityState==="hidden"){ el.textContent=kpiText(to,pre,suf,dec); return; }
     const dur=750, t0=performance.now();
     const tick=now=>{ let p=Math.min(1,(now-t0)/dur); p=1-Math.pow(1-p,3);
       const val=to*p; el.textContent=pre+(dec?val.toFixed(dec):Math.round(val).toLocaleString("en-GB"))+suf;
-      if(p<1) requestAnimationFrame(tick); };
+      if(p<1) requestAnimationFrame(tick);
+      else el.textContent=kpiText(to,pre,suf,dec); };   // land exactly on the real value
     requestAnimationFrame(tick);
   });
 }
@@ -2281,9 +2305,16 @@ function renderGrowthTimeline(hostId, events, cfg){
   svg.addEventListener("pointerup",e=>{ dragging=false; try{svg.releasePointerCapture(e.pointerId);}catch(_){} });
   setScrub(tEnd);  // start showing "today" (full total)
 }
+function kpiText(to,pre,suf,dec){
+  return pre+(dec?Number(to).toFixed(dec):Math.round(to).toLocaleString("en-GB"))+suf;
+}
 function kpi(cfg){
   const i=cfg.i,val=cfg.val,to=cfg.to,pre=cfg.pre||"",suf=cfg.suf||"",dec=cfg.dec||0,label=cfg.label,delta=cfg.delta,cls=cfg.cls||"neu",spark=cfg.spark,act=cfg.act;
-  const head=(to!=null)?(pre+"0"+suf):val;
+  // Render the REAL figure into the markup. The count-up is decoration on top;
+  // it used to be the only thing that ever wrote the number, so whenever
+  // requestAnimationFrame did not run (a background tab, a throttled or
+  // non-painting page) every KPI sat at a hard-coded "0" over correct data.
+  const head=(to!=null)?kpiText(to,pre,suf,dec):val;
   return '<div class="kpi'+(act?" clickable":"")+'" style="--d:'+(i*60)+'ms" '+(act?('onclick="'+act+'"'):"")+'>'
     +'<div class="kpi-top"><div class="kv" data-to="'+(to!=null?to:"")+'" data-pre="'+pre+'" data-suf="'+suf+'" data-dec="'+dec+'">'+head+'</div>'
     +(spark?sparkline((label||"").length+(to||0),spark):"")+'</div>'
@@ -2304,7 +2335,7 @@ function renderBizDash(){
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('platforms')">Browse platform listings</button>
         <button class="btn btn-p" onclick="openNewCampaign()">＋ New campaign</button></div></div>
-    <div class="kpis">${kpi({i:0,to:S.myCampaigns.length,label:"Live campaigns",delta:S.myCampaigns.length?"↑ published today":"none yet — post one",cls:S.myCampaigns.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourCampaigns')"})}${kpi({i:1,to:applicants,label:"Applicants",delta:applicants?"↑ new applications":"awaiting first applications",cls:applicants?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:2,val:escrowPence?gbpP(escrowPence):"—",to:escrowPence?escrowPence/100:null,pre:"£",dec:2,label:"Secured in escrow",delta:escrowPence?"released on verified delivery":"fund a deal to protect it",cls:"neu",spark:"#4f46e5",act:"openMarket('platforms')"})}${kpi({i:3,to:completedCount,label:"Completed deals",delta:completedCount?"fee only on completion":"none yet",cls:"neu",spark:"#4f46e5"})}    </div>
+    <div class="kpis">${kpi({i:0,to:S.myCampaigns.length,label:"Live campaigns",delta:S.myCampaigns.length?"↑ published today":"none yet — post one",cls:S.myCampaigns.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourCampaigns')"})}${kpi({i:1,to:applicants,label:"Applicants",delta:applicants?"↑ new applications":"awaiting first applications",cls:applicants?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:2,val:escrowPence?gbpP(escrowPence):"—",to:escrowPence?escrowPence/100:null,pre:"£",dec:2,label:"Secured in escrow",delta:escrowPence?"released on verified delivery":"fund a deal to protect it",cls:"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:3,to:completedCount,label:"Completed deals",delta:completedCount?"fee only on completion":"none yet",cls:"neu",spark:"#4f46e5"})}    </div>
     <div class="panel"><div class="panel-h"><h4>Account growth · spend over time</h4></div><div class="panel-b" id="bizGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel" id="yourCampaigns"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>

@@ -3,20 +3,23 @@
 Real accounts with hashed passwords and server-side sessions. Sessions are
 opaque tokens stored in an httpOnly cookie and a `sessions` table (revocable).
 """
+import logging
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
 from ..deps import COOKIE_NAME, get_current_user
-from ..mailer import password_reset_email, send_email
+from ..mailer import password_reset_email, send_email, welcome_email
 from ..models import PasswordResetToken, Session as AuthSession, User
 from ..schemas import (ChangePasswordIn, ForgotPasswordIn, LoginIn, ResetPasswordIn,
                        SignupIn, UserOut)
 from ..security import hash_password, new_session_token, verify_password
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -54,7 +57,8 @@ def find_by_email(db: Session, email: str):
 
 
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def signup(body: SignupIn, response: Response, db: Session = Depends(get_db)):
+def signup(body: SignupIn, response: Response, background: BackgroundTasks,
+           db: Session = Depends(get_db)):
     email = body.email.strip().lower()
     if not body.is_business and not body.is_platform_owner:
         raise HTTPException(status_code=422, detail="Select at least one role")
@@ -71,7 +75,22 @@ def signup(body: SignupIn, response: Response, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     _issue_session(db, user, response)
+    # Best effort, and after the response is sent: send_email never raises, but
+    # it can block up to its timeout, and a slow mail provider must never delay
+    # or fail account creation.
+    background.add_task(_send_welcome, user.email, user.display_name,
+                        user.is_business, user.is_platform_owner)
     return user
+
+
+def _send_welcome(email: str, display_name: str, is_business: bool,
+                  is_platform_owner: bool) -> None:
+    subject, html, text = welcome_email(display_name, is_business, is_platform_owner)
+    ok, detail = send_email(email, subject, html, text)
+    if not ok:
+        # Not configured, or the provider rejected it. Logged, never surfaced as
+        # a signup failure and never reported as delivered when it wasn't.
+        log.warning("welcome email not sent to %s: %s", email, detail)
 
 
 @router.post("/login", response_model=UserOut)
