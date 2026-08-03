@@ -710,10 +710,10 @@ b,strong{font-weight:700}
   .toast{width:100%;justify-content:flex-start}
 }
 </style>
-<!-- ?v= is bumped whenever these files change, so a deploy can't leave a
-     browser running the previous build from its HTTP cache. -->
-<script src="api.js?v=4"></script>
-<script src="promoslot-app.js?v=4"></script>
+<!-- The ?v= cache-busting hash is injected from each file's contents when
+     this page is served (backend/assets.py). Leave these srcs plain. -->
+<script src="api.js"></script>
+<script src="promoslot-app.js"></script>
 </helmet>
 
 <nav class="nav">

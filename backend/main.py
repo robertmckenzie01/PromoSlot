@@ -3,9 +3,11 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  (ensure models are registered on Base)
+from .assets import render_index
 from .config import settings
 from .routers import (
     admin, auth, campaigns, connect, deals, health, messages, mfa, notifications,
@@ -62,4 +64,23 @@ def api_info():
 # Mounted LAST so all explicit API routes above take precedence; everything else
 # (index.html, JS, assets) is served from the frontend/ directory.
 if os.path.isdir(FRONTEND_DIR):
+
+    # HEAD as well as GET: without it a HEAD would fall through to the mount
+    # below and answer with the un-versioned file and a misleading ETag.
+    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+    @app.api_route("/index.html", methods=["GET", "HEAD"], include_in_schema=False)
+    def index():
+        """index.html with a content hash injected on every script tag.
+
+        Declared before the StaticFiles mount so it wins for these two paths.
+        The HTML itself must never be served from cache without revalidating —
+        it is what carries the current hashes, so a stale copy would keep
+        pointing at the previous build's JavaScript and defeat the whole thing.
+        The hashed asset URLs underneath are then safe to cache normally.
+        """
+        return HTMLResponse(
+            render_index(FRONTEND_DIR),
+            headers={"Cache-Control": "no-cache, must-revalidate"},
+        )
+
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
