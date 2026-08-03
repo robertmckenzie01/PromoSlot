@@ -710,8 +710,10 @@ b,strong{font-weight:700}
   .toast{width:100%;justify-content:flex-start}
 }
 </style>
-<script src="api.js"></script>
-<script src="promoslot-app.js"></script>
+<!-- ?v= is bumped whenever these files change, so a deploy can't leave a
+     browser running the previous build from its HTTP cache. -->
+<script src="api.js?v=4"></script>
+<script src="promoslot-app.js?v=4"></script>
 </helmet>
 
 <nav class="nav">

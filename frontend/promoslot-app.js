@@ -175,6 +175,7 @@ function smoothTo(el){
   window.scrollTo({top, behavior:"smooth"});
 }
 function goHome(scrollRoles){
+  setRoute("home");
   showView("view-landing");
   if(scrollRoles && S.roles.length){ openDash(); return; }
   if(scrollRoles) setTimeout(()=>smoothTo($("roleCards")),80);
@@ -183,6 +184,7 @@ function goHow(){ showView("view-landing"); setTimeout(()=>smoothTo($("sec-how")
 async function openDash(){
   if(!S.account){ authModal("login"); return; }
   if(!S.roles.includes(S.activeRole)) S.activeRole=S.roles[0];
+  setRoute("dash");
   // Switch the view FIRST. This used to run only after every fetch resolved, so
   // "Go to my dashboard" appeared to do nothing until the slowest call returned —
   // and if the user had navigated away by then, it yanked them back.
@@ -257,6 +259,7 @@ async function loadMarket(){
 
 async function openMarket(tab){
   if(tab && typeof tab==="string") S.marketTab=tab;
+  setRoute("market", S.marketTab);
   showView("view-market");
   buildFilters(); renderMarket(true);        // skeletons while we fetch
   await loadMarket();
@@ -1166,6 +1169,7 @@ function partyLink(id,name){
 // backRef: optional "c12"/"p3" so the viewer can return to where they came from
 // instead of only being able to close out entirely.
 async function openProfile(userId, backRef){
+  setRoute("profile", userId);
   let p; try{ p=await PSApi.get(`/users/${userId}/public`); }catch(e){ toast("Couldn't load that profile"); return; }
   const roles=[]; if(p.is_business)roles.push("Business"); if(p.is_platform_owner)roles.push("Platform owner");
   const stars = p.rating!=null ? `⭐ ${p.rating.toFixed(1)} (${p.review_count})` : "No rating yet";
@@ -1228,6 +1232,7 @@ async function openProfile(userId, backRef){
     <div class="det-body">${about}${intro}${links}${assets}${svc}${aud}${work}${pastAuto}${bizPast}${listings}${campaigns}${reviews}</div>`,"wide");
 }
 async function renderRealDeal(dealId){
+  setRoute("deal", dealId);
   let d;
   try{ d=await PSApi.get("/deals/"+dealId); }catch(err){ toast(err.message||"Could not load deal"); return; }
   const meBiz = S.account && S.account.id===d.business_id;
@@ -2484,6 +2489,7 @@ function authReflect(){
 }
 async function openReviewQueue(){
   if(!can("deal.view_evidence")){ toast("Admin access required"); return; }
+  setRoute("review-queue");
   showView("view-deal");
   let q=[]; try{ q=await PSApi.get("/review/queue"); }catch(e){}
   loadNotifications();
@@ -2528,6 +2534,7 @@ function adminCreds(){
 }
 async function openAdmin(tab){
   if(!can("admin.view")){ toast("Super-Admin access required"); return; }
+  setRoute("admin");
   tab=tab||"admins";
   showView("view-deal");
   let admins=[], logs=[], mods={listings:[],campaigns:[]};
@@ -2671,6 +2678,7 @@ function scrollToPanel(id){
 }
 async function openCompleted(){
   if(!can("deal.view_evidence")){ toast("Admin access required"); return; }
+  setRoute("completed");
   showView("view-deal");
   let q=[]; try{ q=await PSApi.get("/review/completed"); }catch(e){}
   const total=q.reduce((a,x)=>a+(x.platform_take||0),0);
@@ -2688,6 +2696,7 @@ async function openCompleted(){
 }
 async function openPayouts(){
   if(!can("deal.view_evidence")){ toast("Admin access required"); return; }
+  setRoute("payouts");
   showView("view-deal");
   let q=[]; try{ q=await PSApi.get("/review/payouts"); }catch(e){}
   loadNotifications();
@@ -2819,6 +2828,7 @@ async function doResetPassword(token){
   authModal("login");
 }
 async function doLogout(){
+  clearRoute();
   try{ await PSApi.logout(); }catch(e){}
   S.account=null; S.perms=[]; S.myRole="USER";
   // Wipe already-rendered privileged/account markup so nothing from the previous
@@ -2861,6 +2871,7 @@ function supportFormHtml(){
 function openAccount(){
   const a=S.account;
   if(!a){ authModal("login"); return; }
+  setRoute("account");
   showView("view-account");
   $("accountWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>My Account</h2></div>
@@ -3143,8 +3154,101 @@ async function doChangePassword(){
   toast("Password updated ✓",true);
 }
 async function restoreSession(){
-  try{ S.account=await PSApi.me(); await loadPerms(); await loadMine(); await loadNotifications(); }catch(e){ S.account=null; S.perms=[]; S.myRole="USER"; }
+  let live=false;
+  try{
+    S.account=await PSApi.me();          // the httpOnly cookie is the only proof
+    live=true;
+    await Promise.all([loadPerms(), loadMine(), loadNotifications()]);
+  }catch(e){
+    // Expired, revoked, suspended or never signed in — all land here. Treat every
+    // one as logged out: drop client state and forget where they were, so a stale
+    // session can never leave the app looking authenticated.
+    S.account=null; S.perms=[]; S.myRole="USER";
+    clearRoute();
+  }
   authReflect();
+  return live;
+}
+
+async function restoreRoute(live){
+  const r=readRoute();
+  _routeReady=true;                      // only now may navigation record routes
+  if(!r) return;
+  // A route behind the login wall is only ever replayed for a verified session.
+  if(!live && !PUBLIC_ROUTES.has(r.name)){ clearRoute(); return; }
+  try{
+    if(!await applyRoute(r)) clearRoute();
+  }catch(e){
+    // The row is gone, or this account may no longer see it — the server decides.
+    clearRoute();
+    if(live) openDash(); else goHome();
+  }
+}
+
+/* ==================== WHERE THE USER WAS ====================
+The session itself lives in the httpOnly ps_session cookie and is restored by
+restoreSession() -> GET /auth/me. That already survived a refresh; what did not
+was the VIEW, which always booted to the marketing landing page and so read as
+being logged out.
+
+Only the route is remembered here — a view name and, at most, a numeric id.
+Never a token, never identity: the cookie stays httpOnly and unreadable to JS,
+and the server re-authorises every request behind these views regardless.
+sessionStorage (not localStorage) so it is per-tab and dies with the tab.
+*/
+const ROUTE_KEY="ps_route";
+// Routes anyone may land on. Everything else needs a live session to restore.
+const PUBLIC_ROUTES=new Set(["home","market"]);
+let _routeReady=false;                 // don't record routes during restore
+
+function setRoute(name, arg){
+  if(!_routeReady) return;
+  try{ sessionStorage.setItem(ROUTE_KEY, JSON.stringify(arg==null?{name}:{name,arg})); }
+  catch(e){}                            // private mode / storage disabled
+}
+function clearRoute(){ try{ sessionStorage.removeItem(ROUTE_KEY); }catch(e){} }
+function readRoute(){
+  try{
+    const r=JSON.parse(sessionStorage.getItem(ROUTE_KEY)||"null");
+    if(!r || typeof r.name!=="string") return null;
+    // Only ever accept an integer id back out of storage.
+    if(r.arg!=null && !/^\d+$/.test(String(r.arg))) return null;
+    return r;
+  }catch(e){ return null; }
+}
+
+async function applyRoute(r){
+  if(!r) return false;
+  const id = r.arg!=null ? parseInt(r.arg,10) : null;
+  switch(r.name){
+    case "market":      await openMarket(r.arg||undefined); return true;
+    case "dash":        await openDash(); return true;
+    case "messages":    await openMessages(); return true;
+    case "account":     openAccount(); return true;
+    case "profile":
+      // The profile is a modal, so give it a sensible page underneath rather
+      // than leaving the marketing landing page behind it.
+      if(S.account && S.roles.length) await openDash(); else goHome();
+      await openProfile(id); return true;
+    case "deal":        showView("view-deal"); await renderRealDeal(id); return true;
+    // Permission-gated views. The check here is only so a route this account
+    // can no longer use is dropped instead of re-toasting on every refresh —
+    // the server is still the authority, and each of these calls re-checks too.
+    case "review-queue":
+      if(!can("deal.view_evidence")) return false;
+      await openReviewQueue(); return true;
+    case "payouts":
+      if(!can("deal.view_evidence")) return false;
+      await openPayouts(); return true;
+    case "completed":
+      if(!can("deal.view_evidence")) return false;
+      await openCompleted(); return true;
+    case "admin":
+      if(!can("admin.view")) return false;
+      await openAdmin(); return true;
+    case "home":        goHome(); return true;
+  }
+  return false;
 }
 
 /* ==================== BOOT ==================== */
@@ -3179,7 +3283,7 @@ function PSBoot(){
   renderMiniMarket();
   renderFooterSupport();
   syncNav();
-  restoreSession();
+  restoreSession().then(restoreRoute);
   startAttnPolling();
   // A real reset link (emailed) lands as /?reset=<token> — open the set-password step.
   const _rt=new URLSearchParams(location.search).get("reset");
@@ -3201,7 +3305,8 @@ renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
 openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
 renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
-adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign};
+adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
+setRoute,clearRoute,readRoute,restoreRoute,restoreSession};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
