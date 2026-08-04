@@ -399,7 +399,35 @@ class SupportTicket(Base):
     subject = Column(String, nullable=False)
     body = Column(Text, nullable=False)
     handled = Column(Boolean, default=False, nullable=False)
+    # Shared queue with a single owner: the first reviewer to claim a ticket owns
+    # it and is the only one who may send the customer-facing reply. Claiming is
+    # an atomic "update ... where assigned_to_id is null", so two reviewers
+    # racing cannot both win (see routers/support.py).
+    assigned_to_id = Column(Integer, ForeignKey("users.id"), index=True)
+    claimed_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    assigned_to = relationship("User", foreign_keys=[assigned_to_id])
+
+
+class SupportTicketEvent(Base):
+    """The timeline on a ticket: replies out, and reviewer-only internal notes.
+
+    kind='reply'    -> sent to the submitter by email (and in-app if they have an
+                       account). Customer-facing.
+    kind='note'     -> internal. Never emailed, never shown to the submitter.
+    kind='claim' / 'transfer' -> ownership changes, kept here so the thread reads
+                       in order. The immutable record of these is the audit log.
+    """
+    __tablename__ = "support_ticket_events"
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey("support_tickets.id"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id"), index=True)
+    kind = Column(String, nullable=False)
+    body = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    author = relationship("User", foreign_keys=[author_id])
 
 
 class Message(Base):

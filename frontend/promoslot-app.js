@@ -2671,6 +2671,9 @@ function authReflect(){
   $("nav-logout").classList.toggle("hide", !a);
   const canReview=can("deal.view_evidence");
   $("nl-review").classList.toggle("hide", !canReview);
+  // Every reviewer/admin account, current and future — driven by the permission,
+  // never by a hardcoded account.
+  $("nl-support").classList.toggle("hide", !canReview);
   $("nl-payouts").classList.toggle("hide", !canReview);
   $("nl-completed").classList.toggle("hide", !canReview);
   $("nl-admin").classList.toggle("hide", !can("admin.view"));
@@ -2700,6 +2703,136 @@ async function openReviewQueue(){
         <div class="dr-amt"><b>${gbpP(item.listed_price)}</b><small>listed</small></div></div>`).join("")
       :`<div class="empty-state"><div class="es-ico">✅</div><h4>Nothing to review</h4><p>Funded deals with submitted evidence appear here for verification.</p></div>`}</div></div>`;
 }
+/* ============ CONTACTED SUPPORT (shared reviewer queue) ============
+   Separate from Messages: these are Contact Support submissions, many from
+   people with no PromoSlot account. Every reviewer sees every ticket; the
+   first to claim one owns the customer-facing reply. Everything here is
+   re-authorised by the API — hiding a button is convenience, not security. */
+async function openSupportQueue(ticketId){
+  if(!can("deal.view_evidence")){ toast("Reviewer access required"); return; }
+  setRoute("support-queue");
+  showView("view-deal");
+  let list=[]; try{ list=await PSApi.get("/support/tickets"); }catch(e){}
+  S._supportList=list;
+  if(ticketId!=null){ return openSupportTicket(ticketId); }
+  const open=list.filter(t=>!t.handled).length;
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button>
+      <h2>Contacted Support</h2>
+      <span class="status-pill st-review">${open} open</span></div>
+    <div class="panel"><div class="panel-b">${list.length?list.map(t=>`
+      <div class="deal-row" onclick="openSupportTicket(${t.id})">
+        <div class="pfp" style="background:var(--acc)">${esc((t.name||"?").slice(0,1).toUpperCase())}</div>
+        <div><div class="dr-t">${esc(t.subject)}</div>
+          <div class="dr-s">${esc(t.name)}${t.email?" · "+esc(t.email):""}${t.user_id?" · has an account":""}</div></div>
+        <span class="status-pill ${t.handled?"st-done":t.assigned_to?"st-escrow":"st-review"}">${
+          t.handled?"Replied":t.assigned_to?esc(t.assigned_to.name):"Unclaimed"}</span>
+        <div class="dr-amt"><small>${t.created_at?new Date(t.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"}):""}</small></div>
+      </div>`).join("")
+      :`<div class="empty-state"><div class="es-ico">📮</div><h4>No tickets yet</h4><p>Contact Support submissions appear here.</p></div>`}</div></div>`;
+}
+
+async function openSupportTicket(id){
+  if(!can("deal.view_evidence")){ toast("Reviewer access required"); return; }
+  let t; try{ t=await PSApi.get(`/support/tickets/${id}`); }catch(e){ toast(e.message||"Could not load that ticket"); return; }
+  S._supportTicket=t;
+  const meId=String(S.account&&S.account.id);
+  const owner=t.assigned_to;
+  const iOwn=owner && String(owner.id)===meId;
+  const events=(t.events||[]).map(e=>{
+    const who=e.author?esc(e.author.name):"—";
+    const when=e.created_at?new Date(e.created_at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
+    if(e.kind==="note") return `<div class="proof-item got"><span class="pi-ico">🔒</span>
+      <div><b>Internal note · ${who}</b><div class="mut" style="font-size:12px;white-space:pre-wrap">${esc(e.body||"")}</div>
+      <div class="mut" style="font-size:11.5px">${when} · never shown to the submitter</div></div></div>`;
+    if(e.kind==="reply") return `<div class="proof-item got"><span class="pi-ico">📤</span>
+      <div><b>Reply sent · ${who}</b><div class="mut" style="font-size:12px;white-space:pre-wrap">${esc(e.body||"")}</div>
+      <div class="mut" style="font-size:11.5px">${when} · emailed to ${esc(t.email||"")}</div></div></div>`;
+    return `<div class="proof-item"><span class="pi-ico">${e.kind==="claim"?"🙋":"🔁"}</span>
+      <div><b>${e.kind==="claim"?"Claimed":"Transferred"} · ${who}</b>
+      ${e.body?`<div class="mut" style="font-size:12px">${esc(e.body)}</div>`:""}
+      <div class="mut" style="font-size:11.5px">${when}</div></div></div>`;
+  }).join("") || `<p class="mut" style="font-size:12.5px">Nothing yet.</p>`;
+
+  const ownerRow = owner
+    ? `<span class="status-pill ${iOwn?"st-done":"st-escrow"}">${iOwn?"You own this":esc(owner.name)+" owns this"}</span>`
+    : `<span class="status-pill st-review">Unclaimed</span>`;
+
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="openSupportQueue()">← Contacted Support</button>
+      <h2>Ticket ${t.id}</h2>${ownerRow}</div>
+    <div class="agree-doc">
+      <div class="ad-head"><span>📮 ${esc(t.subject)}</span><span>${t.created_at?new Date(t.created_at).toLocaleString("en-GB"):""}</span></div>
+      <div class="ad-row"><span class="k">From</span><span class="v">${esc(t.name)}</span></div>
+      <div class="ad-row"><span class="k">Email</span><span class="v">${esc(t.email||"— none given")}</span></div>
+      <div class="ad-row"><span class="k">Mobile</span><span class="v">${esc(t.mobile||"—")}</span></div>
+      <div class="ad-row"><span class="k">PromoSlot account</span><span class="v">${t.user_id?`yes — they'll also get an in-app notification`:"no — email only"}</span></div>
+    </div>
+    <div class="det-sec" style="margin-top:16px"><h5>Message</h5>
+      <p class="det-p" style="white-space:pre-wrap">${esc(t.body)}</p></div>
+
+    ${!owner?`<div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-p" id="sq-claim" onclick="claimSupportTicket(${t.id})">Claim this ticket</button></div>`:""}
+
+    <div class="det-sec" style="margin-top:18px"><h5>Activity</h5>${events}</div>
+
+    <div class="det-sec"><h5>Reply to ${esc(t.name)}</h5>
+      ${iOwn ? `<div class="frm">
+          <div><textarea id="sq-reply" placeholder="This is emailed to ${esc(t.email||"the submitter")}…"></textarea></div>
+          <div class="hint-err hide" id="sq-err"></div>
+          <button class="btn btn-p btn-sm" id="sq-send" onclick="sendSupportReply(${t.id})">Send reply</button></div>`
+        : `<p class="mut" style="font-size:12.5px">${owner?`Only ${esc(owner.name)} can reply to this ticket. You can still add an internal note or transfer it.`:"Claim the ticket to reply."}</p>`}
+    </div>
+
+    <div class="det-sec"><h5>Internal note (reviewers only)</h5>
+      <div class="frm">
+        <div><textarea id="sq-note" placeholder="Never emailed, never shown to the submitter…"></textarea></div>
+        <button class="btn btn-o btn-sm" onclick="addSupportNote(${t.id})">Add note</button></div></div>
+
+    <div class="det-sec"><h5>Transfer ownership</h5>
+      <div class="frm"><div class="row2">
+        <div><label>Reviewer's account ID</label><input type="number" id="sq-to" placeholder="e.g. 4"></div>
+        <div><label>Reason (optional)</label><input type="text" id="sq-why" placeholder="e.g. owner away"></div></div>
+        <button class="btn btn-o btn-sm" onclick="transferSupportTicket(${t.id})">Transfer</button></div></div>`;
+}
+
+async function claimSupportTicket(id){
+  const b=$("sq-claim"); if(b){ b.disabled=true; b.innerHTML=`<span class="spin"></span> Claiming…`; }
+  try{ await PSApi.post(`/support/tickets/${id}/claim`); }
+  catch(e){ toast(e.message||"Could not claim"); }      // 409 = someone beat you to it
+  openSupportTicket(id);
+}
+async function sendSupportReply(id){
+  const ta=$("sq-reply"), err=$("sq-err"); if(!ta) return;
+  const body=(ta.value||"").trim();
+  if(!body){ if(err){err.textContent="Write a reply first.";err.classList.remove("hide");} return; }
+  const b=$("sq-send"); if(b){ b.disabled=true; b.innerHTML=`<span class="spin"></span> Sending…`; }
+  try{ await PSApi.post(`/support/tickets/${id}/reply`,{body}); }
+  catch(e){
+    if(b){ b.disabled=false; b.textContent="Send reply"; }
+    if(err){ err.textContent=e.message||"Could not send"; err.classList.remove("hide"); }
+    return;
+  }
+  toast("Reply sent ✓",true);
+  openSupportTicket(id);
+}
+async function addSupportNote(id){
+  const ta=$("sq-note"); const body=(ta&&ta.value||"").trim();
+  if(!body){ toast("Write the note first"); return; }
+  try{ await PSApi.post(`/support/tickets/${id}/note`,{body}); }
+  catch(e){ toast(e.message||"Could not add note"); return; }
+  toast("Internal note added");
+  openSupportTicket(id);
+}
+async function transferSupportTicket(id){
+  const to=Number(($("sq-to")||{}).value);
+  if(!to){ toast("Enter the reviewer's account ID"); return; }
+  try{ await PSApi.post(`/support/tickets/${id}/transfer`,{to_user_id:to, reason:(($("sq-why")||{}).value||"").trim()||null}); }
+  catch(e){ toast(e.message||"Could not transfer"); return; }
+  toast("Ownership transferred");
+  openSupportTicket(id);
+}
+
 /* ==================== ADMIN CONSOLE ====================
    Permissions here only decide what to SHOW. Every action is independently
    authorised by the API, so hiding a control is convenience, not security. */
@@ -3433,6 +3566,9 @@ async function applyRoute(r){
     case "review-queue":
       if(!can("deal.view_evidence")) return false;
       await openReviewQueue(); return true;
+    case "support-queue":
+      if(!can("deal.view_evidence")) return false;
+      await openSupportQueue(); return true;
     case "payouts":
       if(!can("deal.view_evidence")) return false;
       await openPayouts(); return true;
@@ -3462,6 +3598,7 @@ const NAV_ACTIONS={
   "dash":()=>openDash(),
   "account":()=>openAccount(),
   "review-queue":()=>openReviewQueue(),
+  "support-queue":()=>openSupportQueue(),
   "payouts":()=>openPayouts(),
   "completed":()=>openCompleted(),
   "admin":()=>openAdmin(),
@@ -3502,7 +3639,8 @@ openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPrice
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
 renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
-setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion};
+setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
+openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
