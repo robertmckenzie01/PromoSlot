@@ -149,10 +149,41 @@ function pfp(name,platform,cls,avatarUrl){
 }
 function pbadge(p){ const m=PLATFORM_META[p]; return `<span class="pbadge" style="background:${m.color}14;color:${m.color}">${m.ico} ${p}</span>`; }
 function exWrap(inner,is){ return is?`<div class="pfp-wrap">${inner}<span class="ex-badge">EXAMPLE</span></div>`:inner; }
-function priceFrom(l){ const ps=l.pricing.filter(p=>p.amount>0); return ps.length?Math.min(...ps.map(p=>p.amount)):0; }
+function priceFrom(l){ const ps=(l.pricing||[]).filter(p=>p.amount>0); return ps.length?Math.min(...ps.map(p=>p.amount)):0; }
+
+// The headline price tag. A listing can carry several pricing models, and
+// `amount` means a different thing in each (see PM_MODELS): a fixed price, a
+// guaranteed minimum, or a rate. Taking a blind Math.min across all of them let
+// a £0.05-per-view RATE outrank a £150 fixed PRICE, so this picks by type:
+// a real fixed price first, then any other guaranteed £ floor, then a rate, and
+// only says "Quote" when nothing structured exists at all.
+function _pmNum(p,re){ const m=String(p&&p.detail||"").match(re); return m?Number(m[1]):0; }
+function priceTagText(l){
+  const ps=(l.pricing||[]).filter(p=>p&&p.type);
+  const lowest=t=>{ const v=ps.filter(p=>p.type===t&&Number(p.amount)>0).map(p=>Number(p.amount));
+                    return v.length?Math.min(...v):0; };
+
+  const fixed=lowest("fixed");
+  if(fixed) return `From ${gbp(fixed)}`;
+  // hybrid / time / per-view all expose a guaranteed £ floor in `amount`.
+  const floor=Math.min(...["hybrid","time","per-view"].map(lowest).filter(v=>v>0), Infinity);
+  if(floor!==Infinity) return `From ${gbp(floor)}`;
+
+  // No floor — fall back to the rate, which only lives in the detail string.
+  const pv=ps.find(p=>p.type==="per-view");
+  const pvRate=_pmNum(pv,/£([\d.]+)\s*per\s*1,?000\s*views/i);
+  if(pvRate) return `From ${gbp(pvRate)}/1k views`;
+  const aff=ps.find(p=>p.type==="affiliate");
+  const pct=_pmNum(aff,/([\d.]+)%/);
+  if(pct) return `${pct}% commission`;
+  const pi=ps.find(p=>p.type==="per-imp"&&Number(p.amount)>0);
+  if(pi) return `From ${gbp(Number(pi.amount))}/1k impressions`;
+
+  return "Quote";
+}
 function priceFromHtml(l){
-  const f=priceFrom(l);
-  return f ? `from <b>${gbp(f)}</b>` : `<b class="quote-only">Owner-set pricing</b>`;
+  const t=priceTagText(l);
+  return t==="Quote" ? `<b class="quote-only">Quote</b>` : `<b>${esc(t)}</b>`;
 }
 function setTheme(){ 
   if(S.activeRole) document.body.dataset.role=S.activeRole; else delete document.body.dataset.role;
