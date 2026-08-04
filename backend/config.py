@@ -39,6 +39,9 @@ class Settings:
     # Transactional email (Resend) — real password-reset delivery.
     resend_api_key: str = os.environ.get("RESEND_API_KEY", "")
     mail_from: str = os.environ.get("MAIL_FROM", "PromoSlot <onboarding@resend.dev>")
+    # Where Contact Support submissions are alerted to. Overridable so staging
+    # doesn't page the real inbox.
+    support_email: str = os.environ.get("SUPPORT_EMAIL", "support@usepromoslot.com")
 
     @property
     def stripe_configured(self) -> bool:

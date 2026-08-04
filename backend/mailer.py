@@ -13,6 +13,12 @@ from .config import settings
 _ENDPOINT = "https://api.resend.com/emails"
 
 
+def _esc(v) -> str:
+    """Escape submitter-supplied text before it goes into an HTML email."""
+    return (str(v or "").replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
 def send_email(to: str, subject: str, html: str, text: str = "") -> tuple:
     """Send one email. Returns (ok, detail). Never raises."""
     if not settings.email_configured:
@@ -122,3 +128,43 @@ def welcome_email(display_name: str = "", is_business: bool = False,
             "Fees are only charged when a deal completes — 10% from the seller, 5% buyer "
             "protection from the buyer.")
     return "Welcome to PromoSlot", html, text
+
+
+def support_ticket_email(ticket_id: int, name: str, email: str = "", mobile: str = "",
+                         subject: str = "", body: str = "") -> tuple:
+    """(subject, html, text) alerting the support inbox to a new ticket."""
+    def row(label, value):
+        return (f'<tr><td style="padding:4px 12px 4px 0;color:#64748b;'
+                f'vertical-align:top;white-space:nowrap">{label}</td>'
+                f'<td style="padding:4px 0;color:#0f172a">{_esc(value or "—")}</td></tr>')
+
+    html = f"""
+      <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:560px">
+        <h2 style="color:#0f172a">New support ticket #{ticket_id}</h2>
+        <table style="border-collapse:collapse;font-size:14px;margin-bottom:18px">
+          {row("From", name)}{row("Email", email)}{row("Mobile", mobile)}
+          {row("Subject", subject)}
+        </table>
+        <div style="border-left:3px solid #4f46e5;padding:2px 0 2px 14px;color:#334155;
+                    white-space:pre-wrap;font-size:14px">{_esc(body)}</div>
+        <p style="color:#94a3b8;font-size:12px;margin-top:22px">
+          Reply from the Contacted Support queue in PromoSlot so the reply is
+          recorded against the ticket.</p>
+      </div>"""
+    text = (f"New support ticket #{ticket_id}\n\n"
+            f"From: {name}\nEmail: {email or '—'}\nMobile: {mobile or '—'}\n"
+            f"Subject: {subject}\n\n{body}\n")
+    return f"[Support #{ticket_id}] {subject or 'New ticket'}", html, text
+
+
+def support_reply_email(ticket_id: int, subject: str, reply: str) -> tuple:
+    """(subject, html, text) for a reviewer's reply to the person who wrote in."""
+    html = f"""
+      <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
+        <h2 style="color:#0f172a">Re: {_esc(subject)}</h2>
+        <div style="color:#334155;white-space:pre-wrap;font-size:14px">{_esc(reply)}</div>
+        <p style="color:#64748b;font-size:13px;margin-top:22px">
+          You can reply to this email and it will reach the PromoSlot support team.</p>
+      </div>"""
+    text = f"Re: {subject}\n\n{reply}\n\nYou can reply to this email to reach PromoSlot support."
+    return f"Re: {subject}" if subject else "A reply from PromoSlot support", html, text
