@@ -2208,6 +2208,10 @@ function dealRows(){
     const other=meBiz?(d.owner_name||(d.terms&&d.terms.owner)||"platform owner"):(d.business_name||"the business");
     // Verified-but-unpaid is called out here (not only in notifications) so it can't be missed.
     const awaitingPayout = d.verified && !d.paid && d.status!=="refunded";
+    // Cancelled before escrow was ever funded: nothing was charged, so the money
+    // column must not imply a payment is still coming. (Cancelled AFTER funding
+    // is a separate case and deliberately left on its existing path.)
+    const cancelledUnfunded = d.status==="cancelled" && !d.funded;
     const stCls=d.paid?"st-done":awaitingPayout?"st-review":d.funded?"st-escrow":"st-review";
     const stLabel=d.source_removed
       ? (d.source_removed==="campaign"?"Campaign removed by business":"Listing removed by owner")
@@ -2216,7 +2220,7 @@ function dealRows(){
       ${pfp(other,d.terms&&d.terms.platform,"",meBiz?d.owner_avatar:d.business_avatar)}<div><div class="dr-t">Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</div>
       <div class="dr-s">${meBiz?"You buy · "+esc(other):"You deliver · "+esc(other)}</div></div>
       <span class="status-pill ${stCls}">${stLabel}</span>
-      <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":awaitingPayout?"awaiting payout":d.funded?"in escrow":d.source_removed?"not going ahead":"pending"}</small></div></div>`;
+      <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":awaitingPayout?"awaiting payout":d.funded?"in escrow":cancelledUnfunded?"Not funded":d.source_removed?"not going ahead":"pending"}</small></div></div>`;
   }).join("");
 }
 function notifRows(){
