@@ -360,7 +360,7 @@ function campaignCard(c,i,owned){
       <div class="ccard-budget"><b>${c.budget?gbp(c.budget):"Commission"}</b><span>${c.budget?"budget":"only"}</span></div>
     </div>
     <div class="tagrow">${c.platforms.map(p=>`<span class="tag">${PLATFORM_META[p].ico} ${p}</span>`).join("")}</div>
-    <div class="payrow">${c.payment.slice(0,3).map(p=>`<div><span class="pico">💷</span>${esc(p.detail)}</div>`).join("")}</div>
+    <div class="payrow">${c.payment.map(p=>`<div><span class="pico">💷</span>${esc(p.detail)}</div>`).join("")}</div>
     <div class="lcard-bot">
       <span class="applied-line">${starsHtml(c.rating,c.reviewCount)} · ${c.applicants} applicants</span>
       ${owned?`<button class="btn btn-o btn-sm" onclick="event.stopPropagation();openEditCampaign('${c.id}')">✏️ Edit</button>`:""}
@@ -1819,6 +1819,79 @@ function leaveReview(id){
 /* ==================== ONBOARDING WIZARDS ==================== */
 let W=null, lastPct=0;
 // Payment method offered only on the giveaway path (see the b-budget step).
+// Campaign payment methods, each unlocked only by the step-1 goals that imply
+// it. A method the business never unlocked must not appear at all: it used to
+// render with no editable value, and a stale default could still reach the
+// published campaign.
+const BIZ_PAY_METHODS=[
+  {key:"fixed",    label:"Fixed payment",        field:"Amount per approved post (£)",
+   unlocks:["Looking to market a product","Wanting UGC content",
+            "Looking for long-term brand ambassadors","Testing a new market"],
+   detail:v=>`${gbp(v)} fixed per approved post`},
+  {key:"per-view", label:"Price per view",       field:"Rate per 1,000 views (£)",
+   unlocks:["Looking to market a product","Testing a new market"],
+   detail:v=>`${gbp(v)} per 1,000 verified views`},
+  {key:"affiliate",label:"Affiliate commission", field:"Commission per verified sale (%)",
+   unlocks:["Looking to offer affiliate partnerships"],
+   detail:v=>`${v}% commission per verified sale`},
+  {key:"product",  label:"Free product",         field:"Retail value of the product supplied (£)",
+   unlocks:["Looking to market a product","Wanting UGC content"],
+   detail:v=>v?`Free product supplied (${gbp(v)} value)`:"Free product supplied"},
+  {key:"giveaway", label:"Giveaway prize",       field:"Giveaway prize value (£)",
+   unlocks:["Wanting to run a giveaway"],
+   detail:v=>`${gbp(v)} giveaway prize supplied by the brand`},
+];
+function unlockedPayMethods(intents){
+  return BIZ_PAY_METHODS.filter(m=>m.unlocks.some(i=>intents.has(i)));
+}
+function payMethodByKey(k){ return BIZ_PAY_METHODS.find(m=>m.key===k); }
+
+// Selection + per-method value/note live in W.d.paySel: {key:{on,amount,note}}
+function paySel(k){
+  const d=W.d; d.paySel=d.paySel||{};
+  d.paySel[k]=d.paySel[k]||{on:false,amount:"",note:""};
+  return d.paySel[k];
+}
+function togglePayMethod(k){
+  const c=paySel(k); c.on=!c.on;
+  collectPaySel();            // keep what is already typed before re-rendering
+  renderWiz();
+}
+function collectPaySel(){
+  unlockedPayMethods(W.d.intentsB).forEach(m=>{
+    const a=$("pm-amt-"+m.key), n=$("pm-note-"+m.key);
+    if(a) paySel(m.key).amount=a.value;
+    if(n) paySel(m.key).note=n.value;
+  });
+}
+function payMethodsHtml(){
+  const list=unlockedPayMethods(W.d.intentsB);
+  if(!list.length) return `<p class="mut" style="font-size:12.5px">Go back to step 1 and pick a goal — the payment methods you can offer follow from it.</p>`;
+  return `<div class="chips-lg">${list.map(m=>
+      `<button type="button" class="chip ${paySel(m.key).on?"on":""}" onclick="togglePayMethod('${m.key}')">${esc(m.label)}</button>`).join("")}</div>`
+    + list.filter(m=>paySel(m.key).on).map(m=>{
+      const c=paySel(m.key);
+      return `<div class="pm-slot" style="margin-top:10px">
+        <div class="row2">
+          <div><label>${esc(m.label)} — ${esc(m.field)}</label>
+            <input type="number" min="0" step="any" id="pm-amt-${m.key}" value="${esc(c.amount)}"></div>
+          <div><label>Clarification (optional)</label>
+            <input type="text" id="pm-note-${m.key}" value="${esc(c.note)}"
+              placeholder="e.g. Message for a more detailed quote"></div>
+        </div></div>`;
+    }).join("");
+}
+// -> [{type,key,amount,note,detail}] for every SELECTED and still-unlocked method.
+function collectCampaignPayments(){
+  return unlockedPayMethods(W.d.intentsB)
+    .filter(m=>paySel(m.key).on)
+    .map(m=>{
+      const c=paySel(m.key), amount=Number(c.amount)||0, note=(c.note||"").trim();
+      return {type:m.key, amount, note,
+              detail:m.detail(amount)+(note?` · ${note}`:"")};
+    });
+}
+
 const GIVEAWAY_PM="Giveaway prize";
 const BIZ_INTENTS=[["📦","Looking to market a product","Get your product in front of the right audiences"],["🤝","Looking to offer affiliate partnerships","Pay commission on verified sales"],["🎁","Wanting to run a giveaway","Grow awareness with hosted giveaways"],["🌟","Looking for long-term brand ambassadors","Monthly retainers with creators you trust"],["🎬","Wanting UGC content","Videos for your own ads — not posted to creator pages"],["🧪","Testing a new market","Small campaigns to validate a niche or country"]];
 const PLAT_INTENTS=[["🎵","I want to monetize my TikTok","Turn views into deal flow"],["🗂","I have multiple platforms to list","Each platform gets its own listing, audience & prices"],["💼","I'm looking for brand deals","Sponsored posts, integrations, reviews"],["🔗","I want to offer affiliate promotions","Earn commission on verified sales"],["📮","I run a community/newsletter","Discord, Substack, forums — communities monetise too"]];
@@ -1910,25 +1983,33 @@ function wizStepHtml(step){
         <div><label>Creator size ranges</label>${wchipsHtml("sizes",CREATOR_SIZES)}</div></div>`,
       valid:()=>d.platforms.size&&d.services.size?null:"Pick at least one platform and one service."};
     case "b-budget": {
-      let extra="";
-      // The prize is what the AUDIENCE wins, so it is not by itself what the
-      // creator is paid. Giveaway campaigns therefore get their own payment
-      // method rather than the prize field silently standing in for one — see
-      // GIVEAWAY_PM below.
-      const giveaway=d.intentsB.has("Wanting to run a giveaway");
-      if(giveaway && !d.giveawayPmSeeded){ d.payMethods.add(GIVEAWAY_PM); d.giveawayPmSeeded=true; }
-      if(d.intentsB.has("Looking to offer affiliate partnerships")) extra+=pmIn("w-comm","Default commission % per verified sale",d.commission);
-      if(giveaway) extra+=pmIn("w-prize","Giveaway prize value (£)",d.prize);
-      if(d.intentsB.has("Wanting UGC content")) extra+=pmIn("w-ugc","UGC videos needed",d.ugcCount);
-      if(d.intentsB.has("Looking for long-term brand ambassadors")) extra+=`<div><label>Ambassador term</label><select id="w-amb">${["1 month","3 months","6 months","12 months"].map(x=>`<option ${x===d.ambTerm?"selected":""}>${x}</option>`).join("")}</select></div>`;
-      return {t:"Budget & payment",s:"Offer several payment methods — you set every amount yourself, and creators pick what suits their audience.",h:
+      // Only methods unlocked by a step-1 goal are shown, and each selected one
+      // carries its own editable amount plus an optional clarification note.
+      const unlocked=unlockedPayMethods(d.intentsB);
+      // A giveaway campaign's only unlocked method is the prize, so pre-select
+      // it once rather than dead-ending that path.
+      if(unlocked.length===1 && unlocked[0].key==="giveaway" && !d.giveawayPmSeeded){
+        paySel("giveaway").on=true; d.giveawayPmSeeded=true;
+      }
+      const extras=[];
+      if(d.intentsB.has("Wanting UGC content")) extras.push(pmIn("w-ugc","UGC videos needed",d.ugcCount));
+      if(d.intentsB.has("Looking for long-term brand ambassadors")) extras.push(`<div><label>Ambassador term</label><select id="w-amb">${["1 month","3 months","6 months","12 months"].map(x=>`<option ${x===d.ambTerm?"selected":""}>${x}</option>`).join("")}</select></div>`);
+      return {t:"Budget & payment",s:"Pick every payment method you want to offer — you set each amount yourself, and creators choose what suits their audience.",h:
       `<div class="frm"><div class="row2">
         <div><label>Campaign budget (£)</label><input type="number" id="w-budget" value="${esc(d.budget)}"></div>
         <div><label>Campaign duration</label><select id="w-dur">${["One-off","Video-by-video","2 weeks","4 weeks","6 weeks","3 months","Ongoing"].map(x=>`<option ${x===d.duration?"selected":""}>${x}</option>`).join("")}</select></div></div>
-        <div><label>Payment methods you'll offer</label>${wchipsHtml("payMethods",["Fixed payment","Price per view","Affiliate commission","Free product"].concat(giveaway?[GIVEAWAY_PM]:[]))}</div>
-        ${extra?`<div class="row2">${extra}</div>`:""}</div>`,
-      collect:()=>{d.budget=$("w-budget").value; d.duration=$("w-dur").value; if($("w-comm"))d.commission=$("w-comm").value; if($("w-prize"))d.prize=$("w-prize").value; if($("w-ugc"))d.ugcCount=$("w-ugc").value; if($("w-amb"))d.ambTerm=$("w-amb").value;},
-      valid:()=>d.payMethods.size?null:"Select at least one payment method."};}
+        <div><label>Payment methods you'll offer</label>${payMethodsHtml()}</div>
+        ${extras.length?`<div class="row2">${extras.join("")}</div>`:""}</div>`,
+      collect:()=>{d.budget=$("w-budget").value; d.duration=$("w-dur").value;
+        collectPaySel();
+        if($("w-ugc"))d.ugcCount=$("w-ugc").value; if($("w-amb"))d.ambTerm=$("w-amb").value;},
+      valid:()=>{
+        const sel=collectCampaignPayments();
+        if(!sel.length) return "Select at least one payment method.";
+        const blank=sel.find(x=>x.type!=="product" && !x.amount);
+        if(blank) return `Enter an amount for ${payMethodByKey(blank.type).label}.`;
+        return null;
+      }};}
     case "b-who": {
       // Same "who we are" record as My Account — loaded once, saved on Next.
       if(!W.d.whoLoaded){
@@ -1959,7 +2040,7 @@ function wizStepHtml(step){
         <div class="rv-row"><span class="k">Services wanted</span><span class="v">${[...d.services].join(" · ")}</span></div>
         <div class="rv-row"><span class="k">Creator sizes</span><span class="v">${[...d.sizes].join(", ")||"Any"}</span></div>
         <div class="rv-row"><span class="k">Budget & duration</span><span class="v">${gbp(d.budget||0)} · ${esc(d.duration)}</span></div>
-        <div class="rv-row"><span class="k">Payment methods</span><span class="v">${[...d.payMethods].join(" · ")}</span></div>
+        <div class="rv-row"><span class="k">Payment methods</span><span class="v">${collectCampaignPayments().map(p=>esc(p.detail)).join("<br>")||"—"}</span></div>
        </div></div>`,
       nextLabel:"Create my business profile"};
     case "p-intent": return {t:"What brings you to PromoSlot?",s:"Select everything that applies.",h:selCardsHtml("intentsP",PLAT_INTENTS),
@@ -2091,22 +2172,19 @@ function wizPublishFailed(label){
 async function finishBiz(){
   const d=W.d;
   // Local business profile for the dashboard view.
-  S.biz={company:d.company,product:d.product,industry:d.industry,target:d.target,intents:[...d.intentsB],countries:[...d.countries],platforms:[...d.platforms],services:[...d.services],sizes:[...d.sizes],budget:Number(d.budget)||0,payMethods:[...d.payMethods],duration:d.duration};
-  const pays=[];
-  if(d.payMethods.has("Fixed payment")) pays.push({type:"fixed",detail:`£75 fixed per approved post`});
-  if(d.payMethods.has("Price per view")) pays.push({type:"per-view",detail:`£5 per 1,000 views (14-day measurement)`});
-  if(d.payMethods.has("Affiliate commission")) pays.push({type:"affiliate",detail:`${d.commission||12}% commission per referred sale · 30-day cookie`});
-  if(d.payMethods.has("Free product")) pays.push({type:"product",detail:"Free product supplied"});
-  if(d.payMethods.has(GIVEAWAY_PM)) pays.push({type:"giveaway",
-    detail:`${gbp(Number(d.prize)||0)} giveaway prize supplied by the brand`});
+  S.biz={company:d.company,product:d.product,industry:d.industry,target:d.target,intents:[...d.intentsB],countries:[...d.countries],platforms:[...d.platforms],services:[...d.services],sizes:[...d.sizes],budget:Number(d.budget)||0,payMethods:collectCampaignPayments().map(p=>payMethodByKey(p.type).label),duration:d.duration};
+  // Every selected, still-unlocked method with the amount the business typed.
+  // Nothing is inferred and no default amount is ever invented.
+  const pays=collectCampaignPayments();
   const niche=d.industry.includes("Beauty")?"Beauty":d.industry.includes("Fitness")?"Fitness":d.industry.includes("Food")?"Food":d.industry.includes("Fin")?"Finance":d.industry.includes("Gam")?"Gaming":d.industry.includes("parent")||d.industry.includes("Kids")?"Parenting":"Tech";
   const title=`${d.product.split(" ").slice(0,3).join(" ")} — Launch Campaign`;
   const payload={title,industry:d.industry,description:`${d.company} is looking for creators to promote: ${d.product}. ${d.target}.`,
     budget:Number(d.budget)||0,platforms:[...d.platforms],niches:[niche],countries:[...d.countries],services:[...d.services],
     creator_sizes:[...d.sizes],goals:[...d.intentsB],payment:pays,
     deliverables:`${[...d.services].slice(0,2).join(" or ")} featuring the product. Content live ≥ 30 days. Draft approval required.`,
-    duration:d.duration,samples:d.payMethods.has("Free product"),
-    profile:{product:d.product,target:d.target,payMethods:[...d.payMethods],collabs:"New to PromoSlot"}};
+    duration:d.duration,samples:pays.some(p=>p.type==="product"),
+    profile:{product:d.product,target:d.target,
+             payMethods:pays.map(p=>payMethodByKey(p.type).label),collabs:"New to PromoSlot"}};
   try{ await PSApi.post("/campaigns",payload); }
   catch(err){ toast(err.message||"Could not publish campaign"); wizPublishFailed("Create my business profile"); return; }
   await loadMine(); authReflect();
@@ -3341,7 +3419,7 @@ openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPrice
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
 renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
-setRoute,clearRoute,readRoute,restoreRoute,restoreSession};
+setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
