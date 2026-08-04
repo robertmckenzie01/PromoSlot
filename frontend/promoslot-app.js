@@ -875,24 +875,53 @@ function renderListingModal(l,tab){
     <div class="det-body">${body}</div>`,"wide");
 }
 function requestQuote(id){
-  const l=findListing(id);
+  const l=findListing(id); if(!l) return;
+  const subj=chatSubject(id);
+  if(!subj || !subj.real){ openModal(exampleChat(subj||{name:l.name})); return; }
+  if(!S.account){ window._afterAuth=()=>requestQuote(id); authModal("login"); return; }
+  if(String(subj.otherId)===String(S.account.id)){ toast("That's your own listing."); return; }
   openModal(`<div class="m-pad"><h3 class="m-title">Request a custom quote from ${esc(l.name)}</h3>
     <p class="m-sub">${esc(l.owner.split(" ")[0])} will reply with a personalised proposal you can accept, decline, or counter.</p>
     <div class="frm">
       <div><label>What do you need?</label><textarea id="rq-txt">We're launching a new product in your niche — could you put together a proposal for a 2-video package plus a 7-day link placement?</textarea></div>
       <div class="row2"><div><label>Rough budget</label><input type="text" id="rq-bud" value="£300–£500"></div><div><label>Timeline</label><input type="text" id="rq-when" value="Within 3 weeks"></div></div>
     </div>
-    <div class="m-actions"><button class="btn btn-o" onclick="openListing('${l.id}')">Back</button><button class="btn btn-p" onclick="sendQuoteReq('${l.id}')">Send request</button></div></div>`);
+    <div class="hint-err hide" id="rq-err"></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="openListing('${l.id}')">Back</button><button class="btn btn-p" id="rq-send" onclick="sendQuoteReq('${l.id}')">Send request</button></div></div>`);
 }
-function sendQuoteReq(id){
-  const l=findListing(id);
-  // We record the request but never fabricate a reply or a proposal — a response
-  // can only come from the real owner's account.
+async function sendQuoteReq(id){
+  const l=findListing(id); if(!l) return;
+  const subj=chatSubject(id); if(!subj || !subj.real) return;
+  const err=$("rq-err"); if(err) err.classList.add("hide");
+  const txt=(($("rq-txt")||{}).value||"").trim();
+  if(!txt){ if(err){err.textContent="Describe what you need.";err.classList.remove("hide");} return; }
+  const bud=(($("rq-bud")||{}).value||"").trim();
+  const when=(($("rq-when")||{}).value||"").trim();
+
+  // This is a real message on the same thread the Message button uses, so it
+  // lands in the owner's inbox and fires the same notification. It used to
+  // display a "recorded" confirmation without sending anything at all.
+  const body=["Quote request", txt,
+              bud?`Rough budget: ${bud}`:"", when?`Timeline: ${when}`:""]
+             .filter(Boolean).join("\n");
+  const btn=$("rq-send");
+  if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Sending…`; }
+  try{
+    await PSApi.post("/messages",{to_user_id:subj.otherId, body, context_ref:id});
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent="Send request"; }
+    if(err){ err.textContent=e.message||"Could not send the request"; err.classList.remove("hide"); }
+    return;
+  }
   closeModal();
-  openModal(`<div class="m-pad"><h3 class="m-title">Quote request recorded</h3>
-    <p class="m-sub">Your request to <b>${esc(l.name)}</b> has been noted. ${l.example?"This is an example profile, so there's no real owner to reply yet.":"You'll see their reply in Messages if and when they respond."} PromoSlot never writes a reply on their behalf.</p>
+  openModal(`<div class="m-pad"><h3 class="m-title">Quote request sent</h3>
+    <p class="m-sub">Your request was delivered to <b>${esc(subj.name)}</b> and is now in your Messages.
+       They'll be notified. PromoSlot never writes a reply on their behalf — any proposal
+       comes from their own account.</p>
     ${pendingPanel("💬","Awaiting a real reply","Custom proposals appear here only when a real owner actually sends one.")}
-    <div class="m-actions"><button class="btn btn-p" onclick="closeModal()">Got it</button></div></div>`,"narrow");
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal();openMessages()">Open Messages</button>
+      <button class="btn btn-p" onclick="closeModal()">Got it</button></div></div>`,"narrow");
+  loadNotifications();
 }
 
 /* ==================== CAMPAIGN DETAIL ==================== */
