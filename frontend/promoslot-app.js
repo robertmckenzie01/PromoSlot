@@ -1102,7 +1102,7 @@ async function openChat(id){
       <button class="btn btn-o btn-sm" style="margin-left:auto" onclick="${subj.kind==="listing"?`openListing('${id}')`:`openCampaign('${id}')`}">View ${subj.kind==="listing"?"profile":"campaign"}</button></div>
     <div style="padding:12px 16px 0"><div class="note blue" style="margin:0">💬 Messages are delivered to <b>${esc(subj.name)}</b>'s account. Replies appear here only when they actually respond.</div></div>
     <div class="chat-msgs" id="chatMsgs">${threadMsgsHtml(msgs)}</div>
-    <div class="chat-input"><input id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()"><button class="btn btn-p" onclick="sendChat()">Send</button></div>
+    <div class="chat-input"><input id="chatInput" autocomplete="off" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()"><button class="btn btn-p" onclick="sendChat()">Send</button></div>
   </div>`);
   const box=$("chatMsgs"); if(box) box.scrollTop=box.scrollHeight;
 }
@@ -1118,6 +1118,28 @@ async function sendChat(){
     inp.value="";
   }catch(err){ toast(err.message||"Could not send message"); }
   inp.disabled=false; if($("chatInput")) $("chatInput").focus();
+}
+
+// Suggested openers. These live in their own column beside the thread — never
+// layered over the composer — and only ever prefill the box; nothing is sent
+// until the user presses Send.
+const MSG_SUGGESTIONS=[
+  "Hi — could you share your availability for the next few weeks?",
+  "What would you charge for a one-off promotional video?",
+  "Could you send recent performance figures for a similar post?",
+  "Is the price negotiable for a multi-post package?",
+  "Happy to proceed — shall I open a deal so the funds go into escrow?",
+];
+function msgSuggestHtml(){
+  return `<aside class="msg-suggest"><h5>Suggested messages</h5>
+    ${MSG_SUGGESTIONS.map((t,i)=>`<button type="button" onclick="useSuggestion(${i})">${esc(t)}</button>`).join("")}
+    <p class="ms-hint">Tap one to drop it into the box — nothing sends until you press Send.</p></aside>`;
+}
+function useSuggestion(i){
+  const inp=$("ibInput"); if(!inp) return;
+  const t=MSG_SUGGESTIONS[i]; if(!t) return;
+  inp.value = inp.value.trim() ? inp.value.trim()+" "+t : t;
+  inp.focus();
 }
 
 /* ==================== MESSAGES INBOX (backend-driven) ==================== */
@@ -1165,12 +1187,13 @@ function renderMessages(showThread){
       ${pfp(t.other_name,null)}<div><b>${esc(t.other_name)}</b><small class="mut" style="color:var(--mut)">Direct message</small></div>${viewBtn}</div>
     <div style="padding:12px 16px 0"><div class="note blue" style="margin:0">💬 Messages are delivered to <b>${esc(t.other_name)}</b>'s account. Replies appear here only when they actually respond.</div></div>
     <div class="chat-msgs" id="ibMsgs">${threadMsgsHtml(t.messages)}</div>
-    <div class="chat-input"><input id="ibInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendInboxMsg()"><button class="btn btn-p" onclick="sendInboxMsg()">Send</button></div>`;
+    <div class="chat-input"><input id="ibInput" autocomplete="off" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendInboxMsg()"><button class="btn btn-p" onclick="sendInboxMsg()">Send</button></div>`;
   }
   $("msgsWrap").innerHTML=`${head}
     <div class="inbox ${showThread?"show-thread":""}">
       <div class="conv-list">${list}</div>
       <div class="thread">${thread}</div>
+      ${t && String(t.id)===String(act) ? msgSuggestHtml() : ""}
     </div>`;
   const box=$("ibMsgs"); if(box) box.scrollTop=box.scrollHeight;
 }
@@ -3479,7 +3502,7 @@ openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPrice
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
 renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
-setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod};
+setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

@@ -444,12 +444,24 @@ b,strong{font-weight:700}
 .cv-prev{font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .unread-dot{width:9px;height:9px;border-radius:50%;background:var(--acc);flex-shrink:0}
 .thread{display:flex;flex-direction:column;min-width:0}
+/* Suggested openers — their own column on the right, deliberately NOT layered
+   over the composer. Grey bubbles, never the black native autocomplete list. */
+.inbox:has(.msg-suggest){grid-template-columns:340px 1fr 232px}
+.msg-suggest{border-left:1px solid var(--line);background:var(--card);overflow-y:auto;padding:14px 12px}
+.msg-suggest h5{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:10px}
+/* Grey bubbles, distinct from the white column and from real messages. */
+.msg-suggest button{display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px 12px;
+  border:1px solid var(--line);border-radius:14px;background:var(--line);color:var(--ink2);
+  font:inherit;font-size:12.5px;line-height:1.45;cursor:pointer;transition:background .15s,border-color .15s}
+.msg-suggest button:hover{background:var(--line2);border-color:var(--line2)}
+.msg-suggest .ms-hint{font-size:11.5px;color:var(--mut);margin-top:4px}
 .thread .chat-msgs{flex:1}
 .thread-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--mut);font-size:13.5px;background:var(--bg)}
 .thread-empty .es-ico{font-size:30px;margin-bottom:10px}
 .conv-back{display:none;padding:4px 8px;font-size:16px}
 @media (max-width:900px){
   .inbox{grid-template-columns:1fr;height:calc(100vh - 200px)}
+  .msg-suggest{display:none}
   .thread{display:none}
   .inbox.show-thread .conv-list{display:none}
   .inbox.show-thread .thread{display:flex}
