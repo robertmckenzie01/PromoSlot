@@ -2761,6 +2761,11 @@ async function openSupportTicket(id){
     if(e.kind==="note") return `<div class="proof-item got"><span class="pi-ico">🔒</span>
       <div><b>Internal note · ${who}</b><div class="mut" style="font-size:12px;white-space:pre-wrap">${esc(e.body||"")}</div>
       <div class="mut" style="font-size:11.5px">${when} · never shown to the submitter</div></div></div>`;
+    if(e.kind==="submitter_reply") return `<div class="proof-item got" style="border-left:3px solid var(--acc)">
+      <span class="pi-ico">📥</span>
+      <div><b>Reply from ${esc(t.name)}</b> <span class="tag ind" style="font-size:10.5px">submitter</span>
+      <div class="mut" style="font-size:12px;white-space:pre-wrap">${esc(e.body||"")}</div>
+      <div class="mut" style="font-size:11.5px">${when} · received by email</div></div></div>`;
     if(e.kind==="reply") return `<div class="proof-item got"><span class="pi-ico">📤</span>
       <div><b>Reply sent · ${who}</b><div class="mut" style="font-size:12px;white-space:pre-wrap">${esc(e.body||"")}</div>
       <div class="mut" style="font-size:11.5px">${when} · emailed to ${esc(t.email||"")}</div></div></div>`;

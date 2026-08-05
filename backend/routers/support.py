@@ -296,8 +296,12 @@ def reply_to_ticket(ticket_id: int, body: ReplyIn, request: Request,
     text = body.body.strip()
     subj, html, txt = support_reply_email(t.id, t.subject, text)
     # From the support inbox, not the generic no-reply sender.
+    # Reply-To is per ticket, so hitting reply in a mail client lands the answer
+    # back on THIS ticket (routers/inbound.py).
     ok, detail = send_email(t.email, subj, html, txt,
-                            from_override=settings.support_email)
+                            from_override=settings.support_email,
+                            reply_to=(f"ticket-{t.id}@{settings.reply_domain}"
+                                      if settings.inbound_configured else None))
     if not ok:
         # Nothing is recorded as sent when it wasn't.
         log.warning("support reply not sent for ticket %s: %s", t.id, detail)

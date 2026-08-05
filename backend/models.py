@@ -306,9 +306,13 @@ class Notification(Base):
 
 
 class WebhookEvent(Base):
-    """Records every processed Stripe event id for idempotency."""
+    """Records every processed inbound webhook id for idempotency.
+
+    Shared by the Stripe receiver (raw event id) and the Resend inbound receiver
+    (namespaced "resend:{email_id}") so the two can never collide.
+    """
     __tablename__ = "webhook_events"
-    id = Column(String, primary_key=True)  # Stripe event id (evt_...)
+    id = Column(String, primary_key=True)  # "evt_..." | "resend:{email_id}"
     type = Column(String, nullable=False)
     processed = Column(Boolean, default=False, nullable=False)
     received_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -416,6 +420,9 @@ class SupportTicketEvent(Base):
     kind='reply'    -> sent to the submitter by email (and in-app if they have an
                        account). Customer-facing.
     kind='note'     -> internal. Never emailed, never shown to the submitter.
+    kind='submitter_reply' -> came IN from the person who raised the ticket, by
+                       replying to the support email. author_id is null: no
+                       PromoSlot account wrote it.
     kind='claim' / 'transfer' -> ownership changes, kept here so the thread reads
                        in order. The immutable record of these is the audit log.
     """

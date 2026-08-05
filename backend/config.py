@@ -43,6 +43,17 @@ class Settings:
     # doesn't page the real inbox.
     support_email: str = os.environ.get("SUPPORT_EMAIL", "support@usepromoslot.com")
 
+    # Inbound support replies (Resend receiving). A DEDICATED subdomain: the root
+    # domain's MX already points at Google Workspace and must not be touched.
+    # Outgoing replies set Reply-To: ticket-{id}@<reply_domain>, which is how an
+    # inbound message is matched back to its ticket.
+    reply_domain: str = os.environ.get("REPLY_DOMAIN", "reply.usepromoslot.com")
+    resend_webhook_secret: str = os.environ.get("RESEND_WEBHOOK_SECRET", "")
+
+    @property
+    def inbound_configured(self) -> bool:
+        return bool(self.resend_webhook_secret and self.reply_domain)
+
     @property
     def stripe_configured(self) -> bool:
         return self.stripe_secret_key.startswith("sk_")

@@ -4,7 +4,9 @@ Real delivery only: if RESEND_API_KEY isn't configured, send_email() reports
 failure rather than pretending an email went out. Callers surface that honestly
 instead of showing a fake "sent" message.
 """
+import html as html_module
 import json
+import re
 import urllib.error
 import urllib.request
 
@@ -20,17 +22,24 @@ def _esc(v) -> str:
 
 
 def send_email(to: str, subject: str, html: str, text: str = "",
-               from_override: str = None) -> tuple:
+               from_override: str = None, reply_to: str = None) -> tuple:
     """Send one email. Returns (ok, detail). Never raises.
 
     from_override lets a specific flow send under its own address (support
     replies come from the support inbox, not the generic no-reply sender).
     Everything else keeps settings.mail_from.
+
+    reply_to sets the Reply-To header, so a reply in the recipient's mail client
+    goes somewhere we can route (see routers/inbound.py).
     """
     if not settings.email_configured:
         return False, "email_not_configured"
     payload = {"from": from_override or settings.mail_from,
                "to": [to], "subject": subject, "html": html}
+    if reply_to:
+        # Where a human reply should go — used by support replies to route the
+        # answer back to its own ticket.
+        payload["reply_to"] = reply_to
     if text:
         payload["text"] = text
     req = urllib.request.Request(
@@ -171,10 +180,95 @@ def support_reply_email(ticket_id: int, subject: str, reply: str) -> tuple:
         <h2 style="color:#0f172a">Re: {_esc(subject)}</h2>
         <div style="color:#334155;white-space:pre-wrap;font-size:14px">{_esc(reply)}</div>
         <p style="color:#64748b;font-size:13px;margin-top:22px">
-          Prefer to keep this in PromoSlot? Log in and reply from your Messages
-          inbox — our team picks it up there too.</p>
+          Just reply to this email and it comes straight back to us on this
+          ticket. Prefer to keep it in PromoSlot? Log in and reply from your
+          Messages inbox instead — either reaches the same team.</p>
       </div>"""
     text = (f"Re: {subject}\n\n{reply}\n\n"
-            "Prefer to keep this in PromoSlot? Log in and reply from your Messages "
-            "inbox — our team picks it up there too.")
+            "Just reply to this email and it comes straight back to us on this "
+            "ticket. Prefer to keep it in PromoSlot? Log in and reply from your "
+            "Messages inbox instead — either reaches the same team.")
     return f"Re: {subject}" if subject else "A reply from PromoSlot support", html, text
+
+
+def fetch_received_email(email_id: str) -> tuple:
+    """Retrieve an inbound email's actual content. Returns (ok, data_or_detail).
+
+    The email.received webhook carries metadata only — sender, recipients,
+    subject, ids — so the body has to be fetched separately with this call.
+
+    NOTE: confirm this path against the current Resend API reference before
+    relying on it in production; inbound receiving is new (Nov 2025) and the
+    retrieve path is the one part of this flow that could not be exercised
+    locally without live credentials. Everything downstream of it works off the
+    parsed result, so only this URL would need changing.
+    """
+    if not settings.email_configured:
+        return False, "email_not_configured"
+    url = f"{_ENDPOINT}/{email_id}"
+    req = urllib.request.Request(url, method="GET", headers={
+        "Authorization": f"Bearer {settings.resend_api_key}",
+        "User-Agent": "PromoSlot/1.0 (+https://promoslot.app)",
+        "Accept": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return True, json.loads(r.read().decode() or "{}")
+    except urllib.error.HTTPError as e:
+        try:
+            detail = e.read().decode()[:300]
+        except Exception:
+            detail = str(e)
+        return False, f"resend_error_{e.code}: {detail}"
+    except Exception as e:
+        return False, f"resend_unreachable: {e}"
+
+
+def extract_body(data: dict) -> str:
+    """Pull readable text out of a retrieved email, whatever shape it arrives in.
+
+    Prefers plain text; falls back to stripping tags from HTML. Tolerant of the
+    field naming because the exact response shape is the part of this
+    integration that could not be verified against a live account.
+    """
+    if not isinstance(data, dict):
+        return ""
+    for key in ("text", "plain", "body_text", "textBody"):
+        v = data.get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    for key in ("html", "body_html", "htmlBody", "body"):
+        v = data.get(key)
+        if isinstance(v, str) and v.strip():
+            no_tags = re.sub(r"<br\s*/?>", "\n", v)
+            no_tags = re.sub(r"</p>", "\n\n", no_tags)
+            no_tags = re.sub(r"<[^>]+>", "", no_tags)
+            return html_module.unescape(no_tags).strip()
+    return ""
+
+
+# Quoted-reply markers: everything from the first one onwards is the previous
+# message being quoted back, not what the person actually wrote now.
+_QUOTE_MARKERS = [
+    re.compile(r"^\s*On .+ wrote:\s*$", re.M),
+    re.compile(r"^\s*-{2,}\s*Original Message\s*-{2,}\s*$", re.M | re.I),
+    re.compile(r"^\s*_{5,}\s*$", re.M),
+    re.compile(r"^\s*From:\s.+$", re.M),
+]
+
+
+def strip_quoted_reply(text: str) -> str:
+    """Trim the quoted history off a reply, keeping what was newly written."""
+    if not text:
+        return ""
+    cut = len(text)
+    for pat in _QUOTE_MARKERS:
+        m = pat.search(text)
+        if m and m.start() < cut:
+            cut = m.start()
+    trimmed = text[:cut]
+    # Drop trailing "> quoted" lines the markers didn't catch.
+    lines = [l for l in trimmed.splitlines()]
+    while lines and (not lines[-1].strip() or lines[-1].lstrip().startswith(">")):
+        lines.pop()
+    return "\n".join(lines).strip() or text.strip()

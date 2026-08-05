@@ -11,7 +11,7 @@ from .assets import render_index
 from .config import settings
 from .routers import (
     admin, auth, campaigns, connect, deals, health, messages, mfa, notifications,
-    platforms, profiles, proofs, review, reviews, support, webhooks,
+    inbound, platforms, profiles, proofs, review, reviews, support, webhooks,
 )
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
@@ -34,6 +34,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(webhooks.router)
+app.include_router(inbound.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(mfa.router)
