@@ -13,10 +13,11 @@ role, never from anything the client sends. Safeguards enforced server-side:
 * suspending an account revokes all of its sessions immediately;
 * every action writes an immutable audit entry.
 """
+import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -24,11 +25,15 @@ from sqlalchemy.orm import Session
 from .. import audit
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
-from ..models import (Campaign, Deal, DealStatus, Platform, Session as AuthSession,
+from ..mailer import (account_banned_email, account_suspended_email,
+                      send_email)
+from ..models import (Campaign, Deal, DealStatus, Notification, Platform, Session as AuthSession,
                       User)
 from ..permissions import Perm, Role, is_super_admin, permissions_for, require_permission
 from ..security import verify_password
 from ..totp import hash_code, verify as totp_verify
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -99,6 +104,21 @@ def _revoke_sessions(db: Session, user_id: int) -> int:
 def _user_snapshot(u: User) -> dict:
     return {"role": u.role, "suspended_at": u.suspended_at.isoformat() if u.suspended_at else None,
             "banned_at": u.banned_at.isoformat() if u.banned_at else None}
+
+
+def _notify_account_action(email: str, kind: str, reason: str) -> None:
+    """Tell someone their account was suspended/banned, and why.
+
+    Background only: an admin action must not be blocked or failed by the mail
+    provider, and a failure is logged rather than reported as delivered. This is
+    the only place the person is told the reason — the login screen shows a
+    generic message.
+    """
+    subject, html, text = (account_banned_email(reason) if kind == "banned"
+                           else account_suspended_email(reason))
+    ok, detail = send_email(email, subject, html, text)
+    if not ok:
+        log.warning("%s notice not sent to %s: %s", kind, email, detail)
 
 
 def user_admin_dict(u: User) -> dict:
@@ -204,6 +224,7 @@ def set_role(user_id: int, body: SetRoleIn, request: Request,
 
 @router.post("/users/{user_id}/suspend")
 def suspend_user(user_id: int, body: ReasonIn, request: Request,
+                 background: BackgroundTasks,
                  actor: User = Depends(RequirePerm(Perm.USER_SUSPEND)),
                  db: Session = Depends(get_db)):
     target = _target_user(db, user_id)
@@ -223,6 +244,9 @@ def suspend_user(user_id: int, body: ReasonIn, request: Request,
                  target_id=target.id, previous_state=before,
                  new_state={**_user_snapshot(target), "sessions_revoked": revoked},
                  reason=body.reason, request=request)
+    # They are already signed out, so email is the only way to reach them.
+    background.add_task(_notify_account_action, target.email, "suspended",
+                        target.suspended_reason or "")
     return user_admin_dict(target)
 
 
@@ -245,6 +269,7 @@ def unsuspend_user(user_id: int, body: ReasonIn, request: Request,
 
 @router.post("/users/{user_id}/ban")
 def ban_user(user_id: int, body: ReasonIn, request: Request,
+             background: BackgroundTasks,
              actor: User = Depends(RequirePerm(Perm.USER_BAN)),
              db: Session = Depends(get_db)):
     target = _target_user(db, user_id)
@@ -262,6 +287,8 @@ def ban_user(user_id: int, body: ReasonIn, request: Request,
                  target_id=target.id, previous_state=before,
                  new_state={**_user_snapshot(target), "sessions_revoked": revoked},
                  reason=body.reason, request=request)
+    background.add_task(_notify_account_action, target.email, "banned",
+                        target.suspended_reason or "")
     return user_admin_dict(target)
 
 
@@ -281,7 +308,6 @@ def _campaign_snapshot(c: Campaign) -> dict:
 def listing_request_changes(platform_id: int, body: ReasonIn, request: Request,
                             actor: User = Depends(RequirePerm(Perm.LISTING_REQUEST_CHANGES)),
                             db: Session = Depends(get_db)):
-    from ..models import Notification
     p = db.get(Platform, platform_id)
     if p is None:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -318,7 +344,6 @@ def listing_suspend(platform_id: int, body: ReasonIn, request: Request,
                     actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
                     db: Session = Depends(get_db)):
     """Hide a listing from the marketplace without deleting it (reversible)."""
-    from ..models import Notification
     p = db.get(Platform, platform_id)
     if p is None:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -339,7 +364,6 @@ def listing_suspend(platform_id: int, body: ReasonIn, request: Request,
 def listing_unsuspend(platform_id: int, body: ReasonIn, request: Request,
                       actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
                       db: Session = Depends(get_db)):
-    from ..models import Notification
     p = db.get(Platform, platform_id)
     if p is None:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -366,6 +390,14 @@ def listing_remove(platform_id: int, body: ReasonIn, request: Request,
     before = _listing_snapshot(p)
     owner_id, pid, name = p.owner_id, p.id, p.name
     db.delete(p)
+    # Suspension already notifies; permanent removal is the bigger action and
+    # said nothing at all. ref is deliberately None: the listing no longer
+    # exists, so a "p{id}" ref would resolve to nothing and dead-click. The
+    # notification popup only makes an entry clickable when it has a ref.
+    db.add(Notification(
+        user_id=owner_id, type="listing_removed",
+        body=f"Your listing “{name}” has been permanently removed: {body.reason.strip()}",
+        ref=None))
     db.commit()
     audit.record(db, actor=actor, action="listing.remove", target_type="listing",
                  target_id=pid, previous_state=before,
@@ -380,7 +412,6 @@ def listing_remove(platform_id: int, body: ReasonIn, request: Request,
 def campaign_request_changes(campaign_id: int, body: ReasonIn, request: Request,
                              actor: User = Depends(RequirePerm(Perm.CAMPAIGN_REQUEST_CHANGES)),
                              db: Session = Depends(get_db)):
-    from ..models import Notification
     c = db.get(Campaign, campaign_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -399,7 +430,6 @@ def campaign_suspend(campaign_id: int, body: ReasonIn, request: Request,
                      actor: User = Depends(RequirePerm(Perm.CAMPAIGN_SUSPEND)),
                      db: Session = Depends(get_db)):
     """Hide a campaign from the marketplace without deleting it (reversible)."""
-    from ..models import Notification
     c = db.get(Campaign, campaign_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -420,7 +450,6 @@ def campaign_suspend(campaign_id: int, body: ReasonIn, request: Request,
 def campaign_unsuspend(campaign_id: int, body: ReasonIn, request: Request,
                        actor: User = Depends(RequirePerm(Perm.CAMPAIGN_SUSPEND)),
                        db: Session = Depends(get_db)):
-    from ..models import Notification
     c = db.get(Campaign, campaign_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -446,6 +475,11 @@ def campaign_remove(campaign_id: int, body: ReasonIn, request: Request,
     _reauth(actor, body)
     cid, title, biz = c.id, c.title, c.business_id
     db.delete(c)
+    # See listing_remove: ref is None because the campaign is gone.
+    db.add(Notification(
+        user_id=biz, type="campaign_removed",
+        body=f"Your campaign “{title}” has been permanently removed: {body.reason.strip()}",
+        ref=None))
     db.commit()
     audit.record(db, actor=actor, action="campaign.remove", target_type="campaign",
                  target_id=cid, previous_state={"title": title},

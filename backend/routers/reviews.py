@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import Deal, Review, User
+from ..models import Notification, Deal, Review, User
 
 router = APIRouter(tags=["reviews"])
 
@@ -60,6 +60,12 @@ def create_review(deal_id: int, body: ReviewIn,
     r = Review(deal_id=d.id, author_id=user.id, reviewee_id=reviewee_id,
                rating=body.rating, text=body.text)
     db.add(r)
+    # ref is the deal id, same as every other deal notification, so the click
+    # lands on the deal the review belongs to.
+    db.add(Notification(
+        user_id=reviewee_id, type="review_received",
+        body=f"{user.display_name or user.email} left you a {body.rating}-star review.",
+        ref=str(d.id)))
     db.commit()
     db.refresh(r)
     return review_dict(r)

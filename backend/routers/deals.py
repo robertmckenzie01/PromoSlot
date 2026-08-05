@@ -185,6 +185,20 @@ def approve_deal(deal_id: int, user: User = Depends(get_current_user), db: Sessi
         d.owner_approved = True
     if d.business_approved and d.owner_approved and d.status == DealStatus.AWAITING_APPROVAL:
         d.status = DealStatus.APPROVED
+
+    # Tell the other side. Without this an approval is invisible unless they
+    # happen to reopen the deal.
+    other_id = d.platform_owner_id if user.id == d.business_id else d.business_id
+    if d.status == DealStatus.APPROVED:
+        # This was the second approval — say what happens next, which differs
+        # depending on which side is being told.
+        body = (f"Deal #{d.id} is fully approved — fund it to start the work."
+                if other_id == d.business_id
+                else f"Deal #{d.id} is fully approved. Waiting on the business to fund it.")
+    else:
+        body = f"{_name(user)} approved deal #{d.id} — your approval is next."
+    db.add(Notification(user_id=other_id, type="deal_approved", body=body, ref=str(d.id)))
+
     db.commit()
     db.refresh(d)
     return deal_dict(d)

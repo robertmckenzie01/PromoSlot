@@ -296,3 +296,56 @@ def strip_quoted_reply(text: str) -> str:
     while lines and (not lines[-1].strip() or lines[-1].lstrip().startswith(">")):
         lines.pop()
     return "\n".join(lines).strip() or text.strip()
+
+
+def _account_action_email(kind: str, reason: str = "") -> tuple:
+    """Shared body for the suspension/ban notices.
+
+    kind: "suspended" (reversible) | "banned" (permanent). The reason is what the
+    admin actually typed — never embellished, and never omitted, because the
+    login screen only shows a generic message and this is the one place the
+    person is told why.
+    """
+    banned = kind == "banned"
+    title = "Your PromoSlot account has been banned" if banned else \
+            "Your PromoSlot account has been suspended"
+    lead = ("Your account has been banned and can no longer be used. This is "
+            "permanent, and the email address cannot be used to sign up again."
+            if banned else
+            "Your account has been suspended, so you can't sign in or trade for "
+            "now. A suspension can be lifted.")
+    reason_block = (f'''
+        <p style="color:#334155;margin-bottom:6px"><b>Reason given</b></p>
+        <div style="border-left:3px solid #4f46e5;padding:2px 0 2px 14px;color:#334155;
+                    white-space:pre-wrap;font-size:14px">{_esc(reason)}</div>'''
+        if reason else
+        '''<p style="color:#64748b;font-size:13px">No reason was recorded.</p>''')
+
+    html = f"""
+      <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
+        <h2 style="color:#0f172a">{title}</h2>
+        <p style="color:#334155">{lead}</p>
+        {reason_block}
+        <p style="color:#334155;margin-top:22px">Any funds already held for a deal in
+           progress are unaffected by this and still follow the normal
+           verification and payout process.</p>
+        <p style="color:#64748b;font-size:13px">If you think this is a mistake, reply to
+           this email or contact {settings.support_email} and a person will look at it.</p>
+      </div>"""
+    text = (f"{title}\n\n{lead}\n\n"
+            + (f"Reason given:\n{reason}\n\n" if reason else "No reason was recorded.\n\n")
+            + "Any funds already held for a deal in progress are unaffected and still "
+              "follow the normal verification and payout process.\n\n"
+              f"If you think this is a mistake, reply to this email or contact "
+              f"{settings.support_email} and a person will look at it.")
+    return title, html, text
+
+
+def account_suspended_email(reason: str = "") -> tuple:
+    """(subject, html, text) telling someone their account was suspended, and why."""
+    return _account_action_email("suspended", reason)
+
+
+def account_banned_email(reason: str = "") -> tuple:
+    """(subject, html, text) telling someone their account was banned, and why."""
+    return _account_action_email("banned", reason)
