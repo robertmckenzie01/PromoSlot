@@ -904,6 +904,7 @@ function renderListingModal(l,tab){
       <div class="det-actions">
         <button class="btn btn-o btn-sm" onclick="openChat('${l.id}')">💬 Message</button>
         ${!l.example&&/^\d+$/.test(String(l.ownerId))?`<button class="btn btn-o btn-sm" onclick="openProfile(${parseInt(l.ownerId,10)},'${l.id}')">👤 View full profile</button>`:""}
+        ${l.example?"":acpLinkHtml("listing", l.id)}
         <button class="btn btn-o btn-sm" onclick="requestQuote('${l.id}')">Request custom quote</button>
       </div>
     </div>
@@ -1050,6 +1051,7 @@ function renderCampaignModal(c,tab){
       <div class="det-actions">
         <button class="btn btn-o btn-sm" onclick="openChat('${c.id}')">💬 Message</button>
         ${real&&!meBiz?`<button class="btn btn-o btn-sm" onclick="openProfile(${parseInt(c.businessId,10)},'${c.id}')">👤 View full profile</button>`:""}
+        ${real?acpLinkHtml("campaign", c.id):""}
         ${meBiz
           ? `<button class="btn btn-p btn-sm" onclick="openCampaign('${c.id}','applicants')">View applicants (${apps.length})</button>`
           : (canApply?`<button class="btn btn-p btn-sm" onclick="applyCampaign('${c.id}')">Apply to campaign</button>`:"")}
@@ -1321,7 +1323,7 @@ async function openProfile(userId, backRef){
   openModal(`<div class="det-head">${avatarBlock(p.avatar_url,p.display_name,true)}
       <div class="det-title"><h3>${esc(p.display_name)}</h3>
         <div class="handle">${roles.join(" · ")||"Member"} · ${stars}</div></div>
-      <div class="det-actions">${backBtn}</div></div>
+      <div class="det-actions">${backBtn}${acpLinkHtml("account", p.email || p.display_name || p.id)}</div></div>
     <div class="det-body">${about}${intro}${links}${assets}${svc}${aud}${work}${pastAuto}${bizPast}${listings}${campaigns}${reviews}</div>`,"wide");
 }
 async function renderRealDeal(dealId){
@@ -2875,7 +2877,7 @@ function adminCreds(){
   if(reason.trim().length<3){ toast("A reason of at least 3 characters is required"); return null; }
   return {password, mfa_code, reason:reason.trim()};
 }
-async function openAdmin(tab){
+async function openAdmin(tab, focus){
   if(!can("admin.view")){ toast("Super-Admin access required"); return; }
   setRoute("admin");
   tab=tab||"admins";
@@ -2914,19 +2916,19 @@ async function openAdmin(tab){
       </div></div>`;
   } else if(tab==="moderation"){
     const sus=mods.suspended||{listings:[],campaigns:[]};
-    const row=(title,sub,btn)=>`<div class="deal-row" style="cursor:default">
+    const row=(title,sub,btn,ref)=>`<div class="deal-row" style="cursor:default"${ref?` id="acp-${esc(ref)}"`:""}>
         <div class="pfp" style="background:var(--acc)">${esc((title||"?").slice(0,1).toUpperCase())}</div>
         <div><div class="dr-t">${esc(title)}</div><div class="dr-s">${sub}</div></div>
         <div class="btn-row">${btn}</div></div>`;
     body=`<p class="deal-sub" style="padding:0 2px 8px">Suspending hides an item from the marketplace and blocks new bookings, but keeps it intact and reversible — a softer option than removal.</p>
       <div class="panel"><div class="panel-h"><h4>Live listings</h4></div><div class="panel-b">
         ${mods.listings.length?mods.listings.map(l=>row(l.name,`${esc(l.platform)} · by ${esc(l.owner||"")}`,
-          `<button class="btn btn-danger btn-sm" onclick="adminSuspendListing(${String(l.id).slice(1)})">Suspend</button>`)).join("")
+          `<button class="btn btn-danger btn-sm" onclick="adminSuspendListing(${String(l.id).slice(1)})">Suspend</button>`, l.id)).join("")
           :`<p class="mut" style="font-size:12.5px">No live listings.</p>`}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Live campaigns</h4></div><div class="panel-b">
         ${mods.campaigns.length?mods.campaigns.map(c=>row(c.title,`by ${esc(c.company||"")}`,
-          `<button class="btn btn-danger btn-sm" onclick="adminSuspendCampaign(${String(c.id).replace(/^c/,'')})">Suspend</button>`)).join("")
+          `<button class="btn btn-danger btn-sm" onclick="adminSuspendCampaign(${String(c.id).replace(/^c/,'')})">Suspend</button>`, c.id)).join("")
           :`<p class="mut" style="font-size:12.5px">No live campaigns.</p>`}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Suspended</h4></div><div class="panel-b">
@@ -2955,6 +2957,33 @@ async function openAdmin(tab){
       <span class="status-pill st-review">${esc(S.myRole==="SUPER_ADMIN"?"Super-Admin":"Admin")}</span></div>
     <div class="det-tabs">${[["admins","Admins"],["moderation","Moderation"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
     ${body}`;
+  if(focus) _acpFocus(tab, focus);
+}
+
+// Deep-link target from a "View on ACP" link: scroll to and flash the row, or
+// for an account, run the member search on their email so the existing
+// promote/suspend/ban actions are right there.
+function _acpFocus(tab, focus){
+  if(tab==="admins"){
+    const box=$("ad-search");
+    if(box){ box.value=focus; adminSearchUsers(); }
+    return;
+  }
+  const el=$("acp-"+focus);
+  if(!el) return;                       // not in this list (e.g. already suspended)
+  if(el.scrollIntoView) el.scrollIntoView({behavior:"smooth", block:"center"});
+  el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),1600);
+}
+
+// Super-Admin shortcut shown on listing/campaign/profile detail views. Purely
+// navigation into the existing panel — the actual suspend/ban/remove controls
+// stay in one place rather than being duplicated onto public-facing views.
+function acpLinkHtml(kind, ref){
+  if(!can("admin.view")) return "";
+  const tab = kind==="account" ? "admins" : "moderation";
+  return `<button class="btn btn-o btn-sm" style="margin-left:8px"
+      onclick="event.stopPropagation();closeModal();openAdmin('${tab}','${esc(String(ref))}')"
+      title="Open this in the Admin Control Panel">🛡️ View on ACP</button>`;
 }
 // Look up an existing member by email/name so real team members can be promoted
 // without knowing their numeric id.
@@ -3654,7 +3683,8 @@ openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerm
 renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
 setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
-openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket};
+openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
+acpLinkHtml};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
