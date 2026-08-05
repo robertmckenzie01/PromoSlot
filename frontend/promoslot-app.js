@@ -2882,14 +2882,15 @@ async function openAdmin(tab, focus){
   setRoute("admin");
   tab=tab||"admins";
   showView("view-deal");
-  let admins=[], logs=[], mods={listings:[],campaigns:[]};
+  let admins=[], logs=[], mods={listings:[],campaigns:[]}, banned=[];
   if(tab==="admins"){ try{ admins=await PSApi.get("/admin/admins"); }catch(e){} }
+  else if(tab==="banned"){ try{ banned=await PSApi.get("/admin/banned"); }catch(e){} }
   else if(tab==="moderation"){
     try{ mods.listings=await PSApi.get("/platforms"); }catch(e){}
     try{ mods.campaigns=await PSApi.get("/campaigns"); }catch(e){}
     try{ mods.suspended=await PSApi.get("/admin/suspended"); }catch(e){ mods.suspended={listings:[],campaigns:[]}; }
   }
-  else { try{ logs=await PSApi.get("/admin/audit-log?limit=100"); }catch(e){} }
+  else if(tab==="audit"){ try{ logs=await PSApi.get("/admin/audit-log?limit=100"); }catch(e){} }
   let body="";
   if(tab==="admins"){
     body=`<p class="deal-sub" style="padding:0 2px 8px">Privileged accounts. Assigning or removing a role requires your password${S.myRole==="SUPER_ADMIN"?" and authenticator code":""}, and is written to the immutable audit log.</p>
@@ -2914,6 +2915,16 @@ async function openAdmin(tab, focus){
         <div style="margin-top:10px"><button class="btn btn-p btn-sm" onclick="adminSearchUsers()">Search</button></div>
         <div id="ad-results" style="margin-top:12px"></div>
       </div></div>`;
+  } else if(tab==="banned"){
+    // A plain reference list to scan by eye — no similarity matching, no
+    // inference, just the accounts that were actually banned.
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Every banned account. Banned addresses cannot be used to sign up again — the signup form tells them so explicitly.</p>
+      <div class="panel"><div class="panel-h"><h4>Banned emails</h4></div><div class="panel-b">
+        <div class="frm"><div><label>Filter</label>
+          <input type="text" id="ban-filter" placeholder="Type to filter by email or name" oninput="filterBanned()"></div></div>
+        <div id="banned-rows" style="margin-top:10px">${bannedRowsHtml(banned)}</div>
+      </div></div>`;
+    S._banned=banned;
   } else if(tab==="moderation"){
     const sus=mods.suspended||{listings:[],campaigns:[]};
     const row=(title,sub,btn,ref)=>`<div class="deal-row" style="cursor:default"${ref?` id="acp-${esc(ref)}"`:""}>
@@ -2955,7 +2966,7 @@ async function openAdmin(tab, focus){
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>Admin console</h2>
       <span class="status-pill st-review">${esc(S.myRole==="SUPER_ADMIN"?"Super-Admin":"Admin")}</span></div>
-    <div class="det-tabs">${[["admins","Admins"],["moderation","Moderation"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
+    <div class="det-tabs">${[["admins","Admins"],["moderation","Moderation"],["banned","Banned"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
     ${body}`;
   if(focus) _acpFocus(tab, focus);
 }
@@ -2963,6 +2974,22 @@ async function openAdmin(tab, focus){
 // Deep-link target from a "View on ACP" link: scroll to and flash the row, or
 // for an account, run the member search on their email so the existing
 // promote/suspend/ban actions are right there.
+function bannedRowsHtml(rows){
+  if(!rows.length) return `<div class="empty-state small"><div class="es-ico">🚫</div><h4>No banned accounts</h4><p>Accounts you ban appear here for reference.</p></div>`;
+  return rows.map(u=>`<div class="deal-row" style="cursor:default">
+      ${pfp(u.display_name||u.email,null)}
+      <div><div class="dr-t">${esc(u.email)}</div>
+        <div class="dr-s">${esc(u.display_name||"—")}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
+      <div class="dr-amt"><small>${u.banned_at?new Date(u.banned_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</small></div>
+    </div>`).join("");
+}
+function filterBanned(){
+  const q=(($("ban-filter")||{}).value||"").trim().toLowerCase();
+  const rows=(S._banned||[]).filter(u=>!q ||
+    (u.email||"").toLowerCase().includes(q) || (u.display_name||"").toLowerCase().includes(q));
+  const host=$("banned-rows"); if(host) host.innerHTML=bannedRowsHtml(rows);
+}
+
 function _acpFocus(tab, focus){
   if(tab==="admins"){
     const box=$("ad-search");
@@ -3003,12 +3030,21 @@ async function adminSearchUsers(){
     else if(u.role==="SUPER_ADMIN") action=`<span class="mut" style="font-size:12.5px">Super-Admin</span>`;
     else if(u.role==="ADMIN") action=`<button class="btn btn-ghost btn-sm" onclick="adminSetRole(${u.id},'USER')">Remove admin</button>`;
     else action=`<button class="btn btn-p btn-sm" onclick="adminSetRole(${u.id},'ADMIN')">Promote to Admin</button>`;
+    // Suspension and ban apply to ANY account, not just privileged ones — these
+    // were previously only reachable from the Admins list.
+    if(!isSelf && u.role!=="SUPER_ADMIN"){
+      if(u.banned) action+=`<span class="mut" style="font-size:12.5px;margin-left:8px">Banned</span>`;
+      else action+=(u.suspended
+          ? `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Unsuspend</button>`
+          : `<button class="btn btn-o btn-sm" onclick="adminSuspend(${u.id})">Suspend</button>`)
+        +`<button class="btn btn-danger btn-sm" onclick="adminBan(${u.id})">Ban</button>`;
+    }
     const what=[u.is_business?"business":null,u.is_platform_owner?"platform owner":null]
       .filter(Boolean).join(" · ")||"member";
     return `<div class="deal-row" style="cursor:default">
       ${pfp(u.display_name||u.email,null)}
       <div><div class="dr-t">${esc(u.display_name||u.email)} ${roleBadge(u.role)}</div>
-        <div class="dr-s">${esc(u.email)} · ${what}${u.suspended?" · <b>suspended</b>":""}</div></div>
+        <div class="dr-s">${esc(u.email)} · ${what}${u.suspended?" · <b>suspended</b>":""}${u.banned?" · <b>banned</b>":""}</div></div>
       <div class="btn-row">${action}</div></div>`;
   }).join("");
 }
@@ -3040,6 +3076,14 @@ async function adminUnsuspend(userId){
   try{ await PSApi.post(`/admin/users/${userId}/unsuspend`, c); }
   catch(e){ toast(e.message||"Could not unsuspend"); return; }
   toast("Account restored",true); openAdmin("admins");
+}
+// Ban is permanent in effect (sessions revoked, the email can never sign up
+// again) — the server still requires password + MFA re-auth on top of this.
+async function adminBan(userId){
+  const c=adminCreds(); if(!c) return;
+  try{ await PSApi.post(`/admin/users/${userId}/ban`, c); }
+  catch(e){ toast(e.message||"Could not ban"); return; }
+  toast("Account banned — sessions revoked",true); openAdmin("banned");
 }
 function scrollToPanel(id){
   const el=$(id); if(!el) return;
@@ -3684,7 +3728,7 @@ renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
 setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
-acpLinkHtml};
+acpLinkHtml,adminBan,filterBanned};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

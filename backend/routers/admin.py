@@ -133,6 +133,21 @@ def list_admins(actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
     return [user_admin_dict(u) for u in rows]
 
 
+@router.get("/banned")
+def banned_users(actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
+                 db: Session = Depends(get_db)):
+    """Every banned account, for manual reference.
+
+    A plain list the Super-Admin can scan — no similarity detection, no
+    inference. Sourced straight from users with banned_at set.
+    """
+    rows = (db.query(User).filter(User.banned_at.isnot(None))
+            .order_by(User.banned_at.desc()).all())
+    return [{**user_admin_dict(u),
+             "banned_at": u.banned_at.isoformat() if u.banned_at else None}
+            for u in rows]
+
+
 @router.get("/users/search")
 def search_users(q: str = "", limit: int = 20,
                  actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),

@@ -62,7 +62,16 @@ def signup(body: SignupIn, response: Response, background: BackgroundTasks,
     email = body.email.strip().lower()
     if not body.is_business and not body.is_platform_owner:
         raise HTTPException(status_code=422, detail="Select at least one role")
-    if find_by_email(db, email):
+    existing = find_by_email(db, email)
+    if existing is not None:
+        # A banned address is a distinct case from an ordinary duplicate — say so
+        # plainly rather than implying they can just log in or reset a password.
+        if existing.banned_at is not None:
+            raise HTTPException(
+                status_code=403,
+                detail="This email address is banned from PromoSlot and cannot be "
+                       "used to create an account. Contact support if you believe "
+                       "this is a mistake.")
         raise HTTPException(status_code=409, detail="An account with that email already exists")
     user = User(
         email=email,
