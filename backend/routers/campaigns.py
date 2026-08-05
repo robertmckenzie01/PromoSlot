@@ -222,7 +222,7 @@ def get_campaign_image(campaign_id: int, db: Session = Depends(get_db)):
 # -------------------- Applications (owner-initiated deals) --------------------
 
 class ApplyIn(BaseModel):
-    listed_price: int = Field(ge=100, description="Escrow amount (sum of upfront/guaranteed), in pence")
+    listed_price: int = Field(ge=100, description="Protected amount held pending verification (sum of upfront/guaranteed), in pence")
     platform_id: Optional[int] = None      # which of the owner's listings they'd promote on
     pitch: Optional[str] = None
     currency: str = "gbp"

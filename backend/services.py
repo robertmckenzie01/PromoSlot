@@ -119,7 +119,7 @@ def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
     db.add(Notification(
         user_id=deal.platform_owner_id,
         type="deal_funded",
-        body=f"Deal #{deal.id} is funded and secured in escrow.",
+        body=f"Deal #{deal.id} is funded and held pending verification.",
         ref=str(deal.id),
     ))
     db.commit()

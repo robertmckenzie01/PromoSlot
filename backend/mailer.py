@@ -140,8 +140,8 @@ def welcome_email(display_name: str = "", is_business: bool = False,
       <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
         <h2 style="color:#0f172a">{hello}</h2>
         <p style="color:#334155">Your account is ready. PromoSlot connects businesses with
-           the people who own the audiences — and holds the money in escrow until the work
-           is delivered and verified, so neither side has to trust the other up front.</p>
+           the people who own the audiences — and holds the money pending verification until the
+           work is delivered and confirmed, so neither side has to trust the other up front.</p>
         {verify_block}
         <h3 style="color:#0f172a;font-size:15px;margin-bottom:8px">Then, where to start</h3>
         <ul style="padding-left:18px;margin:0">{items}</ul>
@@ -161,8 +161,8 @@ def welcome_email(display_name: str = "", is_business: bool = False,
                    "soon as you use it.\n\n") if verify_url else ""
     text = (f"{hello}\n\n"
             "Your account is ready. PromoSlot connects businesses with the people who own "
-            "the audiences, and holds the money in escrow until the work is delivered and "
-            f"verified.\n\n{verify_text}"
+            "the audiences, and holds the money pending verification until the work is "
+            f"delivered and confirmed.\n\n{verify_text}"
             f"{'Then, where' if verify_url else 'Where'} to start:\n"
             f"{text_steps}\n\n"
             f"{'' if verify_url else settings.app_base_url + chr(10) + chr(10)}"

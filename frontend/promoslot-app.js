@@ -94,7 +94,7 @@ const CAMPAIGNS = [
 ];
 
 const REVIEW_POOL = [
- {name:"Hannah W.",co:"Bloom Cosmetics",stars:5,text:"Delivered exactly what the agreement said — post went live on time, stayed up, analytics screenshots without us chasing. Escrow made it painless."},
+ {name:"Hannah W.",co:"Bloom Cosmetics",stars:5,text:"Delivered exactly what the agreement said — post went live on time, stayed up, analytics screenshots without us chasing. Payment Protection made it painless."},
  {name:"Marcus T.",co:"VoltEnergy",stars:5,text:"Views beat the guaranteed minimum by 3× and the measurement-period payout was calculated to the penny. Would fund again tomorrow."},
  {name:"Sofia R.",co:"Petal & Pot",stars:4,text:"Great content and communication. One revision needed on the caption, turned around same day."},
  {name:"Dev K.",co:"Loopwise App",stars:5,text:"The counter-offer flow saved this deal — we couldn't afford the fixed rate, they proposed a hybrid and it outperformed."},
@@ -852,7 +852,7 @@ function renderListingModal(l,tab){
         <span class="op">${p.amount>0?gbp(p.amount)+(p.type==="per-view"||p.type==="hybrid"?"+":p.type==="per-imp"?" est.":""):"Quote"}</span>
         <button class="btn btn-p btn-sm" onclick="event.stopPropagation();buyOffer('${l.id}',${i})">${p.type==="custom"?"Request quote":"Buy offer"}</button>
       </div>`).join("")}
-      <div class="note blue">🔒 Payment is funded into PromoSlot escrow before work starts and released only when the agreed delivery conditions are verified. PromoSlot's fee is 10% seller fee + 5% buyer protection fee, both on the agreed price.</div></div>`;
+      <div class="note blue">🔒 Payment is held pending verification before work starts and released only when the agreed delivery conditions are verified. PromoSlot's fee is 10% seller fee + 5% buyer protection fee, both on the agreed price.</div></div>`;
   } else if(tab==="about"){
     body = `<div class="det-sec"><h5>Audience analytics <span class="tag grn" style="margin-left:6px">${l.verified?"Analytics evidence verified ✔":"Self-reported"}</span></h5>
       <div class="statrow big" style="margin-bottom:12px">
@@ -986,7 +986,7 @@ async function openCampaign(id,tab){
   else renderCampaignModal(c,tab);
 }
 function applicantsHtml(c, apps){
-  if(!apps.length) return `<div class="det-sec"><h5>Applicants</h5><div class="empty-state small"><div class="es-ico">📭</div><h4>No applications yet</h4><p>Platform owners who apply to “${esc(c.title)}” appear here. Each application is a real, escrow-ready deal you can review, approve, and fund.</p></div></div>`;
+  if(!apps.length) return `<div class="det-sec"><h5>Applicants</h5><div class="empty-state small"><div class="es-ico">📭</div><h4>No applications yet</h4><p>Platform owners who apply to “${esc(c.title)}” appear here. Each application is a real, protected deal you can review, approve, and fund.</p></div></div>`;
   return `<div class="det-sec"><h5>${apps.length} applicant${apps.length>1?"s":""}</h5>
     ${apps.map(a=>`<div class="op-row" style="align-items:flex-start;cursor:default">
       ${pfp(a.applicant,null,"",a.applicant_avatar)}
@@ -1140,7 +1140,7 @@ const MSG_SUGGESTIONS=[
   "What would you charge for a one-off promotional video?",
   "Could you send recent performance figures for a similar post?",
   "Is the price negotiable for a multi-post package?",
-  "Happy to proceed — shall I open a deal so the funds go into escrow?",
+  "Happy to proceed — shall I open a deal so the funds are held pending verification?",
 ];
 function msgSuggestHtml(){
   return `<aside class="msg-suggest"><h5>Suggested messages</h5>
@@ -1177,7 +1177,7 @@ async function openConv(cid){
 }
 function renderMessages(showThread){
   const convos=S.convos||[];
-  const head=`<div class="msgs-head"><h2>Messages</h2><p class="mut" style="font-size:14px">Negotiate freely — when you're ready, move terms into the deal builder so everything is documented and escrow-protected.</p></div>`;
+  const head=`<div class="msgs-head"><h2>Messages</h2><p class="mut" style="font-size:14px">Negotiate freely — when you're ready, move terms into the deal builder so everything is documented and covered by Payment Protection.</p></div>`;
   if(!convos.length){
     $("msgsWrap").innerHTML=`${head}
       <div class="empty-state"><div class="es-ico">💬</div><h4>No conversations yet</h4><p>Message a platform owner or business from their profile to start a conversation. Your real threads show up here — nothing is pre-filled.</p><button class="btn btn-o btn-sm" onclick="openMarket()">Browse the marketplace</button></div>`;
@@ -1294,7 +1294,7 @@ async function openProfile(userId, backRef){
   // they pay for real work. Derived from genuinely completed deals.
   const bizPast = (p.business_past_campaigns&&p.business_past_campaigns.length)
     ? `<div class="det-sec"><h5>Our previous campaigns (${p.business_past_campaigns.length})</h5>
-        <p class="mut" style="font-size:12.5px;margin:-4px 0 10px">Completed and paid out through PromoSlot escrow.</p>
+        <p class="mut" style="font-size:12.5px;margin:-4px 0 10px">Completed and paid out through PromoSlot Payment Protection.</p>
         <div class="pastc">${p.business_past_campaigns.map(x=>{
           const n=v=>v!=null?Number(v).toLocaleString("en-GB"):"—";
           const stars=x.rating?`<div class="pcs">${"★".repeat(x.rating)}${"☆".repeat(5-x.rating)}</div>`:"";
@@ -1379,24 +1379,24 @@ async function renderRealDeal(dealId){
       so it is not going ahead. No money moved. It stays here in your deal history for
       your records.</div>` : "";
     main=`${goneNote}<h3 class="deal-h">${gone?`${goneWord} removed — deal not going ahead`:(bothApproved?"Fund the deal":"Approve the agreement")}</h3>
-    <p class="deal-sub">${gone?"Nothing further is expected from either side.":(bothApproved?"Both parties approved. The business funds the agreed amount into escrow before work starts.":"Both parties approve the same agreement before any money moves.")}</p>
+    <p class="deal-sub">${gone?"Nothing further is expected from either side.":(bothApproved?"Both parties approved. The business funds the agreed amount, held pending verification, before work starts.":"Both parties approve the same agreement before any money moves.")}</p>
     ${doc}
     <div class="approve-row">
       <div class="appr ${d.business_approved?"ok":""}"><b>${partyLink(d.business_id,d.business_name)}</b><small>business · funds the deal</small><div class="st">${d.business_approved?'<span class="ok-txt">✓ Approved</span>':(gone?'<span class="mut">—</span>':meBiz?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
       <div class="appr ${d.owner_approved?"ok":""}"><b>${partyLink(d.platform_owner_id,d.owner_name)}</b><small>platform owner · delivers</small><div class="st">${d.owner_approved?'<span class="ok-txt">✓ Approved</span>':(gone?'<span class="mut">—</span>':meOwner?`<button class="btn btn-p btn-sm" onclick="realApprove(${d.id})">Approve</button>`:'<span class="mut">Waiting</span>')}</div></div>
     </div>
-    ${!gone&&bothApproved&&meBiz?`<div id="fundArea"><button class="btn btn-g btn-lg" style="margin-top:16px" onclick="realFund(${d.id})">🔒 Fund ${gbpP(d.total_charged)} into escrow</button></div>`:""}
-    ${!gone&&bothApproved&&!meBiz?`<div class="note blue" style="margin-top:16px">Waiting for the business to fund ${gbpP(d.total_charged)} into escrow.</div>`:""}
+    ${!gone&&bothApproved&&meBiz?`<div id="fundArea"><button class="btn btn-g btn-lg" style="margin-top:16px" onclick="realFund(${d.id})">🔒 Fund ${gbpP(d.total_charged)} with Payment Protection</button></div>`:""}
+    ${!gone&&bothApproved&&!meBiz?`<div class="note blue" style="margin-top:16px">Waiting for the business to fund ${gbpP(d.total_charged)}, held pending verification.</div>`:""}
     ${(meBiz||meOwner)?`<div style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="realDecline(${d.id})">Decline &amp; cancel</button></div>`:""}`;
   } else {
     const proofList = proofs.length
       ? proofs.map(proofItemHtml).join("")
       : `<p class="mut" style="font-size:12.5px">No delivery evidence submitted yet.</p>`;
-    main=`<h3 class="deal-h">Funded — ${gbpP(d.total_charged)} secured in escrow 🔒</h3>
+    main=`<h3 class="deal-h">Funded — ${gbpP(d.total_charged)} held pending verification 🔒</h3>
     <p class="deal-sub">Money held by PromoSlot. The owner delivers &amp; submits proof → a reviewer verifies → the owner is paid ${gbpP(d.net_to_owner)} (listed price − ${d.seller_fee_percent}% seller fee).</p>
     ${doc}
     <div class="det-sec" style="margin-top:18px"><h5>Progress</h5>
-      <div class="proof-item got"><span class="pi-ico">🔒</span>Escrow funded<span class="ok">✓</span></div>
+      <div class="proof-item got"><span class="pi-ico">🔒</span>Payment Protection funded<span class="ok">✓</span></div>
       <div class="proof-item ${d.verified?"got":""}"><span class="pi-ico">🔎</span>Delivery verified by a reviewer<span class="ok">${d.verified?"✓":"pending"}</span></div>
       <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.net_to_owner):"pending"}</span></div></div>
     <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
@@ -1424,7 +1424,7 @@ async function renderRealDeal(dealId){
           <div><span>Owner receives</span><b>${gbpP(d.net_to_owner)}</b></div>
           <div><span>PromoSlot</span><b>${gbpP(d.platform_take)}</b></div>
         </div></div>
-        <div class="side-card trust-card"><h5>Protected by PromoSlot</h5><p>Escrow-secured funds · verified delivery · payout only on completion.</p></div>
+        <div class="side-card trust-card"><h5>Protected by PromoSlot</h5><p>Funds held pending verification · verified delivery · payout only on completion.</p></div>
       </div></div>`;
 }
 async function realApprove(dealId){
@@ -1476,7 +1476,7 @@ async function realPay(){
   // Stripe confirms the PaymentIntent succeeded).
   try{ await PSApi.post(`/deals/${ctx.dealId}/refresh`); }catch(e){}
   window._stripeCtx=null;
-  toast("Payment successful — escrow funded 🔒",true);
+  toast("Payment successful — Payment Protection funded 🔒",true);
   renderRealDeal(ctx.dealId);
 }
 function reviewerControls(d, proofCount){
@@ -1588,7 +1588,7 @@ async function realRelease(dealId){
   renderRealDeal(dealId);
 }
 async function realRefund(dealId){
-  if(!confirm("Disapprove this delivery and refund the business? The escrowed funds are returned to the business and the deal is closed. This can't be undone.")) return;
+  if(!confirm("Disapprove this delivery and refund the business? The protected funds are returned to the business and the deal is closed. This can't be undone.")) return;
   const reason=adminReasonPrompt("Refund the business"); if(reason===null) return;
   try{ await PSApi.post(`/review/deals/${dealId}/refund`,{reason,evidence_reviewed:true}); toast("Business refunded ↩︎",true); }
   catch(err){ toast(err.message||"Refund failed"); return; }
@@ -1674,7 +1674,7 @@ async function applyCampaign(campId){
   if(!plats.length){ try{ plats=await PSApi.get("/platforms/mine"); S.myPlatforms=plats; }catch(e){} }
   const platOpts=plats.map(p=>`<option value="${p.id}">${esc(p.name)} · ${esc(p.platform)}</option>`).join("");
   openModal(`<div class="m-pad"><h3 class="m-title">Apply to “${esc(c.title)}”</h3>
-    <p class="m-sub">Propose one or more payment methods and a short pitch. <b>${esc(c.company)}</b> reviews applicants, then approves and funds the upfront amount into escrow before you start work.</p>
+    <p class="m-sub">Propose one or more payment methods and a short pitch. <b>${esc(c.company)}</b> reviews applicants, then approves and funds the upfront amount, held pending verification, before you start work.</p>
     <div class="frm">
       ${plats.length
         ? `<div><label>Promote on</label><select id="ap-plat">${platOpts}</select></div>`
@@ -1691,7 +1691,7 @@ async function submitApplication(cid){
   const {pricing, total}=collectApplyPricing();
   if(!pricing.length){ toast("Add at least one payment method"); return; }
   const listed_price=Math.round(total*100);
-  if(!(listed_price>=100)){ toast("At least one method needs an upfront/guaranteed amount (min £1) to hold in escrow."); return; }
+  if(!(listed_price>=100)){ toast("At least one method needs an upfront/guaranteed amount (min £1) to hold pending verification."); return; }
   const platSel=$("ap-plat");
   const platform_id = platSel ? parseInt(platSel.value,10) : null;
   const pitch=(($("ap-pitch")||{}).value||"").trim();
@@ -1702,7 +1702,7 @@ async function submitApplication(cid){
   }catch(err){ toast(err.message||"Could not apply"); }
 }
 function dealById(id){ return S.deals.find(d=>d.id===id); }
-const DEAL_STEPS=["Agreement","Approval","Escrow funding","Delivery & proof","Verification","Payout"];
+const DEAL_STEPS=["Agreement","Approval","Payment Protection","Delivery & proof","Verification","Payout"];
 
 function grossOf(d){
   let g=d.terms.guaranteed||0;
@@ -1768,7 +1768,7 @@ function renderDeal(id){
     const roadmap = `<div class="det-sec" style="margin-top:24px">
       <h5>The rest of this deal — not available yet</h5>
       <p class="deal-sub" style="margin-bottom:12px">Everything below activates only when the underlying integration is live and confirms a real event. Nothing here is simulated.</p>
-      ${lockedStep("🔒","Escrow funding — "+gbp(amt),"The business funds the deal via Stripe. It is marked funded only after Stripe confirms the charge succeeded. Stripe payments are not connected yet.")}
+      ${lockedStep("🔒","Payment Protection — "+gbp(amt),"The business funds the deal via Stripe. It is marked funded only after Stripe confirms the charge succeeded. Stripe payments are not connected yet.")}
       ${lockedStep("📤","Delivery & proof submission","The platform owner uploads the published link, analytics and view/impression counts. Proof counts only once a real file or link is uploaded and stored. Server-side storage is not connected yet.")}
       ${lockedStep("🔎","Human verification","A PromoSlot reviewer checks the real submitted evidence against this agreement and marks it verified by hand. This is never automatic. No reviewer is assigned yet.")}
       ${lockedStep("💸","Payout (minus 10% seller fee)","After a reviewer verifies delivery, funds transfer to the owner via Stripe Connect — the agreed price minus PromoSlot's 10% seller fee (the 5% buyer protection fee was already added at funding). Released only on a real successful transfer. Payouts are not connected yet.")}
@@ -1800,7 +1800,7 @@ function renderDeal(id){
           <button class="btn btn-o btn-sm" style="width:100%;margin-top:12px" onclick="openChat('${d.refId}')">💬 Message</button></div>
         <div class="side-card"><h5>Deal activity</h5><ul class="timeline">${d.log.map(e=>`<li>${esc(e.txt)}<small>${esc(e.t)}</small></li>`).join("")}</ul></div>
         <div class="side-card trust-card"><h5>Protected by PromoSlot</h5>
-          <p>Escrow-secured funds · verified delivery · dispute support · 10% seller + 5% buyer fee, only on completion.</p></div>
+          <p>Funds held pending verification · verified delivery · dispute support · 10% seller + 5% buyer fee, only on completion.</p></div>
       </div>
     </div>`;
 }
@@ -1855,7 +1855,7 @@ function sendCounter(id){
 }
 function cancelDeal(id){
   const d=dealById(id);
-  openModal(`<div class="m-pad"><h3 class="m-title">Cancel this deal?</h3><p class="m-sub">${d.step<3?"The deal hasn't been funded — cancellation is free and instant.":"Escrow will be returned to the business per the cancellation terms."}</p>
+  openModal(`<div class="m-pad"><h3 class="m-title">Cancel this deal?</h3><p class="m-sub">${d.step<3?"The deal hasn't been funded — cancellation is free and instant.":"Protected funds will be returned to the business per the cancellation terms."}</p>
   <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Keep deal</button><button class="btn btn-danger" onclick="S.deals=S.deals.filter(x=>x.id!=='${id}');closeModal();openDash();toast('Deal ${id} cancelled')">Cancel deal</button></div></div>`,"narrow");
 }
 function fundDeal(id){
@@ -1863,8 +1863,8 @@ function fundDeal(id){
   // exists yet, so we never mark a deal funded here.
   const d=dealById(id);
   if(!INFRA.payments){
-    openModal(`<div class="m-pad"><h3 class="m-title">Escrow funding isn't available yet</h3>
-      <p class="m-sub">Funding a deal moves real money into escrow, so it can only happen through a live payment provider. PromoSlot's Stripe integration isn't connected yet, so no deal can be funded — and none will ever be shown as funded until a real Stripe charge succeeds.</p>
+    openModal(`<div class="m-pad"><h3 class="m-title">Payment Protection isn't available yet</h3>
+      <p class="m-sub">Funding a deal moves real money, held pending verification, so it can only happen through a live payment provider. PromoSlot's Stripe integration isn't connected yet, so no deal can be funded — and none will ever be shown as funded until a real Stripe charge succeeds.</p>
       ${pendingPanel("💳","Payments pending","Stripe Connect is not wired up. When it is, this step will charge the business and mark the deal funded only after Stripe confirms the payment.")}
       <div class="m-actions"><button class="btn btn-p" onclick="closeModal()">Got it</button></div></div>`,"narrow");
     return;
@@ -2393,7 +2393,7 @@ function dealRows(){
       ${pfp(other,d.terms&&d.terms.platform,"",meBiz?d.owner_avatar:d.business_avatar)}<div><div class="dr-t">Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</div>
       <div class="dr-s">${meBiz?"You buy · "+esc(other):"You deliver · "+esc(other)}</div></div>
       <span class="status-pill ${stCls}">${stLabel}</span>
-      <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":awaitingPayout?"awaiting payout":d.funded?"in escrow":cancelledUnfunded?"Not funded":d.source_removed?"not going ahead":"pending"}</small></div></div>`;
+      <div class="dr-amt"><b>${gbpP(meBiz?d.total_charged:d.net_to_owner)}</b><small>${d.paid?"paid":awaitingPayout?"awaiting payout":d.funded?"protected":cancelledUnfunded?"Not funded":d.source_removed?"not going ahead":"pending"}</small></div></div>`;
   }).join("");
 }
 function notifRows(){
@@ -2512,7 +2512,7 @@ function renderBizDash(){
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('platforms')">Browse platform listings</button>
         <button class="btn btn-p" onclick="openNewCampaign()">＋ New campaign</button></div></div>
-    <div class="kpis">${kpi({i:0,to:S.myCampaigns.length,label:"Live campaigns",delta:S.myCampaigns.length?"↑ published today":"none yet — post one",cls:S.myCampaigns.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourCampaigns')"})}${kpi({i:1,to:applicants,label:"Applicants",delta:applicants?"↑ new applications":"awaiting first applications",cls:applicants?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:2,val:escrowPence?gbpP(escrowPence):"—",to:escrowPence?escrowPence/100:null,pre:"£",dec:2,label:"Secured in escrow",delta:escrowPence?"released on verified delivery":"fund a deal to protect it",cls:"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:3,to:completedCount,label:"Completed deals",delta:completedCount?"fee only on completion":"none yet",cls:"neu",spark:"#4f46e5"})}    </div>
+    <div class="kpis">${kpi({i:0,to:S.myCampaigns.length,label:"Live campaigns",delta:S.myCampaigns.length?"↑ published today":"none yet — post one",cls:S.myCampaigns.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourCampaigns')"})}${kpi({i:1,to:applicants,label:"Applicants",delta:applicants?"↑ new applications":"awaiting first applications",cls:applicants?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:2,val:escrowPence?gbpP(escrowPence):"—",to:escrowPence?escrowPence/100:null,pre:"£",dec:2,label:"Payment Protection",delta:escrowPence?"released on verified delivery":"fund a deal to protect it",cls:"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:3,to:completedCount,label:"Completed deals",delta:completedCount?"fee only on completion":"none yet",cls:"neu",spark:"#4f46e5"})}    </div>
     <div class="panel"><div class="panel-h"><h4>Account growth · spend over time</h4></div><div class="panel-b" id="bizGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel" id="yourCampaigns"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>
@@ -2552,7 +2552,7 @@ function renderPlatDash(){
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('campaigns')">Browse campaigns</button>
         <button class="btn btn-p" onclick="openRegisterPlatform()">＋ Register another platform</button></div></div>
-    <div class="kpis">${kpi({i:0,to:S.myPlatforms.length,label:"Live listings",delta:S.myPlatforms.length?"live in the marketplace":"list one to get seen",cls:S.myPlatforms.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourListings')"})}${kpi({i:1,val:earnedPence?gbpP(earnedPence):"—",to:earnedPence?earnedPence/100:null,pre:"£",dec:2,label:"Earned (after 10% seller fee)",delta:earnedPence?`from ${paidReal.length} completed deal${paidReal.length>1?"s":""}`:"complete a deal to earn",cls:earnedPence?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,to:inEscrow,label:"Deals in escrow",delta:inEscrow?"funds secured before you work":"none in escrow",cls:"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:3,val:rAvg!=null?"⭐ "+rAvg.toFixed(1):"—",label:"Your rating",delta:rAvg!=null?`${rCount} review${rCount===1?"":"s"}`:"appears after your first completed deal",cls:rAvg!=null?"up":"neu",spark:"#4f46e5"})}    </div>
+    <div class="kpis">${kpi({i:0,to:S.myPlatforms.length,label:"Live listings",delta:S.myPlatforms.length?"live in the marketplace":"list one to get seen",cls:S.myPlatforms.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourListings')"})}${kpi({i:1,val:earnedPence?gbpP(earnedPence):"—",to:earnedPence?earnedPence/100:null,pre:"£",dec:2,label:"Earned (after 10% seller fee)",delta:earnedPence?`from ${paidReal.length} completed deal${paidReal.length>1?"s":""}`:"complete a deal to earn",cls:earnedPence?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,to:inEscrow,label:"Protected deals",delta:inEscrow?"funds secured before you work":"none protected yet",cls:"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:3,val:rAvg!=null?"⭐ "+rAvg.toFixed(1):"—",label:"Your rating",delta:rAvg!=null?`${rCount} review${rCount===1?"":"s"}`:"appears after your first completed deal",cls:rAvg!=null?"up":"neu",spark:"#4f46e5"})}    </div>
     <div class="panel"><div class="panel-h"><h4>Account growth · earnings over time</h4></div><div class="panel-b" id="platGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel" id="yourListings"><div class="panel-h"><h4>Your platform listings</h4><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add platform</button></div>
