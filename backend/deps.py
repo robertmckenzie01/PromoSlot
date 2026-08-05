@@ -29,10 +29,12 @@ def _user_from_request(request: Request, db: DBSession) -> Optional[User]:
     return db.get(User, sess.user_id)
 
 
-def _assert_active(user: User) -> None:
+def assert_active(user: User) -> None:
+    """Reject an account that has lost access. Shared by the per-request gate and
+    the login gate so the two can never disagree about who is allowed in."""
     if user.banned_at is not None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="This account has been banned.")
+                            detail="This account has been banned from PromoSlot.")
     if user.suspended_at is not None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="This account is suspended.")
@@ -43,7 +45,7 @@ def get_current_user(request: Request, db: DBSession = Depends(get_db)) -> User:
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Not authenticated")
-    _assert_active(user)
+    assert_active(user)
     return user
 
 

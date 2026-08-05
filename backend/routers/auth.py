@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
-from ..deps import COOKIE_NAME, get_current_user
+from ..deps import COOKIE_NAME, assert_active, get_current_user
 from ..mailer import password_reset_email, send_email, welcome_email
 from ..models import PasswordResetToken, Session as AuthSession, User
 from ..schemas import (ChangePasswordIn, ForgotPasswordIn, LoginIn, ResetPasswordIn,
@@ -108,6 +108,10 @@ def login(body: LoginIn, response: Response, db: Session = Depends(get_db)):
     # Constant-ish response: verify even if user is missing to reduce enumeration.
     if user is None or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    # Only after the password check, so this never tells an anonymous caller
+    # whether an address exists. Banned and suspended accounts are turned away
+    # here rather than handed a session that 403s on every subsequent request.
+    assert_active(user)
     _issue_session(db, user, response)
     return user
 
