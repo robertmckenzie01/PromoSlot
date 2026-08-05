@@ -2931,22 +2931,26 @@ async function openAdmin(tab, focus){
         <div class="pfp" style="background:var(--acc)">${esc((title||"?").slice(0,1).toUpperCase())}</div>
         <div><div class="dr-t">${esc(title)}</div><div class="dr-s">${sub}</div></div>
         <div class="btn-row">${btn}</div></div>`;
-    body=`<p class="deal-sub" style="padding:0 2px 8px">Suspending hides an item from the marketplace and blocks new bookings, but keeps it intact and reversible — a softer option than removal.</p>
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Suspending hides an item from the marketplace and blocks new bookings, but keeps it intact and is reversible. <b>Remove forever deletes it outright and cannot be undone.</b> Both are written to the audit log.</p>
       <div class="panel"><div class="panel-h"><h4>Live listings</h4></div><div class="panel-b">
         ${mods.listings.length?mods.listings.map(l=>row(l.name,`${esc(l.platform)} · by ${esc(l.owner||"")}`,
-          `<button class="btn btn-danger btn-sm" onclick="adminSuspendListing(${String(l.id).slice(1)})">Suspend</button>`, l.id)).join("")
+          `<button class="btn btn-o btn-sm" onclick="adminSuspendListing(${String(l.id).slice(1)})">Suspend</button>`
+          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${String(l.id).slice(1)})">Remove forever</button>`, l.id)).join("")
           :`<p class="mut" style="font-size:12.5px">No live listings.</p>`}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Live campaigns</h4></div><div class="panel-b">
         ${mods.campaigns.length?mods.campaigns.map(c=>row(c.title,`by ${esc(c.company||"")}`,
-          `<button class="btn btn-danger btn-sm" onclick="adminSuspendCampaign(${String(c.id).replace(/^c/,'')})">Suspend</button>`, c.id)).join("")
+          `<button class="btn btn-o btn-sm" onclick="adminSuspendCampaign(${String(c.id).replace(/^c/,'')})">Suspend</button>`
+          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${String(c.id).replace(/^c/,'')})">Remove forever</button>`, c.id)).join("")
           :`<p class="mut" style="font-size:12.5px">No live campaigns.</p>`}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Suspended</h4></div><div class="panel-b">
         ${(sus.listings||[]).map(l=>row(l.name,`Listing · ${esc(l.suspended_reason||"")}`,
-          `<button class="btn btn-o btn-sm" onclick="adminUnsuspendListing(${l.id})">Restore</button>`)).join("")}
+          `<button class="btn btn-o btn-sm" onclick="adminUnsuspendListing(${l.id})">Restore</button>`
+          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${l.id})">Remove forever</button>`)).join("")}
         ${(sus.campaigns||[]).map(c=>row(c.title,`Campaign · ${esc(c.suspended_reason||"")}`,
-          `<button class="btn btn-o btn-sm" onclick="adminUnsuspendCampaign(${c.id})">Restore</button>`)).join("")}
+          `<button class="btn btn-o btn-sm" onclick="adminUnsuspendCampaign(${c.id})">Restore</button>`
+          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${c.id})">Remove forever</button>`)).join("")}
         ${(!(sus.listings||[]).length && !(sus.campaigns||[]).length)?`<p class="mut" style="font-size:12.5px">Nothing suspended.</p>`:""}
       </div></div>`;
   } else {
@@ -3057,6 +3061,11 @@ const adminSuspendListing   = id => _modAction(`/admin/listings/${id}/suspend`, 
 const adminUnsuspendListing = id => _modAction(`/admin/listings/${id}/unsuspend`, "Listing restored");
 const adminSuspendCampaign  = id => _modAction(`/admin/campaigns/${id}/suspend`,  "Campaign suspended — hidden from the marketplace");
 const adminUnsuspendCampaign= id => _modAction(`/admin/campaigns/${id}/unsuspend`,"Campaign restored");
+// Permanent: the server hard-deletes the row. Distinguished from Suspend in
+// both wording and styling because Suspend can be undone and this cannot. The
+// server still demands password + MFA re-authentication.
+const adminRemoveListing    = id => _modAction(`/admin/listings/${id}/remove`,    "Listing removed permanently");
+const adminRemoveCampaign   = id => _modAction(`/admin/campaigns/${id}/remove`,   "Campaign removed permanently");
 
 async function adminSetRole(userId, role){
   if(!userId){ toast("Enter a user ID"); return; }
@@ -3728,7 +3737,7 @@ renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
 setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
-acpLinkHtml,adminBan,filterBanned};
+acpLinkHtml,adminBan,filterBanned,adminRemoveListing,adminRemoveCampaign};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
