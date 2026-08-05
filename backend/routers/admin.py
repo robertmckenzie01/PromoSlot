@@ -23,6 +23,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import audit
+from ..config import settings
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
 from ..mailer import (account_banned_email, account_suspended_email,
@@ -116,7 +117,11 @@ def _notify_account_action(email: str, kind: str, reason: str) -> None:
     """
     subject, html, text = (account_banned_email(reason) if kind == "banned"
                            else account_suspended_email(reason))
-    ok, detail = send_email(email, subject, html, text)
+    # The copy tells them they can reply, so Reply-To has to actually reach
+    # support — MAIL_FROM is a no-reply sender and is not guaranteed to equal
+    # SUPPORT_EMAIL.
+    ok, detail = send_email(email, subject, html, text,
+                            reply_to=settings.support_email)
     if not ok:
         log.warning("%s notice not sent to %s: %s", kind, email, detail)
 
