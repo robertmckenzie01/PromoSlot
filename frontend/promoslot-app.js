@@ -279,8 +279,18 @@ function overlayClick(e){ if(e.target===$("overlay") && !modalLock) closeModal()
 
 /* ==================== MARKETPLACE ==================== */
 // Marketplace = real listings/campaigns from the backend + the labelled examples.
-function allListings(){ return LISTINGS.concat(S.marketPlatforms||[]); }
-function allCampaigns(){ return (S.marketCampaigns||[]).concat(CAMPAIGNS); }
+// Own listings/campaigns are included deliberately: a suspended item is filtered
+// out of the marketplace feed, so without this it exists in NO lookup list — and
+// a "your listing was suspended" notification pointing at it resolved to nothing,
+// making the click silently dead. De-duplicated by id, own copy wins (it is the
+// one fetched with the owner's own permissions).
+function _byId(...lists){
+  const seen=new Map();
+  lists.forEach(l=>(l||[]).forEach(x=>{ if(x && x.id!=null && !seen.has(x.id)) seen.set(x.id,x); }));
+  return [...seen.values()];
+}
+function allListings(){ return _byId(S.myPlatforms, S.marketPlatforms, LISTINGS); }
+function allCampaigns(){ return _byId(S.myCampaigns, S.marketCampaigns, CAMPAIGNS); }
 async function loadMarket(){
   await Promise.all([
     PSApi.get("/platforms").then(r=>{S.marketPlatforms=r;}).catch(()=>{S.marketPlatforms=[];}),
