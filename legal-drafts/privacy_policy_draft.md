@@ -22,7 +22,7 @@ This policy explains how PromoSlot Ltd ("PromoSlot," "we," "us") collects, uses,
 We use your data to:
 - Create and manage your account.
 - Operate the marketplace: matching listings/campaigns, processing deals, facilitating messaging.
-- Process payments and escrow via Stripe.
+- Process payments and hold funds pending verification via Stripe.
 - Send transactional emails (welcome, notifications, deal updates) via our email provider.
 - Investigate and resolve disputes between users.
 - Maintain platform security and prevent fraud.
@@ -38,7 +38,7 @@ We use your data to:
 
 We share data with the third parties that help us operate PromoSlot, each only with what's needed for their function:
 
-- **Stripe** — payment processing and escrow.
+- **Stripe** — payment processing and holding funds pending verification.
 - **Resend** — transactional email delivery.
 - **Cloudflare R2** — file storage (proof-of-delivery uploads, images).
 - **Render** and **Neon** — application hosting and database, hosted in the EU (Ireland / Frankfurt).

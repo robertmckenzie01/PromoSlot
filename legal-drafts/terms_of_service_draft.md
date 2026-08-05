@@ -1,6 +1,6 @@
 # PromoSlot — Terms of Service (DRAFT)
 
-**⚠️ This is a starting draft, not a finished legal document.** It's built from how PromoSlot actually works based on the product itself, not legal counsel. Items in `[brackets]` need your input. Get this reviewed by a solicitor before treating it as binding — you're processing real payments through escrow, which raises real liability questions a draft like this can't resolve on its own.
+**⚠️ This is a starting draft, not a finished legal document.** It's built from how PromoSlot actually works based on the product itself, not legal counsel. Items in `[brackets]` need your input. Get this reviewed by a solicitor before treating it as binding — you're processing real payments held pending verification, which raises real liability questions a draft like this can't resolve on its own.
 
 *Last updated: [DATE] · Effective from: [DATE]*
 
@@ -8,7 +8,7 @@
 
 PromoSlot is operated by **PromoSlot Ltd** ("PromoSlot," "we," "us"), a company registered in `[England & Wales / jurisdiction to confirm]` under company number `[COMPANY NUMBER]`, registered office at `[ADDRESS]`.
 
-PromoSlot is a marketplace connecting businesses ("Business," "Business Owner") with platform owners and content creators ("Platform Owner") for promotional campaigns, and provides an escrow service to hold funds until agreed work is delivered and verified.
+PromoSlot is a marketplace connecting businesses ("Business," "Business Owner") with platform owners and content creators ("Platform Owner") for promotional campaigns, and holds funds pending verification until agreed work is delivered and confirmed.
 
 ## 2. Acceptance of these terms
 
@@ -28,10 +28,10 @@ You must be at least 18 years old and able to form a binding contract to use Pro
 
 - **Business Owners** create campaigns describing what they want promoted, the deliverables expected, and the payment terms offered.
 - **Platform Owners** list their platforms/audiences and apply to campaigns, or respond to direct quote requests.
-- When both parties agree on a deal, the Business Owner funds the agreed amount into **escrow**, held by PromoSlot via our payment processor (Stripe) until the deliverable is submitted and verified.
+- When both parties agree on a deal, the Business Owner pays the agreed amount, which PromoSlot holds pending verification via our payment processor (Stripe) until the deliverable is submitted and verified.
 - Once delivery is verified, funds are released to the Platform Owner, minus PromoSlot's fee.
 
-PromoSlot is a marketplace and escrow facilitator. We are not a party to the underlying agreement between Business Owner and Platform Owner regarding the promotional work itself, except as set out in our escrow, verification, and dispute processes below.
+PromoSlot is a marketplace that holds funds pending verification on behalf of both parties. We are not a party to the underlying agreement between Business Owner and Platform Owner regarding the promotional work itself, except as set out in our fund-holding, verification, and dispute processes below.
 
 ## 6. Fees
 
@@ -40,11 +40,11 @@ PromoSlot is a marketplace and escrow facilitator. We are not a party to the und
 - Fees are only charged when a deal completes and funds move. Creating an account, publishing a listing, or publishing a campaign is free.
 - `[Confirm: are fees ever charged on a partially-completed or disputed deal? Needs a decision.]`
 
-## 7. Payments and escrow
+## 7. Payments and funds held pending verification
 
 - All payments are processed by Stripe. PromoSlot does not store your card details.
-- Funds paid by a Business Owner into escrow are held until the deliverable is verified as complete, or until a refund is issued under our Refund Policy.
-- PromoSlot is not a bank and does not pay interest on funds held in escrow.
+- Funds paid by a Business Owner are held pending verification until the deliverable is confirmed as complete, or until a refund is issued under our Refund Policy.
+- PromoSlot is not a bank and does not pay interest on funds held pending verification.
 
 ## 8. Deliverables and verification
 
@@ -54,8 +54,8 @@ PromoSlot is a marketplace and escrow facilitator. We are not a party to the und
 
 ## 9. Cancellations
 
-- A deal may be cancelled by either party before escrow is funded, at no cost to either side, since no funds have moved.
-- Cancellation after escrow has been funded is handled under our **Refund Policy** — see that document for how funds are treated in that case.
+- A deal may be cancelled by either party before the deal is funded, at no cost to either side, since no funds have moved.
+- Cancellation after the deal has been funded is handled under our **Refund Policy** — see that document for how funds are treated in that case.
 
 ## 10. Disputes
 

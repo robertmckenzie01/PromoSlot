@@ -19,11 +19,18 @@ def _esc(v) -> str:
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
-def send_email(to: str, subject: str, html: str, text: str = "") -> tuple:
-    """Send one email. Returns (ok, detail). Never raises."""
+def send_email(to: str, subject: str, html: str, text: str = "",
+               from_override: str = None) -> tuple:
+    """Send one email. Returns (ok, detail). Never raises.
+
+    from_override lets a specific flow send under its own address (support
+    replies come from the support inbox, not the generic no-reply sender).
+    Everything else keeps settings.mail_from.
+    """
     if not settings.email_configured:
         return False, "email_not_configured"
-    payload = {"from": settings.mail_from, "to": [to], "subject": subject, "html": html}
+    payload = {"from": from_override or settings.mail_from,
+               "to": [to], "subject": subject, "html": html}
     if text:
         payload["text"] = text
     req = urllib.request.Request(
@@ -164,7 +171,10 @@ def support_reply_email(ticket_id: int, subject: str, reply: str) -> tuple:
         <h2 style="color:#0f172a">Re: {_esc(subject)}</h2>
         <div style="color:#334155;white-space:pre-wrap;font-size:14px">{_esc(reply)}</div>
         <p style="color:#64748b;font-size:13px;margin-top:22px">
-          You can reply to this email and it will reach the PromoSlot support team.</p>
+          Prefer to keep this in PromoSlot? Log in and reply from your Messages
+          inbox — our team picks it up there too.</p>
       </div>"""
-    text = f"Re: {subject}\n\n{reply}\n\nYou can reply to this email to reach PromoSlot support."
+    text = (f"Re: {subject}\n\n{reply}\n\n"
+            "Prefer to keep this in PromoSlot? Log in and reply from your Messages "
+            "inbox — our team picks it up there too.")
     return f"Re: {subject}" if subject else "A reply from PromoSlot support", html, text

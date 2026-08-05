@@ -6,15 +6,15 @@
 
 ## 1. Overview
 
-PromoSlot uses an escrow model: a Business Owner's payment is held by PromoSlot until the agreed deliverable is submitted and verified, at which point it's released to the Platform Owner (minus PromoSlot's fee). This policy explains what happens to funds when a deal doesn't complete as planned.
+A Business Owner's payment is held by PromoSlot pending verification until the agreed deliverable is submitted and confirmed, at which point it's released to the Platform Owner (minus PromoSlot's fee). This policy explains what happens to funds when a deal doesn't complete as planned.
 
 ## 2. Cancelled before funding
 
-If a deal is cancelled before escrow is funded, no payment has been taken, so there's nothing to refund. The deal is marked "Cancelled" and remains visible in both parties' deal history.
+If a deal is cancelled before it's funded, no payment has been taken, so there's nothing to refund. The deal is marked "Cancelled" and remains visible in both parties' deal history.
 
 ## 3. Cancelled after funding, before delivery
 
-If escrow has been funded and the deal is then cancelled — by mutual agreement, or because the underlying listing/campaign is removed — the Business Owner is entitled to a full refund of the amount paid, `[minus/including the buyer protection fee — confirm which]`.
+If the deal has been funded (funds held pending verification) and is then cancelled — by mutual agreement, or because the underlying listing/campaign is removed — the Business Owner is entitled to a full refund of the amount paid, `[minus/including the buyer protection fee — confirm which]`.
 
 `[Current state: this refund is not yet automatic — see the flag at the top of this document. Until it is, describe your actual process here, e.g. "refunds are reviewed and processed by our team within X business days."]`
 

@@ -2637,6 +2637,10 @@ function renderNotifPop(){
 function openNotif(ref){
   toggleNotifs(false);
   if(typeof ref==="string" && ref.indexOf("convo:")===0){ openMessages().then(()=>openConv(parseInt(ref.slice(6),10))); return; }
+  // New-ticket alerts for reviewers open the queue on that ticket.
+  if(typeof ref==="string" && ref.indexOf("support_ticket:")===0){
+    openSupportQueue(parseInt(ref.slice(15),10)); return;
+  }
   if(findListing(ref)){ openListing(ref); return; }
   if(findCampaign(ref)){ openCampaign(ref); return; }
   if(/^\d+$/.test(String(ref))){ showView("view-deal"); renderRealDeal(parseInt(ref,10)); return; }  // deal notifications
