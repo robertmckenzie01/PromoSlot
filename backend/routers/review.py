@@ -185,7 +185,8 @@ def verify(deal_id: int, body: VerifyIn, request: Request,
 def release_payout(deal_id: int, body: ReleaseIn, request: Request,
                    reviewer: User = Depends(RequirePerm(Perm.PAYOUT_RELEASE)),
                    db: Session = Depends(get_db)):
-    """Release escrow to the platform owner via a real Stripe Transfer.
+    """Release funds held pending verification to the platform owner via a real
+    Stripe Transfer.
 
     Gated on: verified state, not already paid, payouts enabled on the owner's
     connected account (checked live), the admin is not a party to the deal, and
