@@ -3168,6 +3168,8 @@ function authModal(mode){
         <button type="button" class="chip" id="au-r-plat" onclick="this.classList.toggle('on')">📣 Platform owner</button>
       </div></div>`:""}
       <div class="hint-err hide" id="au-err"></div>
+      ${isSignup?"":`<p class="mut" style="font-size:12.5px;margin-top:2px">Signed up but never got the verification email?
+        <a href="#" class="party-link" onclick="event.preventDefault();resendVerification(($('au-email')||{}).value||'')">Send it again</a></p>`}
     </div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="authModal('${isSignup?"login":"signup"}')">${isSignup?"Have an account? Log in":"Need an account? Sign up"}</button>
@@ -3183,12 +3185,13 @@ async function doSignup(){
   if(!email||!password){ _authErr("Email and password are required."); return; }
   if(!is_business && !is_platform_owner){ _authErr("Select at least one role."); return; }
   const btn=$("au-submit"); btn.disabled=true; btn.textContent="Creating…";
+  let res;
   try{
-    S.account=await PSApi.signup({email,password,display_name:display_name||null,is_business,is_platform_owner});
-    await loadPerms();
-    closeModal(); authReflect(); await loadMine(); authReflect(); toast("Account created — you're signed in",true);
-    _resumeAfterAuth();
-  }catch(err){ btn.disabled=false; btn.textContent="Create account"; _authErr(err.message||"Signup failed"); }
+    res=await PSApi.signup({email,password,display_name:display_name||null,is_business,is_platform_owner});
+  }catch(err){ btn.disabled=false; btn.textContent="Create account"; _authErr(err.message||"Signup failed"); return; }
+  // The account exists but cannot be used until the emailed link is clicked, so
+  // there is no session to reflect — say what happens next instead.
+  checkYourEmailModal(res && res.email || email);
 }
 async function doLogin(){
   const email=($("au-email").value||"").trim(), password=$("au-pass").value||"";
@@ -3207,11 +3210,66 @@ async function doLogin(){
     _authErr(err.message||"Login failed");
     if(S._loginFails>=3){
       const e=$("au-err");
-      if(e) e.innerHTML=`${esc(err.message||"Login failed")} · <a href="#" class="party-link" onclick="event.preventDefault();forgotPasswordModal('${esc(email)}')">Reset password</a>`;
+      // An unverified account needs a new link, not a password reset.
+      const unverified=/verify your email/i.test(err.message||"");
+      if(e) e.innerHTML = unverified
+        ? `${esc(err.message)} · <a href="#" class="party-link" onclick="event.preventDefault();resendVerification('${esc(email)}')">Resend the link</a>`
+        : `${esc(err.message||"Login failed")} · <a href="#" class="party-link" onclick="event.preventDefault();forgotPasswordModal('${esc(email)}')">Reset password</a>`;
     }
   }
 }
 /* ---------- Password reset (real email via Resend) ---------- */
+function checkYourEmailModal(email){
+  openModal(`<div class="m-pad"><h3 class="m-title">Check your email</h3>
+    <p class="m-sub">We've sent a link to <b>${esc(email||"your inbox")}</b>. Click it to confirm
+       your address — you'll be signed in straight away. The link works once and expires in 24 hours.</p>
+    <p class="mut" style="font-size:12.5px">Not arrived? Check spam, or send it again below.</p>
+    <div class="hint-err hide" id="vr-err"></div>
+    <div class="m-actions">
+      <button class="btn btn-o" id="vr-resend" onclick="resendVerification('${esc(email||"")}')">Send it again</button>
+      <button class="btn btn-p" onclick="closeModal()">Got it</button></div></div>`,"narrow");
+}
+
+// Reachable from the login screen for anyone who never got (or lost) the email.
+async function resendVerification(prefill){
+  const email=(prefill||"").trim() || window.prompt("Which email address did you sign up with?","")||"";
+  if(!email.trim()) return;
+  const btn=$("vr-resend"); if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Sending…`; }
+  let msg;
+  try{ const r=await PSApi.post("/auth/resend-verification",{email:email.trim()}); msg=r&&r.message; }
+  catch(e){
+    if(btn){ btn.disabled=false; btn.textContent="Send it again"; }
+    const err=$("vr-err"); if(err){ err.textContent=e.message||"Could not send"; err.classList.remove("hide"); }
+    else toast(e.message||"Could not send");
+    return;
+  }
+  if(btn){ btn.disabled=false; btn.textContent="Send it again"; }
+  // Deliberately the same wording whether or not the address needed verifying.
+  toast(msg||"If that email needs verifying, a new link is on its way.",true);
+}
+
+// A real verification link lands as /?verify=<token>: confirm it, which also
+// signs the account in, then carry on as a normal fresh login.
+async function verifyEmailFromLink(token){
+  openModal(`<div class="m-pad"><h3 class="m-title">Verifying your email…</h3>
+    <p class="m-sub">One moment.</p></div>`,"narrow",true);
+  let acct;
+  try{ acct=await PSApi.post("/auth/verify-email",{token}); }
+  catch(e){
+    openModal(`<div class="m-pad"><h3 class="m-title">That link didn't work</h3>
+      <p class="m-sub">${esc(e.message||"The link is invalid or has expired.")}</p>
+      <div class="m-actions">
+        <button class="btn btn-o" onclick="closeModal();resendVerification('')">Send a new link</button>
+        <button class="btn btn-p" onclick="closeModal()">Close</button></div></div>`,"narrow");
+    return;
+  }
+  S.account=acct;
+  await loadPerms(); await loadMine(); await loadNotifications();
+  closeModal(); authReflect();
+  toast("Email verified — you're signed in ✓",true);
+  openDash();
+}
+
 function forgotPasswordModal(prefill){
   openModal(`<div class="m-pad"><h3 class="m-title">Reset your password</h3>
     <p class="m-sub">Enter the email on your account. We'll send a secure link to set a new password — it expires in 1 hour.</p>
@@ -3720,8 +3778,11 @@ function PSBoot(){
   restoreSession().then(restoreRoute);
   startAttnPolling();
   // A real reset link (emailed) lands as /?reset=<token> — open the set-password step.
-  const _rt=new URLSearchParams(location.search).get("reset");
+  const _q=new URLSearchParams(location.search);
+  const _rt=_q.get("reset");
   if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
+  const _vt=_q.get("verify");
+  if(_vt) setTimeout(()=>verifyEmailFromLink(_vt),300);
   loadMarket().then(renderMiniMarket);  // refresh peek with real listings
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); });
   document.addEventListener("click",e=>{
@@ -3734,7 +3795,8 @@ function PSBoot(){
 window.PSBoot=PSBoot;
 
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
-forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,scrollToPanel,openCompleted,
+forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
+checkYourEmailModal,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
 openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,

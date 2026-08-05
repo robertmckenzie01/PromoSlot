@@ -28,6 +28,10 @@ class ForgotPasswordIn(BaseModel):
     email: EmailStr
 
 
+class VerifyEmailIn(BaseModel):
+    token: str
+
+
 class ResetPasswordIn(BaseModel):
     token: str
     new_password: str = Field(min_length=8, max_length=200)

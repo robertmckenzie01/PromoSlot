@@ -75,6 +75,10 @@ def main():
             u.password_hash = hash_password(PW)
             for k, v in kw.items():
                 setattr(u, k, v)
+        # Seeded fixtures stand in for established accounts, so they are already
+        # email-verified — otherwise assert_active() blocks them at login and
+        # every check below fails for the wrong reason.
+        u.verified_at = u.verified_at or datetime.utcnow()
         db.commit(); db.refresh(u)
         return u
 

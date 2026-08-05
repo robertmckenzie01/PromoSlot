@@ -38,6 +38,10 @@ def assert_active(user: User) -> None:
     if user.suspended_at is not None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="This account is suspended.")
+    if user.verified_at is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Please verify your email before logging in. "
+                                   "Check your inbox for the link we sent you.")
 
 
 def get_current_user(request: Request, db: DBSession = Depends(get_db)) -> User:
@@ -50,8 +54,18 @@ def get_current_user(request: Request, db: DBSession = Depends(get_db)) -> User:
 
 
 def get_current_user_optional(request: Request, db: DBSession = Depends(get_db)) -> Optional[User]:
+    """Like get_current_user but returns None instead of raising.
+
+    Reuses assert_active so "who counts as an active account" is defined once.
+    It previously inlined its own suspended/banned test, which would have
+    silently missed the verification rule added later.
+    """
     user = _user_from_request(request, db)
-    if user is not None and (user.suspended_at is not None or user.banned_at is not None):
+    if user is None:
+        return None
+    try:
+        assert_active(user)
+    except HTTPException:
         return None
     return user
 

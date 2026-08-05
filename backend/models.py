@@ -57,6 +57,12 @@ class User(Base):
     mfa_enabled = Column(Boolean, default=False, nullable=False)
     mfa_recovery_codes = Column(JSON, default=list)
 
+    # Email ownership proven by clicking a real emailed link. Null = unverified,
+    # which blocks login (see deps.assert_active). Every account that existed
+    # before verification shipped was backfilled by the migration, so only
+    # accounts created afterwards ever start out null.
+    verified_at = Column(DateTime)
+
     # Public "who we are" profile content (editable from My Account / campaign setup).
     about_text = Column(Text)
     links = Column(JSON, default=list)          # [{label, url}, …] — no cap
@@ -384,6 +390,20 @@ class PasswordResetToken(Base):
     and on expiry, and every reset also revokes the user's existing sessions.
     """
     __tablename__ = "password_reset_tokens"
+    token = Column(String, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class EmailVerificationToken(Base):
+    """A single-use, expiring token emailed to prove ownership of an address.
+
+    Same shape as PasswordResetToken: random token as the primary key,
+    invalidated on use and on expiry.
+    """
+    __tablename__ = "email_verification_tokens"
     token = Column(String, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)

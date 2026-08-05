@@ -92,12 +92,17 @@ def password_reset_email(reset_url: str) -> tuple:
 
 
 def welcome_email(display_name: str = "", is_business: bool = False,
-                  is_platform_owner: bool = False) -> tuple:
+                  is_platform_owner: bool = False, verify_url: str = "") -> tuple:
     """(subject, html, text) welcoming a brand-new account.
 
     Says nothing about what the account has done — it has just been created.
     The only personalisation is the name they gave and the role(s) they picked
     at signup, both of which are real answers they supplied.
+
+    When verify_url is given this doubles as the verification email: the account
+    cannot be used until that link is clicked, so the link leads and the
+    orientation follows. Sending a separate welcome alongside it would land two
+    near-identical mails at once and bury the one that matters.
     """
     name = (display_name or "").strip()
     hello = f"Welcome, {name}" if name else "Welcome to PromoSlot"
@@ -119,33 +124,53 @@ def welcome_email(display_name: str = "", is_business: bool = False,
         f'<li style="margin-bottom:12px"><b style="color:#0f172a">{t}</b><br>'
         f'<span style="color:#334155">{d}</span></li>' for t, d in steps)
 
+    verify_block = f"""
+        <p style="color:#334155">First, confirm this is your email address:</p>
+        <p style="margin:20px 0">
+          <a href="{verify_url}" style="background:#4f46e5;color:#fff;text-decoration:none;
+             padding:12px 22px;border-radius:10px;font-weight:700;display:inline-block">
+            Verify my email</a>
+        </p>
+        <p style="color:#64748b;font-size:13px">The link works once and expires in
+           24 hours. You'll be signed in as soon as you use it.</p>
+        <p style="color:#94a3b8;font-size:12px;word-break:break-all">{verify_url}</p>
+      """ if verify_url else ""
+
     html = f"""
       <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
         <h2 style="color:#0f172a">{hello}</h2>
         <p style="color:#334155">Your account is ready. PromoSlot connects businesses with
            the people who own the audiences — and holds the money in escrow until the work
            is delivered and verified, so neither side has to trust the other up front.</p>
-        <h3 style="color:#0f172a;font-size:15px;margin-bottom:8px">Where to start</h3>
+        {verify_block}
+        <h3 style="color:#0f172a;font-size:15px;margin-bottom:8px">Then, where to start</h3>
         <ul style="padding-left:18px;margin:0">{items}</ul>
-        <p style="margin:26px 0">
+        {"" if verify_url else f'''<p style="margin:26px 0">
           <a href="{settings.app_base_url}" style="background:#4f46e5;color:#fff;text-decoration:none;
              padding:12px 22px;border-radius:10px;font-weight:700;display:inline-block">
             Open PromoSlot</a>
-        </p>
+        </p>'''}
         <p style="color:#64748b;font-size:13px">Fees are only charged when a deal completes —
            10% from the seller, 5% buyer protection from the buyer. Nothing is charged for
            creating an account or publishing.</p>
       </div>"""
 
     text_steps = "\n".join(f"- {t}: {d}" for t, d in steps)
+    verify_text = (f"First, confirm this is your email address:\n{verify_url}\n"
+                   "The link works once and expires in 24 hours. You'll be signed in as "
+                   "soon as you use it.\n\n") if verify_url else ""
     text = (f"{hello}\n\n"
             "Your account is ready. PromoSlot connects businesses with the people who own "
             "the audiences, and holds the money in escrow until the work is delivered and "
-            "verified.\n\nWhere to start:\n"
-            f"{text_steps}\n\n{settings.app_base_url}\n\n"
+            f"verified.\n\n{verify_text}"
+            f"{'Then, where' if verify_url else 'Where'} to start:\n"
+            f"{text_steps}\n\n"
+            f"{'' if verify_url else settings.app_base_url + chr(10) + chr(10)}"
             "Fees are only charged when a deal completes — 10% from the seller, 5% buyer "
             "protection from the buyer.")
-    return "Welcome to PromoSlot", html, text
+    subject = ("Verify your email to finish setting up PromoSlot" if verify_url
+               else "Welcome to PromoSlot")
+    return subject, html, text
 
 
 def support_ticket_email(ticket_id: int, name: str, email: str = "", mobile: str = "",

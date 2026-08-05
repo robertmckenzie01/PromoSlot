@@ -14,9 +14,10 @@ from ..config import settings
 from ..db import get_db
 from ..deps import COOKIE_NAME, assert_active, get_current_user
 from ..mailer import password_reset_email, send_email, welcome_email
-from ..models import PasswordResetToken, Session as AuthSession, User
+from ..models import (EmailVerificationToken, PasswordResetToken,
+                      Session as AuthSession, User)
 from ..schemas import (ChangePasswordIn, ForgotPasswordIn, LoginIn, ResetPasswordIn,
-                       SignupIn, UserOut)
+                       SignupIn, VerifyEmailIn, UserOut)
 from ..security import hash_password, new_session_token, verify_password
 
 log = logging.getLogger(__name__)
@@ -56,7 +57,9 @@ def find_by_email(db: Session, email: str):
     return db.query(User).filter(func.lower(User.email) == e).first()
 
 
-@router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+# No response_model: signup no longer returns a logged-in user, it returns a
+# "check your email" acknowledgement.
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
 def signup(body: SignupIn, response: Response, background: BackgroundTasks,
            db: Session = Depends(get_db)):
     email = body.email.strip().lower()
@@ -83,18 +86,23 @@ def signup(body: SignupIn, response: Response, background: BackgroundTasks,
     db.add(user)
     db.commit()
     db.refresh(user)
-    _issue_session(db, user, response)
+    # No session here: the account is unusable until the emailed link proves the
+    # address is theirs. verified_at stays null and assert_active() blocks login.
+    token = _new_verification_token(db, user)
     # Best effort, and after the response is sent: send_email never raises, but
     # it can block up to its timeout, and a slow mail provider must never delay
     # or fail account creation.
     background.add_task(_send_welcome, user.email, user.display_name,
-                        user.is_business, user.is_platform_owner)
-    return user
+                        user.is_business, user.is_platform_owner, token)
+    return {"ok": True, "verification_required": True, "email": user.email,
+            "message": "Account created. Check your email for the link to verify "
+                       "your address — you'll be signed in as soon as you use it."}
 
 
 def _send_welcome(email: str, display_name: str, is_business: bool,
-                  is_platform_owner: bool) -> None:
-    subject, html, text = welcome_email(display_name, is_business, is_platform_owner)
+                  is_platform_owner: bool, verify_token: str = "") -> None:
+    subject, html, text = welcome_email(display_name, is_business, is_platform_owner,
+                                        verify_url=_verify_url(verify_token) if verify_token else "")
     ok, detail = send_email(email, subject, html, text)
     if not ok:
         # Not configured, or the provider rejected it. Logged, never surfaced as
@@ -131,6 +139,82 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user
+
+
+VERIFY_TTL_HOURS = 24
+
+
+def _verify_url(token: str) -> str:
+    return f"{settings.app_base_url.rstrip('/')}/?verify={token}"
+
+
+def _new_verification_token(db: Session, user: User) -> str:
+    """Issue a fresh single-use token, retiring any earlier unused ones so only
+    the most recent link works."""
+    (db.query(EmailVerificationToken)
+       .filter(EmailVerificationToken.user_id == user.id,
+               EmailVerificationToken.used.is_(False))
+       .update({"used": True}, synchronize_session=False))
+    token = new_session_token()
+    db.add(EmailVerificationToken(
+        token=token, user_id=user.id,
+        expires_at=datetime.utcnow() + timedelta(hours=VERIFY_TTL_HOURS)))
+    db.commit()
+    return token
+
+
+@router.post("/verify-email", response_model=UserOut)
+def verify_email(body: VerifyEmailIn, response: Response, db: Session = Depends(get_db)):
+    """Confirm an address from a valid, unused, unexpired token — and sign them in.
+
+    Clicking the link is the account's first proven action, so it both verifies
+    and logs in; making them type a password straight after clicking a link they
+    just received adds nothing.
+    """
+    t = db.get(EmailVerificationToken, body.token)
+    if t is None or t.used or t.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400,
+                            detail="That verification link is invalid or has expired. "
+                                   "Request a new one from the login screen.")
+    user = db.get(User, t.user_id)
+    if user is None:
+        raise HTTPException(status_code=400, detail="That verification link is invalid.")
+
+    t.used = True
+    if user.verified_at is None:
+        user.verified_at = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+
+    # A banned or suspended account must not slip in through the link.
+    assert_active(user)
+    _issue_session(db, user, response)
+    return user
+
+
+@router.post("/resend-verification")
+def resend_verification(body: ForgotPasswordIn, db: Session = Depends(get_db)):
+    """Send a fresh verification link.
+
+    Same privacy posture as forgot-password: the response never reveals whether
+    the address is registered, or whether it is already verified. A link is only
+    actually sent when a real, still-unverified account matches.
+    """
+    if not settings.email_configured:
+        raise HTTPException(status_code=503,
+                            detail="Verification email isn't configured yet. Contact support.")
+    user = find_by_email(db, body.email)
+    if user is not None and user.verified_at is None:
+        token = _new_verification_token(db, user)
+        subject, html, text = welcome_email(user.display_name, user.is_business,
+                                            user.is_platform_owner,
+                                            verify_url=_verify_url(token))
+        ok, detail = send_email(user.email, subject, html, text)
+        if not ok:
+            raise HTTPException(status_code=502,
+                                detail=f"Could not send the verification email ({detail}).")
+    return {"ok": True,
+            "message": "If that email needs verifying, a new link is on its way."}
 
 
 RESET_TTL_MIN = 60
