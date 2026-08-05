@@ -13,6 +13,8 @@ import urllib.request
 from .config import settings
 
 _ENDPOINT = "https://api.resend.com/emails"
+# Inbound (received) mail is a separate collection from sent mail.
+_RECEIVING_ENDPOINT = "https://api.resend.com/emails/receiving"
 
 
 def _esc(v) -> str:
@@ -197,15 +199,12 @@ def fetch_received_email(email_id: str) -> tuple:
     The email.received webhook carries metadata only — sender, recipients,
     subject, ids — so the body has to be fetched separately with this call.
 
-    NOTE: confirm this path against the current Resend API reference before
-    relying on it in production; inbound receiving is new (Nov 2025) and the
-    retrieve path is the one part of this flow that could not be exercised
-    locally without live credentials. Everything downstream of it works off the
-    parsed result, so only this URL would need changing.
+    Received mail lives under /emails/receiving/{id}, NOT /emails/{id} — the
+    latter is the sent-message endpoint and would not resolve an inbound id.
     """
     if not settings.email_configured:
         return False, "email_not_configured"
-    url = f"{_ENDPOINT}/{email_id}"
+    url = f"{_RECEIVING_ENDPOINT}/{email_id}"
     req = urllib.request.Request(url, method="GET", headers={
         "Authorization": f"Bearer {settings.resend_api_key}",
         "User-Agent": "PromoSlot/1.0 (+https://promoslot.app)",
