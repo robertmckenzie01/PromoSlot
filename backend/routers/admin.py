@@ -158,6 +158,37 @@ def list_admins(actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
     return [user_admin_dict(u) for u in rows]
 
 
+@router.get("/members")
+def moderation_members(limit: int = 200,
+                       actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
+                       db: Session = Depends(get_db)):
+    """Regular accounts, browsable for moderation.
+
+    Unlike /users/search this is a listing rather than a lookup — the point is
+    to reach an account without already knowing who you want. It is deliberately
+    narrow: only role == USER (privileged accounts are managed from the Admins
+    tab) and never the caller, matching the exclusions the search already
+    applies. Capped so it stays a moderation queue rather than a member export;
+    the search endpoint remains the way to find a specific person beyond the cap.
+    """
+    limit = max(1, min(limit, 500))
+    rows = (db.query(User)
+            .filter(User.role == Role.USER, User.id != actor.id,
+                    # The "PromoSlot Support" system account is not a member and
+                    # must not be offered up for suspension in a moderation queue.
+                    func.lower(User.email) != settings.support_email.lower())
+            .order_by(User.id.desc())
+            .limit(limit).all())
+    active, restricted = [], []
+    for u in rows:
+        d = {**user_admin_dict(u),
+             "banned_at": u.banned_at.isoformat() if u.banned_at else None,
+             "suspended_at": u.suspended_at.isoformat() if u.suspended_at else None}
+        (restricted if (u.suspended_at or u.banned_at) else active).append(d)
+    return {"active": active, "restricted": restricted,
+            "limit": limit, "truncated": len(rows) == limit}
+
+
 @router.get("/banned")
 def banned_users(actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
                  db: Session = Depends(get_db)):

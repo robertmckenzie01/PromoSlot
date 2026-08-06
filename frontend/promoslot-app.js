@@ -1323,7 +1323,7 @@ async function openProfile(userId, backRef){
   openModal(`<div class="det-head">${avatarBlock(p.avatar_url,p.display_name,true)}
       <div class="det-title"><h3>${esc(p.display_name)}</h3>
         <div class="handle">${roles.join(" · ")||"Member"} · ${stars}</div></div>
-      <div class="det-actions">${backBtn}${acpLinkHtml("account", p.email || p.display_name || p.id)}</div></div>
+      <div class="det-actions">${backBtn}${acpAccountLinkHtml(p.id, p.display_name || "")}</div></div>
     <div class="det-body">${about}${intro}${links}${assets}${svc}${aud}${work}${pastAuto}${bizPast}${listings}${campaigns}${reviews}</div>`,"wide");
 }
 async function renderRealDeal(dealId){
@@ -2894,6 +2894,7 @@ async function openAdmin(tab, focus){
     try{ mods.listings=await PSApi.get("/platforms"); }catch(e){}
     try{ mods.campaigns=await PSApi.get("/campaigns"); }catch(e){}
     try{ mods.suspended=await PSApi.get("/admin/suspended"); }catch(e){ mods.suspended={listings:[],campaigns:[]}; }
+    try{ mods.members=await PSApi.get("/admin/members"); }catch(e){ mods.members={active:[],restricted:[]}; }
   }
   else if(tab==="audit"){ try{ logs=await PSApi.get("/admin/audit-log?limit=100"); }catch(e){} }
   let body="";
@@ -2936,27 +2937,53 @@ async function openAdmin(tab, focus){
         <div class="pfp" style="background:var(--acc)">${esc((title||"?").slice(0,1).toUpperCase())}</div>
         <div><div class="dr-t">${esc(title)}</div><div class="dr-s">${sub}</div></div>
         <div class="btn-row">${btn}</div></div>`;
-    body=`<p class="deal-sub" style="padding:0 2px 8px">Suspending hides an item from the marketplace and blocks new bookings, but keeps it intact and is reversible. <b>Remove forever deletes it outright and cannot be undone.</b> Both are written to the audit log.</p>
+    const mem=mods.members||{active:[],restricted:[]};
+    // Users get their own row shape: an avatar, and role/state in the subtitle.
+    const urow=(u,btn)=>`<div class="deal-row" style="cursor:default" id="acp-u${u.id}">
+        ${pfp(u.display_name||u.email,null)}
+        <div><div class="dr-t">${esc(u.display_name||u.email)}</div>
+          <div class="dr-s">${esc(u.email)}${u.banned?" · <b>banned</b>":u.suspended?" · <b>suspended</b>":""}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
+        <div class="btn-row">${btn}</div></div>`;
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Suspending hides an item from the marketplace and blocks new bookings, but keeps it intact and is reversible. <b>Delete removes it outright and cannot be undone.</b> Both are written to the audit log.</p>
       <div class="panel"><div class="panel-h"><h4>Live listings</h4></div><div class="panel-b">
         ${mods.listings.length?mods.listings.map(l=>row(l.name,`${esc(l.platform)} · by ${esc(l.owner||"")}`,
           `<button class="btn btn-o btn-sm" onclick="adminSuspendListing(${String(l.id).slice(1)})">Suspend</button>`
-          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${String(l.id).slice(1)})">Remove forever</button>`, l.id)).join("")
+          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${String(l.id).slice(1)})">Delete</button>`, l.id)).join("")
           :`<p class="mut" style="font-size:12.5px">No live listings.</p>`}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Live campaigns</h4></div><div class="panel-b">
         ${mods.campaigns.length?mods.campaigns.map(c=>row(c.title,`by ${esc(c.company||"")}`,
           `<button class="btn btn-o btn-sm" onclick="adminSuspendCampaign(${String(c.id).replace(/^c/,'')})">Suspend</button>`
-          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${String(c.id).replace(/^c/,'')})">Remove forever</button>`, c.id)).join("")
+          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${String(c.id).replace(/^c/,'')})">Delete</button>`, c.id)).join("")
           :`<p class="mut" style="font-size:12.5px">No live campaigns.</p>`}
       </div></div>
-      <div class="panel"><div class="panel-h"><h4>Suspended</h4></div><div class="panel-b">
+      <div class="panel"><div class="panel-h"><h4>Suspended listings/campaigns</h4></div><div class="panel-b">
         ${(sus.listings||[]).map(l=>row(l.name,`Listing · ${esc(l.suspended_reason||"")}`,
           `<button class="btn btn-o btn-sm" onclick="adminUnsuspendListing(${l.id})">Restore</button>`
-          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${l.id})">Remove forever</button>`)).join("")}
+          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${l.id})">Delete</button>`, "p"+l.id)).join("")}
         ${(sus.campaigns||[]).map(c=>row(c.title,`Campaign · ${esc(c.suspended_reason||"")}`,
           `<button class="btn btn-o btn-sm" onclick="adminUnsuspendCampaign(${c.id})">Restore</button>`
-          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${c.id})">Remove forever</button>`)).join("")}
+          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${c.id})">Delete</button>`, "c"+c.id)).join("")}
         ${(!(sus.listings||[]).length && !(sus.campaigns||[]).length)?`<p class="mut" style="font-size:12.5px">Nothing suspended.</p>`:""}
+      </div></div>
+
+      <div class="panel"><div class="panel-h"><h4>Active users</h4></div><div class="panel-b">
+        ${mem.active.length?mem.active.map(u=>urow(u,
+          `<button class="btn btn-o btn-sm" onclick="adminSuspend(${u.id})">Suspend</button>`
+          +`<button class="btn btn-danger btn-sm" onclick="adminBan(${u.id})">Ban</button>`)).join("")
+          :`<p class="mut" style="font-size:12.5px">No active member accounts.</p>`}
+        ${mem.truncated?`<p class="mut" style="font-size:12px;margin-top:8px">Showing the ${mem.limit} most recent. Use the Admins tab search to find anyone older.</p>`:""}
+      </div></div>
+
+      <div class="panel"><div class="panel-h"><h4>Suspended/Banned users</h4></div><div class="panel-b">
+        ${mem.restricted.length?mem.restricted.map(u=>urow(u,
+          u.banned
+            // No unban endpoint exists yet, so there is deliberately no button
+            // here rather than one that would 404.
+            ? `<span class="mut" style="font-size:12.5px">Banned — permanent</span>`
+            : `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Restore</button>`
+              +`<button class="btn btn-danger btn-sm" onclick="adminBan(${u.id})">Ban</button>`)).join("")
+          :`<p class="mut" style="font-size:12.5px">No suspended or banned members.</p>`}
       </div></div>`;
   } else {
     body=`<p class="deal-sub" style="padding:0 2px 8px">Append-only. The database itself rejects any update or delete on this table — these entries cannot be edited or removed through any path.</p>
@@ -3014,6 +3041,25 @@ function _acpFocus(tab, focus){
 // Super-Admin shortcut shown on listing/campaign/profile detail views. Purely
 // navigation into the existing panel — the actual suspend/ban/remove controls
 // stay in one place rather than being duplicated onto public-facing views.
+// Accounts need two possible destinations: regular members are browsable on the
+// Moderation tab now, privileged accounts still only exist on the Admins tab.
+// The profile payload deliberately carries no role — exposing it publicly is
+// exactly what the role design forbids — so rather than leaking it, this tries
+// Moderation and falls back to the Admins search when the row isn't there,
+// which is precisely the privileged case.
+function acpAccountLinkHtml(userId, displayName){
+  if(!can("admin.view") || !userId) return "";
+  return `<button class="btn btn-o btn-sm" style="margin-left:8px"
+      onclick="event.stopPropagation();closeModal();openAcpAccount(${Number(userId)},'${esc(displayName)}')"
+      title="Open this account in the Admin Control Panel">🛡️ View on ACP</button>`;
+}
+async function openAcpAccount(userId, displayName){
+  await openAdmin("moderation", "u"+userId);
+  if($("acp-u"+userId)) return;                 // found among the member panels
+  if(displayName) await openAdmin("admins", displayName);
+  else toast("That account isn't listed under Moderation — try the Admins tab.");
+}
+
 function acpLinkHtml(kind, ref){
   if(!can("admin.view")) return "";
   const tab = kind==="account" ? "admins" : "moderation";
@@ -3804,7 +3850,7 @@ renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
 setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
-acpLinkHtml,adminBan,filterBanned,adminRemoveListing,adminRemoveCampaign};
+acpLinkHtml,acpAccountLinkHtml,openAcpAccount,adminBan,filterBanned,adminRemoveListing,adminRemoveCampaign};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
