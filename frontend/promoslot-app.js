@@ -2911,7 +2911,7 @@ async function openAdmin(tab, focus){
   showView("view-deal");
   let admins=[], logs=[], mods={listings:[],campaigns:[]}, banned=[];
   if(tab==="admins"){ try{ admins=await PSApi.get("/admin/admins"); }catch(e){} }
-  else if(tab==="banned"){
+  else if(tab==="banned" || tab==="upcoming"){
     try{ mods.members=await PSApi.get("/admin/members"); }catch(e){ mods.members={active:[],restricted:[]}; }
     try{ mods.suspended=await PSApi.get("/admin/suspended"); }catch(e){ mods.suspended={listings:[],campaigns:[]}; }
   }
@@ -2961,6 +2961,29 @@ async function openAdmin(tab, focus){
         <div class="frm"><div><label>Search</label>
           <input type="text" id="bs-item-filter" placeholder="Filter by listing name or campaign title" oninput="filterRestrictedItems()"></div></div>
         <div id="bs-item-rows" style="margin-top:10px">${restrictedItemRowsHtml(S._restrictedItems)}</div>
+      </div></div>`;
+  } else if(tab==="upcoming"){
+    // A filtered, sorted view of the same data as Banned/Suspended — nothing
+    // stored separately. Qualifies only if a suspension has an end date:
+    // indefinite ones have nothing upcoming about them, and bans never expire.
+    const mem=(mods.members||{}).restricted||[];
+    const sus=mods.suspended||{listings:[],campaigns:[]};
+    const timed=x=>!x.banned && !!x.suspended_until;
+    const soonest=(a,b)=>new Date(a.suspended_until)-new Date(b.suspended_until);
+    const users=mem.filter(timed).sort(soonest);
+    const items={listings:(sus.listings||[]).filter(timed).sort(soonest),
+                 campaigns:(sus.campaigns||[]).filter(timed).sort(soonest)};
+    const overdue=[...users,...items.listings,...items.campaigns]
+                    .filter(x=>overdueDays(x.suspended_until)).length;
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Suspensions with an end date, soonest first. Nothing lifts automatically — a suspension ends when you restore it here.${
+        overdue?` <b style="color:var(--red)">${overdue} already past its date.</b>`:""}</p>
+      <div class="panel"><div class="panel-h"><h4>Users</h4></div><div class="panel-b">
+        ${users.length?restrictedUserRowsHtml(users)
+          :`<p class="mut" style="font-size:12.5px">No timed account suspensions.</p>`}
+      </div></div>
+      <div class="panel"><div class="panel-h"><h4>Campaigns/Listings</h4></div><div class="panel-b">
+        ${(items.listings.length||items.campaigns.length)?restrictedItemRowsHtml(items)
+          :`<p class="mut" style="font-size:12.5px">No timed listing or campaign suspensions.</p>`}
       </div></div>`;
   } else if(tab==="moderation"){
     const sus=mods.suspended||{listings:[],campaigns:[]};
@@ -3013,7 +3036,7 @@ async function openAdmin(tab, focus){
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>Admin console</h2>
       <span class="status-pill st-review">${esc(S.myRole==="SUPER_ADMIN"?"Super-Admin":"Admin")}</span></div>
-    <div class="det-tabs">${[["admins","Admins"],["moderation","Moderation"],["banned","Banned/Suspended"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
+    <div class="det-tabs">${[["admins","Admins"],["moderation","Moderation"],["banned","Banned/Suspended"],["upcoming","Upcoming Lifts"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
     ${body}`;
   if(focus) _acpFocus(tab, focus);
 }
@@ -3023,19 +3046,36 @@ async function openAdmin(tab, focus){
 // promote/suspend/ban actions are right there.
 // A timed suspension shows when it lifts; an indefinite one says so plainly,
 // so "no date" is never mistaken for missing data.
+//
+// Nothing lifts a suspension automatically — a Super-Admin has to click
+// Restore — so a date that has already passed is the thing most worth noticing,
+// and must not read the same as one still in the future.
+function _dmy(iso){
+  return new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+}
+function overdueDays(iso){
+  if(!iso) return 0;
+  const ms=Date.now()-new Date(iso).getTime();
+  return ms>0 ? Math.max(1, Math.floor(ms/86400000)) : 0;
+}
+function untilHtml(iso){
+  if(!iso) return " · indefinitely";
+  const d=overdueDays(iso);
+  return d
+    ? ` · <b style="color:var(--red)">⚠ Overdue by ${d} day${d===1?"":"s"}</b>`
+    : " · until "+esc(_dmy(iso));
+}
 function suspensionSuffix(u){
   if(u.banned) return "";
   if(!u.suspended_at && !u.suspended) return "";
-  return u.suspended_until
-    ? " · until "+new Date(u.suspended_until).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})
-    : " · indefinitely";
+  return untilHtml(u.suspended_until);
 }
 function restrictedUserRowsHtml(rows){
   if(!rows.length) return `<div class="empty-state small"><div class="es-ico">👤</div><h4>No suspended or banned accounts</h4><p>Accounts you suspend or ban appear here.</p></div>`;
   return rows.map(u=>`<div class="deal-row" style="cursor:default" id="acp-u${u.id}">
       ${pfp(u.display_name||u.email,null)}
       <div><div class="dr-t">${esc(u.display_name||u.email)}</div>
-        <div class="dr-s">${esc(u.email)} · <b>${u.banned?"banned":"suspended"}</b>${esc(suspensionSuffix(u))}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
+        <div class="dr-s">${esc(u.email)} · <b>${u.banned?"banned":"suspended"}</b>${suspensionSuffix(u)}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
       <div class="btn-row">${u.banned
         // No unban endpoint exists, so no button rather than one that would 404.
         ? `<span class="mut" style="font-size:12.5px">Banned — permanent</span>`
@@ -3049,13 +3089,11 @@ function restrictedItemRowsHtml(items){
       <div class="pfp" style="background:var(--acc)">${esc((title||"?").slice(0,1).toUpperCase())}</div>
       <div><div class="dr-t">${esc(title)}</div><div class="dr-s">${sub}</div></div>
       <div class="btn-row">${btn}</div></div>`;
-  const until=x=>x.suspended_until
-    ? " · until "+new Date(x.suspended_until).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})
-    : " · indefinitely";
-  return ls.map(l=>row(l.name,`Listing${esc(until(l))}${l.suspended_reason?" · "+esc(l.suspended_reason):""}`,
+  const until=x=>untilHtml(x.suspended_until);
+  return ls.map(l=>row(l.name,`Listing${until(l)}${l.suspended_reason?" · "+esc(l.suspended_reason):""}`,
       `<button class="btn btn-o btn-sm" onclick="adminUnsuspendListing(${l.id})">Restore</button>`
       +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${l.id})">Delete</button>`, "p"+l.id)).join("")
-   + cs.map(c=>row(c.title,`Campaign${esc(until(c))}${c.suspended_reason?" · "+esc(c.suspended_reason):""}`,
+   + cs.map(c=>row(c.title,`Campaign${until(c)}${c.suspended_reason?" · "+esc(c.suspended_reason):""}`,
       `<button class="btn btn-o btn-sm" onclick="adminUnsuspendCampaign(${c.id})">Restore</button>`
       +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${c.id})">Delete</button>`, "c"+c.id)).join("");
 }
@@ -3207,7 +3245,9 @@ async function adminUnsuspend(userId){
   const c=adminCreds(); if(!c) return;
   try{ await PSApi.post(`/admin/users/${userId}/unsuspend`, c); }
   catch(e){ toast(e.message||"Could not unsuspend"); return; }
-  toast("Account restored",true); openAdmin("admins");
+  // Restored users live on Banned/Suspended, not Admins — leftover redirect
+  // from before the tab reorg.
+  toast("Account restored",true); openAdmin("banned");
 }
 // Ban is permanent in effect (sessions revoked, the email can never sign up
 // again) — the server still requires password + action code on top of this.
