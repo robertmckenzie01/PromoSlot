@@ -451,10 +451,16 @@ def list_suspended(actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
 def listing_suspend(platform_id: int, body: ReasonIn, request: Request,
                     actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
                     db: Session = Depends(get_db)):
-    """Hide a listing from the marketplace without deleting it (reversible)."""
+    """Hide a listing from the marketplace without deleting it (reversible).
+
+    Step-up authenticated like suspending a user: taking someone's listing off
+    the marketplace cuts off their income the same way. Unsuspending stays
+    ungated — reversing an action is deliberately a lower bar than taking it.
+    """
     p = db.get(Platform, platform_id)
     if p is None:
         raise HTTPException(status_code=404, detail="Listing not found")
+    _reauth(actor, body, db)
     before = _listing_snapshot(p)
     p.suspended_at = datetime.utcnow()
     p.suspended_reason = body.reason.strip()
@@ -537,10 +543,15 @@ def campaign_request_changes(campaign_id: int, body: ReasonIn, request: Request,
 def campaign_suspend(campaign_id: int, body: ReasonIn, request: Request,
                      actor: User = Depends(RequirePerm(Perm.CAMPAIGN_SUSPEND)),
                      db: Session = Depends(get_db)):
-    """Hide a campaign from the marketplace without deleting it (reversible)."""
+    """Hide a campaign from the marketplace without deleting it (reversible).
+
+    Step-up authenticated for the same reason as listing_suspend; unsuspending
+    stays ungated.
+    """
     c = db.get(Campaign, campaign_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    _reauth(actor, body, db)
     before = _campaign_snapshot(c)
     c.suspended_at = datetime.utcnow()
     c.suspended_reason = body.reason.strip()

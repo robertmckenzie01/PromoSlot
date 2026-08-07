@@ -58,7 +58,7 @@ def login(email, pw):
 
 def main():
     from backend.db import SessionLocal
-    from backend.models import User, Deal, DealStatus, Proof, Platform
+    from backend.models import User, Deal, DealStatus, Proof, Platform, Campaign
     from backend.permissions import Role
     from backend.security import hash_password
     from datetime import datetime
@@ -116,7 +116,10 @@ def main():
     db.add(big); db.commit(); db.refresh(big)
     plat = Platform(owner_id=own.id, name="AuthZ Listing", platform_type="TikTok")
     db.add(plat); db.commit(); db.refresh(plat)
-    deal_id, conflict_id, big_id, plat_id = d.id, conflict.id, big.id, plat.id
+    camp = Campaign(business_id=biz.id, title="AuthZ Campaign", budget=100)
+    db.add(camp); db.commit(); db.refresh(camp)
+    deal_id, conflict_id, big_id, plat_id, camp_id = (
+        d.id, conflict.id, big.id, plat.id, camp.id)
     su_id, ad_id, ad2_id, usr_id = su.id, ad.id, ad2.id, usr.id
     db.close()
 
@@ -234,6 +237,25 @@ def main():
           call(c_su, "POST", f"/admin/listings/{plat_id}/unsuspend", RM)[0], 200)
     check("restored listing back in marketplace",
           len(call(c_su, "GET", "/platforms")[1] or []), before)
+
+    # Suspending a listing/campaign cuts off someone's income, so it carries the
+    # same step-up as suspending a user. R has the password but no action code.
+    check("suspend listing needs the action code",
+          call(c_su, "POST", f"/admin/listings/{plat_id}/suspend", R)[0], 403)
+    check("suspend listing with wrong action code",
+          call(c_su, "POST", f"/admin/listings/{plat_id}/suspend",
+               {**R, "action_code": "00000000"})[0], 403)
+    check("suspend campaign needs the action code",
+          call(c_su, "POST", f"/admin/campaigns/{camp_id}/suspend", R)[0], 403)
+    check("suspend campaign with the action code",
+          call(c_su, "POST", f"/admin/campaigns/{camp_id}/suspend", RM)[0], 200)
+    # Reversing stays deliberately ungated — no password, no action code.
+    check("unsuspend campaign needs no step-up",
+          call(c_su, "POST", f"/admin/campaigns/{camp_id}/unsuspend",
+               {"reason": "authorization test"})[0], 200)
+    check("unsuspend listing needs no step-up",
+          call(c_su, "POST", f"/admin/listings/{plat_id}/unsuspend",
+               {"reason": "authorization test"})[0], 200)
 
     print("\n--- Suspended admin loses access immediately ---")
     c_ad2 = login("admin2@authz.example", PW)
