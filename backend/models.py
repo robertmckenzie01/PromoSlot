@@ -78,6 +78,12 @@ class User(Base):
     # Public "who we are" profile content (editable from My Account / campaign setup).
     about_text = Column(Text)
     links = Column(JSON, default=list)          # [{label, url}, …] — no cap
+    # {"review": iso8601, "payouts": iso8601, "support": iso8601} — when this admin
+    # last opened each shared queue. Drives "new since you looked" nav dots.
+    # Messages isn't here: Message.read already tracks that per-recipient.
+    # Reassign the whole dict when updating — a plain JSON column doesn't notice
+    # in-place mutation of its contents.
+    queue_last_viewed_at = Column(JSON, default=dict)
     # Profile media (set from My Account).
     avatar_path = Column(String)
     avatar_content_type = Column(String)

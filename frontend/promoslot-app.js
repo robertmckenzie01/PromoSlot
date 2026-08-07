@@ -1165,7 +1165,11 @@ async function openMessages(){
   if(!S.activeConv || !(S.convos||[]).some(c=>String(c.id)===String(S.activeConv))){
     S.activeConv=(S.convos[0]&&S.convos[0].id)||null; S.activeThread=null;
   }
-  if(S.activeConv && !S.activeThread){ try{ S.activeThread=await PSApi.get(`/conversations/${S.activeConv}/messages`); }catch(e){} }
+  // Always refetch, never reuse a cached thread: coming back to Messages has to
+  // show anything that arrived while you were away (and mark it read) rather
+  // than redisplaying the copy from last time.
+  if(S.activeConv){ try{ S.activeThread=await PSApi.get(`/conversations/${S.activeConv}/messages`); }catch(e){} }
+  loadNotifications();                // fetching the thread marked it read — reflect that now
   renderMessages(false);
 }
 async function openConv(cid){
@@ -2600,18 +2604,20 @@ const NOTIF_ICON={deal_funded:"🔒",deal_verified:"✅",payout_sent:"💸",deal
 function setBell(n){ const b=$("bellCnt"); if(!b) return; b.classList.toggle("hide",n<=0); b.textContent=n>9?"9+":n; }
 function bellSync(){ if(!S.account) setBell(0); }
 function _dot(id,on){ const e=$(id); if(e) e.classList.toggle("hide", !on); }
-// Per-user attention dots. Notification unread clears when the bell is viewed;
-// reviewer queue/payout dots persist until the work is actually done, so a
-// verified-but-unpaid deal keeps flagging attention until it's paid or refunded.
+// Per-user attention dots. Notification unread clears when the bell is viewed.
+// Messages/Review queue/Contacted Support/Awaiting payouts all clear the instant
+// the admin who's looking has opened them, and relight only when something new
+// shows up after that. Admin's overdue-suspension dot is the one exception that
+// still persists until fixed, since nothing else ever resolves it.
 function updateDots(){
   const a=S.attn||{unread:0,review_pending:0,awaiting_payout:0};
   const dashAttn=(a.unread>0)||(a.review_pending>0)||(a.awaiting_payout>0);
   _dot("userDot", !!S.account && dashAttn);   // avatar / dashboard attention
   _dot("dashDot", !!S.account && dashAttn);
-  _dot("dot-review", (a.review_pending||0)>0);
-  _dot("dot-payouts", (a.awaiting_payout||0)>0);
-  // Nothing lifts a timed suspension on its own, so an overdue one has to
-  // announce itself rather than waiting to be discovered.
+  _dot("dot-review", !!a.review_new);
+  _dot("dot-payouts", !!a.payouts_new);
+  _dot("dot-support", !!a.support_new);
+  _dot("dot-msgs", !!a.unread_messages);
   _dot("dot-admin", (a.overdue_suspensions||0)>0);
 }
 function relTime(iso){ if(!iso) return ""; const d=new Date(iso), s=(Date.now()-d.getTime())/1000;
@@ -2710,7 +2716,9 @@ async function openReviewQueue(){
   setRoute("review-queue");
   showView("view-deal");
   let q=[]; try{ q=await PSApi.get("/review/queue"); }catch(e){}
-  loadNotifications();
+  // Mark first, then refresh, so the dot clears in this interaction rather than
+  // hanging around until the next 15s poll.
+  PSApi.post("/notifications/queue-viewed/review",{}).catch(()=>{}).then(loadNotifications);
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>Review queue</h2>
       <button class="btn btn-o btn-sm" onclick="openPayouts()">💸 Awaiting Payouts →</button>
@@ -2732,6 +2740,7 @@ async function openSupportQueue(ticketId){
   setRoute("support-queue");
   showView("view-deal");
   let list=[]; try{ list=await PSApi.get("/support/tickets"); }catch(e){}
+  PSApi.post("/notifications/queue-viewed/support",{}).catch(()=>{}).then(loadNotifications);
   S._supportList=list;
   if(ticketId!=null){ return openSupportTicket(ticketId); }
   const open=list.filter(t=>!t.handled).length;
@@ -3290,7 +3299,7 @@ async function openPayouts(){
   setRoute("payouts");
   showView("view-deal");
   let q=[]; try{ q=await PSApi.get("/review/payouts"); }catch(e){}
-  loadNotifications();
+  PSApi.post("/notifications/queue-viewed/payouts",{}).catch(()=>{}).then(loadNotifications);
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="openReviewQueue()">← Review queue</button><h2>Awaiting Payouts</h2>
       <button class="btn btn-o btn-sm" onclick="openCompleted()">🗂️ Completed Deals →</button>
