@@ -2610,6 +2610,9 @@ function updateDots(){
   _dot("dashDot", !!S.account && dashAttn);
   _dot("dot-review", (a.review_pending||0)>0);
   _dot("dot-payouts", (a.awaiting_payout||0)>0);
+  // Nothing lifts a timed suspension on its own, so an overdue one has to
+  // announce itself rather than waiting to be discovered.
+  _dot("dot-admin", (a.overdue_suspensions||0)>0);
 }
 function relTime(iso){ if(!iso) return ""; const d=new Date(iso), s=(Date.now()-d.getTime())/1000;
   if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return d.toLocaleDateString(); }
