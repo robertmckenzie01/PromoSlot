@@ -52,10 +52,18 @@ class User(Base):
     suspended_at = Column(DateTime)             # set -> all power + access revoked
     suspended_reason = Column(String)
     banned_at = Column(DateTime)
-    # TOTP multi-factor (mandatory for SUPER_ADMIN) + hashed single-use recovery codes.
-    mfa_secret = Column(String)
-    mfa_enabled = Column(Boolean, default=False, nullable=False)
-    mfa_recovery_codes = Column(JSON, default=list)
+    # Static 8-digit action code, required alongside the password on every
+    # dangerous action (mandatory for SUPER_ADMIN). Null = not set up yet, which
+    # gates privileged actions without affecting normal login.
+    #
+    # Hashed with the password hasher (salted PBKDF2, 240k iterations), not the
+    # unsalted digest used for recovery codes — 8 digits is only 10^8, so a fast
+    # hash would be trivially brute-forced from a database leak. Because the code
+    # never rotates, the failure counter below is the compensating control that
+    # TOTP's time window used to provide.
+    action_code_hash = Column(String)
+    action_code_failed_attempts = Column(Integer, default=0, nullable=False)
+    action_code_locked_until = Column(DateTime)
 
     # Email ownership proven by clicking a real emailed link. Null = unverified,
     # which blocks login (see deps.assert_active). Every account that existed

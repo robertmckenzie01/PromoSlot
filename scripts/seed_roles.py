@@ -46,7 +46,7 @@ def main(super_email: str):
     db.commit()
     print("\nfinal roles:")
     for u in db.query(User).order_by(User.id).all():
-        print(f"  id={u.id} {u.email} role={u.role} mfa={bool(u.mfa_enabled)}")
+        print(f"  id={u.id} {u.email} role={u.role} action_code={"set" if u.action_code_hash else "not set"}")
     db.close()
 
 

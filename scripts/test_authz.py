@@ -173,21 +173,25 @@ def main():
     print("\n--- SUPER_ADMIN can perform privileged actions ---")
     check("SUPER_ADMIN list admins", call(c_su, "GET", "/admin/admins")[0], 200)
     check("SUPER_ADMIN audit log", call(c_su, "GET", "/admin/audit-log")[0], 200)
-    # MFA is mandatory for privileged super-admin actions.
+    # An action code is mandatory for privileged super-admin actions.
     st, body = call(c_su, "POST", f"/admin/users/{usr_id}/suspend", R)
-    mfa_required = st == 403 and "multi-factor" in json.dumps(body).lower()
-    check("SUPER_ADMIN suspend blocked until MFA enrolled", mfa_required, True)
+    gated = st == 403 and "action code" in json.dumps(body).lower()
+    check("SUPER_ADMIN suspend blocked until action code set", gated, True)
 
-    # Enrol MFA for the super-admin, then retry.
-    from backend.totp import now_code
-    st, start = call(c_su, "POST", "/mfa/start", {"password": PW})
-    check("SUPER_ADMIN mfa start", st, 200)
-    secret = start["secret"]
-    st, conf = call(c_su, "POST", "/mfa/confirm", {"code": now_code(secret)})
-    check("SUPER_ADMIN mfa confirm", st, 200)
-    check("recovery codes issued", len(conf.get("recovery_codes", [])), 10)
-    RM = {**R, "mfa_code": now_code(secret)}
-    check("SUPER_ADMIN suspend user (with MFA)",
+    ACTION_CODE = "13572468"
+    check("action code rejects non-8-digit",
+          call(c_su, "POST", "/admin/action-code", {"password": PW, "code": "123"})[0], 422)
+    check("action code rejects wrong password",
+          call(c_su, "POST", "/admin/action-code", {"password": "nope", "code": ACTION_CODE})[0], 403)
+    check("SUPER_ADMIN sets action code",
+          call(c_su, "POST", "/admin/action-code", {"password": PW, "code": ACTION_CODE})[0], 200)
+    check("regular admin cannot set an action code",
+          call(c_ad, "POST", "/admin/action-code", {"password": PW, "code": ACTION_CODE})[0], 403)
+    check("wrong action code rejected",
+          call(c_su, "POST", f"/admin/users/{usr_id}/suspend",
+               {**R, "action_code": "00000000"})[0], 403)
+    RM = {**R, "action_code": ACTION_CODE}
+    check("SUPER_ADMIN suspend user (with action code)",
           call(c_su, "POST", f"/admin/users/{usr_id}/suspend", RM)[0], 200)
     check("SUPER_ADMIN create admin",
           call(c_su, "POST", f"/admin/users/{ad2_id}/role", {**RM, "role": "ADMIN"})[0], 200)

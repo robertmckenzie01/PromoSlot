@@ -14,7 +14,7 @@ role, never from anything the client sends. Safeguards enforced server-side:
 * every action writes an immutable audit entry.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -31,8 +31,7 @@ from ..mailer import (account_banned_email, account_suspended_email,
 from ..models import (Campaign, Deal, DealStatus, Notification, Platform, Session as AuthSession,
                       User)
 from ..permissions import Perm, Role, is_super_admin, permissions_for, require_permission
-from ..security import verify_password
-from ..totp import hash_code, verify as totp_verify
+from ..security import hash_password, verify_password
 
 log = logging.getLogger(__name__)
 
@@ -41,27 +40,59 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 # ------------------------------ shared helpers ------------------------------
 
+ACTION_CODE_MAX_ATTEMPTS = 5
+ACTION_CODE_LOCKOUT_MINUTES = 15
+
+
 class ReasonIn(BaseModel):
     reason: str = Field(min_length=3, max_length=1000)
     password: Optional[str] = None      # re-authentication for dangerous actions
-    mfa_code: Optional[str] = None
+    action_code: Optional[str] = None
 
 
-def _reauth(actor: User, body: ReasonIn) -> None:
-    """Dangerous actions require the acting admin to prove it's really them."""
-    # MFA is mandatory for a Super-Admin: privileged actions are blocked until
-    # enrolment is complete (normal login is unaffected, so no lockout).
-    if actor.role == Role.SUPER_ADMIN and not actor.mfa_enabled:
+def _reauth(actor: User, body: ReasonIn, db: Session) -> None:
+    """Dangerous actions require the acting admin to prove it's really them.
+
+    Password plus a static 8-digit action code. Because the code never rotates,
+    a failed-attempt lockout stands in for the time window TOTP used to give:
+    five consecutive wrong codes locks further attempts for 15 minutes.
+    """
+    # Mandatory for a Super-Admin: privileged actions are blocked until a code
+    # exists. Normal login is unaffected, so this prompts rather than locks out.
+    if actor.role == Role.SUPER_ADMIN and not actor.action_code_hash:
         raise HTTPException(
             status_code=403,
-            detail="Multi-factor authentication is mandatory for a Super-Admin. "
-                   "Enrol at /mfa/start before performing privileged actions.")
+            detail="An action code is mandatory for a Super-Admin. Set one up "
+                   "(POST /admin/action-code) before performing privileged actions.")
+
+    # Lockout is checked before anything is compared, so a locked-out attacker
+    # gets no signal about whether their guess was right.
+    now = datetime.utcnow()
+    if actor.action_code_locked_until and actor.action_code_locked_until > now:
+        mins = max(1, int((actor.action_code_locked_until - now).total_seconds() // 60) + 1)
+        raise HTTPException(
+            status_code=403,
+            detail=f"Too many incorrect action codes. Try again in about {mins} minute(s).")
+
     if not body.password or not verify_password(body.password, actor.password_hash):
         raise HTTPException(status_code=403,
                             detail="Password re-authentication required for this action.")
-    if actor.mfa_enabled:
-        if not body.mfa_code or not totp_verify(actor.mfa_secret, body.mfa_code):
-            raise HTTPException(status_code=403, detail="Valid MFA code required.")
+
+    if actor.action_code_hash:
+        code = (body.action_code or "").strip()
+        ok = (len(code) == 8 and code.isdigit()
+              and verify_password(code, actor.action_code_hash))
+        if not ok:
+            actor.action_code_failed_attempts = (actor.action_code_failed_attempts or 0) + 1
+            if actor.action_code_failed_attempts >= ACTION_CODE_MAX_ATTEMPTS:
+                actor.action_code_locked_until = now + timedelta(minutes=ACTION_CODE_LOCKOUT_MINUTES)
+                actor.action_code_failed_attempts = 0
+            db.commit()
+            raise HTTPException(status_code=403, detail="Invalid action code.")
+        if actor.action_code_failed_attempts or actor.action_code_locked_until:
+            actor.action_code_failed_attempts = 0
+            actor.action_code_locked_until = None
+            db.commit()
 
 
 def _target_user(db: Session, user_id: int) -> User:
@@ -134,7 +165,7 @@ def user_admin_dict(u: User) -> dict:
         "suspended": u.suspended_at is not None,
         "suspended_reason": u.suspended_reason,
         "banned": u.banned_at is not None,
-        "mfa_enabled": bool(u.mfa_enabled),
+        "action_code_set": bool(u.action_code_hash),
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }
 
@@ -145,7 +176,8 @@ def user_admin_dict(u: User) -> dict:
 def admin_me(user: User = Depends(get_current_user)):
     """The acting user's real role + permission set, straight from the DB."""
     return {"id": user.id, "role": user.role,
-            "permissions": sorted(permissions_for(user))}
+            "permissions": sorted(permissions_for(user)),
+            "action_code_set": bool(user.action_code_hash)}
 
 
 # ------------------------------ admin accounts ------------------------------
@@ -156,6 +188,46 @@ def list_admins(actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
     rows = (db.query(User).filter(User.role.in_(Role.PRIVILEGED))
             .order_by(User.id.asc()).all())
     return [user_admin_dict(u) for u in rows]
+
+
+class ActionCodeIn(BaseModel):
+    password: str
+    code: str
+
+
+@router.post("/action-code")
+def set_action_code(body: ActionCodeIn, request: Request,
+                    actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
+                    db: Session = Depends(get_db)):
+    """Set or replace the Super-Admin's action code.
+
+    Password re-entry is the gate, for first-time setup and for changing an
+    existing code alike — the same bar every other sensitive change in this app
+    uses. The current code is deliberately not also required: someone who has
+    lost it would otherwise have no way back in, and the password already proves
+    identity.
+    """
+    if actor.role != Role.SUPER_ADMIN:
+        raise HTTPException(status_code=403,
+                            detail="Action codes are only used by Super-Admin accounts.")
+    if not verify_password(body.password, actor.password_hash):
+        raise HTTPException(status_code=403, detail="Password is incorrect.")
+    code = (body.code or "").strip()
+    if len(code) != 8 or not code.isdigit():
+        raise HTTPException(status_code=422,
+                            detail="The action code must be exactly 8 digits.")
+
+    had_one = bool(actor.action_code_hash)
+    actor.action_code_hash = hash_password(code)     # salted PBKDF2, not a raw digest
+    actor.action_code_failed_attempts = 0
+    actor.action_code_locked_until = None
+    audit.record(db, actor=actor, action="action_code.set", target_type="user",
+                 target_id=actor.id, previous_state={"action_code_set": had_one},
+                 new_state={"action_code_set": True},
+                 reason="Action code changed" if had_one else "Action code set",
+                 request=request)
+    db.commit()
+    return {"ok": True, "action_code_set": True, "replaced": had_one}
 
 
 @router.get("/members")
@@ -241,7 +313,7 @@ def set_role(user_id: int, body: SetRoleIn, request: Request,
     target = _target_user(db, user_id)
     if target.id == actor.id:
         raise HTTPException(status_code=403, detail="You cannot change your own role.")
-    _reauth(actor, body)
+    _reauth(actor, body, db)
     if body.role != Role.SUPER_ADMIN:
         _protect_last_super_admin(db, target)
 
@@ -268,7 +340,7 @@ def suspend_user(user_id: int, body: ReasonIn, request: Request,
     _protect_last_super_admin(db, target)
     if target.role in Role.PRIVILEGED:
         require_permission(actor, Perm.ADMIN_SUSPEND)
-    _reauth(actor, body)
+    _reauth(actor, body, db)
 
     before = _user_snapshot(target)
     target.suspended_at = datetime.utcnow()
@@ -311,7 +383,7 @@ def ban_user(user_id: int, body: ReasonIn, request: Request,
     target = _target_user(db, user_id)
     _guard_target(actor, target)
     _protect_last_super_admin(db, target)
-    _reauth(actor, body)
+    _reauth(actor, body, db)
 
     before = _user_snapshot(target)
     target.banned_at = datetime.utcnow()
@@ -422,7 +494,7 @@ def listing_remove(platform_id: int, body: ReasonIn, request: Request,
     p = db.get(Platform, platform_id)
     if p is None:
         raise HTTPException(status_code=404, detail="Listing not found")
-    _reauth(actor, body)
+    _reauth(actor, body, db)
     before = _listing_snapshot(p)
     owner_id, pid, name = p.owner_id, p.id, p.name
     db.delete(p)
@@ -508,7 +580,7 @@ def campaign_remove(campaign_id: int, body: ReasonIn, request: Request,
     c = db.get(Campaign, campaign_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    _reauth(actor, body)
+    _reauth(actor, body, db)
     cid, title, biz = c.id, c.title, c.business_id
     db.delete(c)
     # See listing_remove: ref is None because the campaign is gone.

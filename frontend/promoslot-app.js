@@ -2859,8 +2859,9 @@ async function transferSupportTicket(id){
    authorised by the API, so hiding a control is convenience, not security. */
 function can(permission){ return (S.perms||[]).indexOf(permission)>=0; }
 async function loadPerms(){
-  try{ const r=await PSApi.get("/admin/me"); S.perms=r.permissions||[]; S.myRole=r.role||"USER"; }
-  catch(e){ S.perms=[]; S.myRole="USER"; }
+  try{ const r=await PSApi.get("/admin/me"); S.perms=r.permissions||[]; S.myRole=r.role||"USER";
+       S.actionCodeSet=!!r.action_code_set; }
+  catch(e){ S.perms=[]; S.myRole="USER"; S.actionCodeSet=false; }
 }
 function roleBadge(role){
   // Only privileged accounts are ever labelled — a regular member is
@@ -2872,15 +2873,15 @@ function roleBadge(role){
 function adminCreds(){
   const password=window.prompt("Confirm your password to authorise this action:","");
   if(password===null) return null;
-  let mfa_code=null;
+  let action_code=null;
   if(S.myRole==="SUPER_ADMIN"){
-    mfa_code=window.prompt("Enter your 6-digit authenticator code:","");
-    if(mfa_code===null) return null;
+    action_code=window.prompt("Enter your 8-digit action code:","");
+    if(action_code===null) return null;
   }
   const reason=window.prompt("Reason (recorded permanently in the audit log):","");
   if(reason===null) return null;
   if(reason.trim().length<3){ toast("A reason of at least 3 characters is required"); return null; }
-  return {password, mfa_code, reason:reason.trim()};
+  return {password, action_code, reason:reason.trim()};
 }
 async function openAdmin(tab, focus){
   if(!can("admin.view")){ toast("Super-Admin access required"); return; }
@@ -2904,7 +2905,7 @@ async function openAdmin(tab, focus){
       ${admins.length?admins.map(u=>`<div class="deal-row" style="cursor:default">
         ${pfp(u.display_name||u.email,null)}
         <div><div class="dr-t">${esc(u.display_name||u.email)} ${roleBadge(u.role)}</div>
-          <div class="dr-s">${esc(u.email)}${u.suspended?" · <b>suspended</b>":""} · MFA ${u.mfa_enabled?"on":"off"}</div></div>
+          <div class="dr-s">${esc(u.email)}${u.suspended?" · <b>suspended</b>":""} · Action code ${u.action_code_set?"set":"not set"}</div></div>
         <div class="btn-row">
           ${u.suspended
             ? `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Unsuspend</button>`
@@ -3114,7 +3115,7 @@ const adminSuspendCampaign  = id => _modAction(`/admin/campaigns/${id}/suspend`,
 const adminUnsuspendCampaign= id => _modAction(`/admin/campaigns/${id}/unsuspend`,"Campaign restored");
 // Permanent: the server hard-deletes the row. Distinguished from Suspend in
 // both wording and styling because Suspend can be undone and this cannot. The
-// server still demands password + MFA re-authentication.
+// server still demands password + action code.
 const adminRemoveListing    = id => _modAction(`/admin/listings/${id}/remove`,    "Listing removed permanently");
 const adminRemoveCampaign   = id => _modAction(`/admin/campaigns/${id}/remove`,   "Campaign removed permanently");
 
@@ -3138,7 +3139,7 @@ async function adminUnsuspend(userId){
   toast("Account restored",true); openAdmin("admins");
 }
 // Ban is permanent in effect (sessions revoked, the email can never sign up
-// again) — the server still requires password + MFA re-auth on top of this.
+// again) — the server still requires password + action code on top of this.
 async function adminBan(userId){
   const c=adminCreds(); if(!c) return;
   try{ await PSApi.post(`/admin/users/${userId}/ban`, c); }
@@ -3457,94 +3458,66 @@ function openAccount(){
         <div style="margin-top:10px"><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add a listing</button></div>
       </div></div>`:""}
 
-      <div class="panel" style="grid-column:1/-1"><div class="panel-b" id="mfaPanel"></div></div>
+      <div class="panel" style="grid-column:1/-1"><div class="panel-b" id="actionCodePanel"></div></div>
 
       <div class="panel" style="grid-column:1/-1"><div class="panel-b" id="whoPanel"></div></div>
 
       <div class="panel"><div class="panel-b" id="supportPanel">${supportFormHtml()}</div></div>
     </div>`;
   renderWhoWeAre();
-  renderMfaPanel();
+  renderActionCodePanel();
 }
-/* ---------- Multi-factor authentication (TOTP) enrolment ----------
-   Mandatory for a Super-Admin: privileged actions stay blocked until this is
-   completed. Recovery codes are shown once, at enrolment. */
-async function renderMfaPanel(){
-  const host=$("mfaPanel"); if(!host||!S.account) return;
-  let st={enabled:false,required:false,recovery_codes_remaining:0};
-  try{ st=await PSApi.get("/mfa/status"); }catch(e){}
-  S._mfa=st;
-  const badge = st.enabled
-    ? `<span class="tag grn">Enabled ✓</span>`
-    : (st.required?`<span class="tag" style="background:var(--red-soft);border-color:var(--red-border);color:var(--red)">Required — not set up</span>`
-                  :`<span class="tag">Optional</span>`);
-  host.innerHTML=`<h5 style="margin-bottom:6px">Two-factor authentication ${badge}</h5>
-    <p class="mut" style="font-size:12.5px;margin-bottom:10px">
-      ${st.required
-        ? "Your account has Super-Admin privileges, so 2FA is mandatory. Privileged actions stay blocked until you finish setup."
-        : "Adds a second step at sign-in using an authenticator app (Google Authenticator, 1Password, Authy)."}
-    </p>
-    ${st.enabled
-      ? `<div class="mini-rows">
-           <div><span>Status</span><b>Active</b></div>
-           <div><span>Unused recovery codes</span><b>${st.recovery_codes_remaining}</b></div>
-         </div>
-         ${st.required?`<p class="mut" style="font-size:12.5px;margin-top:10px">2FA can't be turned off on a Super-Admin account.</p>`
-           :`<div style="margin-top:12px"><button class="btn btn-danger btn-sm" onclick="mfaDisable()">Turn off 2FA</button></div>`}`
-      : `<div id="mfa-setup">
-           <button class="btn btn-p btn-sm" onclick="mfaStart()">Set up 2FA</button>
-         </div>`}
-    <div class="hint-err hide" id="mfa-err"></div>`;
-}
-function _mfaErr(m){ const e=$("mfa-err"); if(e){ e.textContent=m; e.classList.remove("hide"); } }
-async function mfaStart(){
-  const pw=window.prompt("Confirm your password to begin 2FA setup:",""); if(pw===null) return;
-  let r; try{ r=await PSApi.post("/mfa/start",{password:pw}); }
-  catch(e){ _mfaErr(e.message||"Could not start setup"); return; }
-  const host=$("mfa-setup"); if(!host) return;
+/* ---------- Action code ----------
+   A single static 8-digit code, required alongside the password on every
+   dangerous action. Mandatory for a Super-Admin: privileged actions stay
+   blocked until one is set. Replaces the old authenticator-app enrolment —
+   no app, no QR, no recovery codes. */
+async function renderActionCodePanel(){
+  const host=$("actionCodePanel"); if(!host||!S.account) return;
+  if(S.myRole!=="SUPER_ADMIN"){ host.innerHTML=""; return; }
+  const isSet=!!S.actionCodeSet;
   host.innerHTML=`
-    <div class="note blue" style="margin:0 0 10px">
-      <b>Step 1.</b> In your authenticator app choose “add account → enter a setup key”, then paste the key below.
+    <div class="panel-h" style="padding:0 0 10px"><h4>Action code</h4></div>
+    <p class="mut" style="font-size:12.5px">
+      ${isSet
+        ? "An 8-digit code is set. You'll be asked for it, with your password, on every dangerous action."
+        : "<b>Not set yet.</b> Suspending, banning, deleting and releasing payouts stay blocked until you set one."}
+      Five wrong codes in a row locks further attempts for 15 minutes.</p>
+    <div class="frm" style="margin-top:10px">
+      <div><label>Your password</label><input type="password" id="ac-pw" autocomplete="off"></div>
+      <div class="row2">
+        <div><label>${isSet?"New 8-digit code":"8-digit code"}</label>
+          <input type="password" id="ac-code" inputmode="numeric" maxlength="8" autocomplete="off"></div>
+        <div><label>Confirm code</label>
+          <input type="password" id="ac-code2" inputmode="numeric" maxlength="8" autocomplete="off"
+                 onkeydown="if(event.key==='Enter')saveActionCode()"></div>
+      </div>
+      <div class="hint-err hide" id="ac-err"></div>
     </div>
-    <div><label style="font-size:12px;font-weight:700">Setup key</label>
-      <div class="mfa-secret" id="mfa-secret">${esc(r.secret)}</div>
-      <button class="btn btn-o btn-sm" style="margin-top:6px" onclick="copyMfaSecret()">Copy key</button>
-    </div>
-    <div class="note blue" style="margin:12px 0 10px"><b>Step 2.</b> Enter the 6-digit code your app is showing.</div>
-    <div class="frm"><div><label>6-digit code</label>
-      <input type="text" id="mfa-code" inputmode="numeric" maxlength="6" placeholder="123456"
-             onkeydown="if(event.key==='Enter')mfaConfirm()"></div></div>
-    <div style="margin-top:10px"><button class="btn btn-p btn-sm" onclick="mfaConfirm()">Verify &amp; enable</button></div>`;
+    <div style="margin-top:10px">
+      <button class="btn btn-p btn-sm" id="ac-save" onclick="saveActionCode()">
+        ${isSet?"Change action code":"Set action code"}</button></div>`;
 }
-function copyMfaSecret(){
-  const s=($("mfa-secret")||{}).textContent||"";
-  if(navigator.clipboard) navigator.clipboard.writeText(s).then(()=>toast("Setup key copied",true),()=>toast("Copy failed — select it manually"));
-  else toast("Select the key and copy it manually");
+function _acErr(msg){
+  const e=$("ac-err"); if(e){ e.textContent=msg; e.classList.remove("hide"); } else toast(msg);
 }
-async function mfaConfirm(){
-  const code=(($("mfa-code")||{}).value||"").trim();
-  if(code.length<6){ _mfaErr("Enter the 6-digit code from your app."); return; }
-  let r; try{ r=await PSApi.post("/mfa/confirm",{code}); }
-  catch(e){ _mfaErr(e.message||"That code wasn't accepted — try the next one."); return; }
-  // Recovery codes are returned exactly once.
-  openModal(`<div class="m-pad"><h3 class="m-title">2FA enabled ✓</h3>
-    <p class="m-sub">Save these recovery codes now — they're shown <b>once</b>, and each works once. They're your way back in if you lose your authenticator device.</p>
-    <div class="recovery-codes">${(r.recovery_codes||[]).map(c=>`<code>${esc(c)}</code>`).join("")}</div>
-    <div class="m-actions">
-      <button class="btn btn-o" onclick="copyRecoveryCodes()">Copy all</button>
-      <button class="btn btn-p" onclick="closeModal();openAccount()">I've saved them</button></div></div>`,"narrow");
-  window._recoveryCodes=(r.recovery_codes||[]).join("\n");
-}
-function copyRecoveryCodes(){
-  const t=window._recoveryCodes||"";
-  if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>toast("Recovery codes copied",true),()=>toast("Copy failed"));
-}
-async function mfaDisable(){
-  const pw=window.prompt("Confirm your password:",""); if(pw===null) return;
-  const code=window.prompt("Enter a current 6-digit code:",""); if(code===null) return;
-  try{ await PSApi.post("/mfa/disable",{password:pw,code}); }
-  catch(e){ _mfaErr(e.message||"Could not disable 2FA"); return; }
-  toast("2FA turned off",true); renderMfaPanel();
+async function saveActionCode(){
+  const pw=(($("ac-pw")||{}).value||"");
+  const code=(($("ac-code")||{}).value||"").trim();
+  const code2=(($("ac-code2")||{}).value||"").trim();
+  const err=$("ac-err"); if(err) err.classList.add("hide");
+  if(!pw){ _acErr("Enter your password."); return; }
+  if(!/^\d{8}$/.test(code)){ _acErr("The code must be exactly 8 digits."); return; }
+  if(code!==code2){ _acErr("The two codes don't match."); return; }
+  const btn=$("ac-save"); if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Saving…`; }
+  try{ await PSApi.post("/admin/action-code",{password:pw,code}); }
+  catch(e){
+    if(btn){ btn.disabled=false; btn.textContent=S.actionCodeSet?"Change action code":"Set action code"; }
+    _acErr(e.message||"Could not save the action code"); return;
+  }
+  S.actionCodeSet=true;
+  toast("Action code saved ✓",true);
+  renderActionCodePanel();
 }
 /* ---------- "Who we are" profile content (text, links, files) ----------
    Shared by My Account and the campaign-setup wizard: same fields, same
@@ -3846,7 +3819,7 @@ checkYourEmailModal,resendVerification,verifyEmailFromLink,scrollToPanel,openCom
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
 openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
-renderMfaPanel,mfaStart,mfaConfirm,mfaDisable,copyMfaSecret,copyRecoveryCodes,
+renderActionCodePanel,saveActionCode,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
 setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
