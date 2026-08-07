@@ -2870,6 +2870,27 @@ function roleBadge(role){
   if(role==="ADMIN") return `<span class="tag role-tag">Admin</span>`;
   return "";
 }
+// Fixed set, mirroring ALLOWED_DURATION_DAYS on the server — anything else is
+// rejected there, so the picker can only ever offer valid values.
+const SUSPEND_DURATIONS=[
+  ["3 days",3],["1 week",7],["2 weeks",14],["3 weeks",21],
+  ["1 month",30],["3 months",90],["6 months",180],["1 year",365],
+  ["Indefinite — until manually restored",null],
+];
+// Returns {duration_days} or null if cancelled. Indefinite is a real choice,
+// not the absence of one: an admin often can't know an end date up front.
+function askDuration(){
+  const menu=SUSPEND_DURATIONS.map(([l],i)=>`${i+1}) ${l}`).join("\n");
+  const raw=window.prompt("How long should this suspension last?\n\n"+menu+
+                          "\n\nEnter a number 1-"+SUSPEND_DURATIONS.length+":","1");
+  if(raw===null) return null;
+  const i=parseInt((raw||"").trim(),10);
+  if(!(i>=1 && i<=SUSPEND_DURATIONS.length)){
+    toast("Pick a number between 1 and "+SUSPEND_DURATIONS.length); return null;
+  }
+  return {duration_days:SUSPEND_DURATIONS[i-1][1]};
+}
+
 function adminCreds(){
   const password=window.prompt("Confirm your password to authorise this action:","");
   if(password===null) return null;
@@ -2890,7 +2911,10 @@ async function openAdmin(tab, focus){
   showView("view-deal");
   let admins=[], logs=[], mods={listings:[],campaigns:[]}, banned=[];
   if(tab==="admins"){ try{ admins=await PSApi.get("/admin/admins"); }catch(e){} }
-  else if(tab==="banned"){ try{ banned=await PSApi.get("/admin/banned"); }catch(e){} }
+  else if(tab==="banned"){
+    try{ mods.members=await PSApi.get("/admin/members"); }catch(e){ mods.members={active:[],restricted:[]}; }
+    try{ mods.suspended=await PSApi.get("/admin/suspended"); }catch(e){ mods.suspended={listings:[],campaigns:[]}; }
+  }
   else if(tab==="moderation"){
     try{ mods.listings=await PSApi.get("/platforms"); }catch(e){}
     try{ mods.campaigns=await PSApi.get("/campaigns"); }catch(e){}
@@ -2923,15 +2947,21 @@ async function openAdmin(tab, focus){
         <div id="ad-results" style="margin-top:12px"></div>
       </div></div>`;
   } else if(tab==="banned"){
-    // A plain reference list to scan by eye — no similarity matching, no
-    // inference, just the accounts that were actually banned.
-    body=`<p class="deal-sub" style="padding:0 2px 8px">Every banned account. Banned addresses cannot be used to sign up again — the signup form tells them so explicitly.</p>
-      <div class="panel"><div class="panel-h"><h4>Banned emails</h4></div><div class="panel-b">
-        <div class="frm"><div><label>Filter</label>
-          <input type="text" id="ban-filter" placeholder="Type to filter by email or name" oninput="filterBanned()"></div></div>
-        <div id="banned-rows" style="margin-top:10px">${bannedRowsHtml(banned)}</div>
+    // Everything currently withheld — accounts and marketplace items alike.
+    // Moderation next door stays purely about what is live and actionable.
+    S._restrictedUsers=(mods.members||{}).restricted||[];
+    S._restrictedItems=mods.suspended||{listings:[],campaigns:[]};
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Accounts and items currently withheld. A suspension can be lifted, by hand or when its period runs out; a ban is permanent, and that address can never sign up again.</p>
+      <div class="panel"><div class="panel-h"><h4>Banned/Suspended Users</h4></div><div class="panel-b">
+        <div class="frm"><div><label>Search</label>
+          <input type="text" id="bs-user-filter" placeholder="Filter by email or name" oninput="filterRestrictedUsers()"></div></div>
+        <div id="bs-user-rows" style="margin-top:10px">${restrictedUserRowsHtml(S._restrictedUsers)}</div>
+      </div></div>
+      <div class="panel"><div class="panel-h"><h4>Banned/Suspended Campaigns/Listings</h4></div><div class="panel-b">
+        <div class="frm"><div><label>Search</label>
+          <input type="text" id="bs-item-filter" placeholder="Filter by listing name or campaign title" oninput="filterRestrictedItems()"></div></div>
+        <div id="bs-item-rows" style="margin-top:10px">${restrictedItemRowsHtml(S._restrictedItems)}</div>
       </div></div>`;
-    S._banned=banned;
   } else if(tab==="moderation"){
     const sus=mods.suspended||{listings:[],campaigns:[]};
     const row=(title,sub,btn,ref)=>`<div class="deal-row" style="cursor:default"${ref?` id="acp-${esc(ref)}"`:""}>
@@ -2945,7 +2975,7 @@ async function openAdmin(tab, focus){
         <div><div class="dr-t">${esc(u.display_name||u.email)}</div>
           <div class="dr-s">${esc(u.email)}${u.banned?" · <b>banned</b>":u.suspended?" · <b>suspended</b>":""}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
         <div class="btn-row">${btn}</div></div>`;
-    body=`<p class="deal-sub" style="padding:0 2px 8px">Suspending hides an item from the marketplace and blocks new bookings, but keeps it intact and is reversible. <b>Delete removes it outright and cannot be undone.</b> Both are written to the audit log.</p>
+    body=`<p class="deal-sub" style="padding:0 2px 8px">What's live right now. Suspending hides an item and blocks new bookings but keeps it intact — it moves to <b>Banned/Suspended</b>, and returns here when restored or when its period runs out. <b>Delete removes it outright and cannot be undone.</b> Both are written to the audit log.</p>
       <div class="panel"><div class="panel-h"><h4>Live listings</h4></div><div class="panel-b">
         ${mods.listings.length?mods.listings.map(l=>row(l.name,`${esc(l.platform)} · by ${esc(l.owner||"")}`,
           `<button class="btn btn-o btn-sm" onclick="adminSuspendListing(${String(l.id).slice(1)})">Suspend</button>`
@@ -2958,16 +2988,6 @@ async function openAdmin(tab, focus){
           +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${String(c.id).replace(/^c/,'')})">Delete</button>`, c.id)).join("")
           :`<p class="mut" style="font-size:12.5px">No live campaigns.</p>`}
       </div></div>
-      <div class="panel"><div class="panel-h"><h4>Suspended listings/campaigns</h4></div><div class="panel-b">
-        ${(sus.listings||[]).map(l=>row(l.name,`Listing · ${esc(l.suspended_reason||"")}`,
-          `<button class="btn btn-o btn-sm" onclick="adminUnsuspendListing(${l.id})">Restore</button>`
-          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${l.id})">Delete</button>`, "p"+l.id)).join("")}
-        ${(sus.campaigns||[]).map(c=>row(c.title,`Campaign · ${esc(c.suspended_reason||"")}`,
-          `<button class="btn btn-o btn-sm" onclick="adminUnsuspendCampaign(${c.id})">Restore</button>`
-          +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${c.id})">Delete</button>`, "c"+c.id)).join("")}
-        ${(!(sus.listings||[]).length && !(sus.campaigns||[]).length)?`<p class="mut" style="font-size:12.5px">Nothing suspended.</p>`:""}
-      </div></div>
-
       <div class="panel"><div class="panel-h"><h4>Active users</h4></div><div class="panel-b">
         ${mem.active.length?mem.active.map(u=>urow(u,
           `<button class="btn btn-o btn-sm" onclick="adminSuspend(${u.id})">Suspend</button>`
@@ -2975,17 +2995,7 @@ async function openAdmin(tab, focus){
           :`<p class="mut" style="font-size:12.5px">No active member accounts.</p>`}
         ${mem.truncated?`<p class="mut" style="font-size:12px;margin-top:8px">Showing the ${mem.limit} most recent. Use the Admins tab search to find anyone older.</p>`:""}
       </div></div>
-
-      <div class="panel"><div class="panel-h"><h4>Suspended/Banned users</h4></div><div class="panel-b">
-        ${mem.restricted.length?mem.restricted.map(u=>urow(u,
-          u.banned
-            // No unban endpoint exists yet, so there is deliberately no button
-            // here rather than one that would 404.
-            ? `<span class="mut" style="font-size:12.5px">Banned — permanent</span>`
-            : `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Restore</button>`
-              +`<button class="btn btn-danger btn-sm" onclick="adminBan(${u.id})">Ban</button>`)).join("")
-          :`<p class="mut" style="font-size:12.5px">No suspended or banned members.</p>`}
-      </div></div>`;
+`;
   } else {
     body=`<p class="deal-sub" style="padding:0 2px 8px">Append-only. The database itself rejects any update or delete on this table — these entries cannot be edited or removed through any path.</p>
       <div class="panel"><div class="panel-b">
@@ -3003,7 +3013,7 @@ async function openAdmin(tab, focus){
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>Admin console</h2>
       <span class="status-pill st-review">${esc(S.myRole==="SUPER_ADMIN"?"Super-Admin":"Admin")}</span></div>
-    <div class="det-tabs">${[["admins","Admins"],["moderation","Moderation"],["banned","Banned"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
+    <div class="det-tabs">${[["admins","Admins"],["moderation","Moderation"],["banned","Banned/Suspended"],["audit","Audit log"]].map(([k,l])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openAdmin('${k}')">${l}</button>`).join("")}</div>
     ${body}`;
   if(focus) _acpFocus(tab, focus);
 }
@@ -3011,20 +3021,59 @@ async function openAdmin(tab, focus){
 // Deep-link target from a "View on ACP" link: scroll to and flash the row, or
 // for an account, run the member search on their email so the existing
 // promote/suspend/ban actions are right there.
-function bannedRowsHtml(rows){
-  if(!rows.length) return `<div class="empty-state small"><div class="es-ico">🚫</div><h4>No banned accounts</h4><p>Accounts you ban appear here for reference.</p></div>`;
-  return rows.map(u=>`<div class="deal-row" style="cursor:default">
+// A timed suspension shows when it lifts; an indefinite one says so plainly,
+// so "no date" is never mistaken for missing data.
+function suspensionSuffix(u){
+  if(u.banned) return "";
+  if(!u.suspended_at && !u.suspended) return "";
+  return u.suspended_until
+    ? " · until "+new Date(u.suspended_until).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})
+    : " · indefinitely";
+}
+function restrictedUserRowsHtml(rows){
+  if(!rows.length) return `<div class="empty-state small"><div class="es-ico">👤</div><h4>No suspended or banned accounts</h4><p>Accounts you suspend or ban appear here.</p></div>`;
+  return rows.map(u=>`<div class="deal-row" style="cursor:default" id="acp-u${u.id}">
       ${pfp(u.display_name||u.email,null)}
-      <div><div class="dr-t">${esc(u.email)}</div>
-        <div class="dr-s">${esc(u.display_name||"—")}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
-      <div class="dr-amt"><small>${u.banned_at?new Date(u.banned_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</small></div>
+      <div><div class="dr-t">${esc(u.display_name||u.email)}</div>
+        <div class="dr-s">${esc(u.email)} · <b>${u.banned?"banned":"suspended"}</b>${esc(suspensionSuffix(u))}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
+      <div class="btn-row">${u.banned
+        // No unban endpoint exists, so no button rather than one that would 404.
+        ? `<span class="mut" style="font-size:12.5px">Banned — permanent</span>`
+        : `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Restore</button>`}</div>
     </div>`).join("");
 }
-function filterBanned(){
-  const q=(($("ban-filter")||{}).value||"").trim().toLowerCase();
-  const rows=(S._banned||[]).filter(u=>!q ||
+function restrictedItemRowsHtml(items){
+  const ls=items.listings||[], cs=items.campaigns||[];
+  if(!ls.length && !cs.length) return `<div class="empty-state small"><div class="es-ico">🚧</div><h4>Nothing suspended</h4><p>Suspended listings and campaigns appear here.</p></div>`;
+  const row=(title,sub,btn,ref)=>`<div class="deal-row" style="cursor:default" id="acp-${esc(ref)}">
+      <div class="pfp" style="background:var(--acc)">${esc((title||"?").slice(0,1).toUpperCase())}</div>
+      <div><div class="dr-t">${esc(title)}</div><div class="dr-s">${sub}</div></div>
+      <div class="btn-row">${btn}</div></div>`;
+  const until=x=>x.suspended_until
+    ? " · until "+new Date(x.suspended_until).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})
+    : " · indefinitely";
+  return ls.map(l=>row(l.name,`Listing${esc(until(l))}${l.suspended_reason?" · "+esc(l.suspended_reason):""}`,
+      `<button class="btn btn-o btn-sm" onclick="adminUnsuspendListing(${l.id})">Restore</button>`
+      +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${l.id})">Delete</button>`, "p"+l.id)).join("")
+   + cs.map(c=>row(c.title,`Campaign${esc(until(c))}${c.suspended_reason?" · "+esc(c.suspended_reason):""}`,
+      `<button class="btn btn-o btn-sm" onclick="adminUnsuspendCampaign(${c.id})">Restore</button>`
+      +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${c.id})">Delete</button>`, "c"+c.id)).join("");
+}
+// Each section filters only its own list.
+function filterRestrictedUsers(){
+  const q=(($("bs-user-filter")||{}).value||"").trim().toLowerCase();
+  const rows=(S._restrictedUsers||[]).filter(u=>!q ||
     (u.email||"").toLowerCase().includes(q) || (u.display_name||"").toLowerCase().includes(q));
-  const host=$("banned-rows"); if(host) host.innerHTML=bannedRowsHtml(rows);
+  const host=$("bs-user-rows"); if(host) host.innerHTML=restrictedUserRowsHtml(rows);
+}
+function filterRestrictedItems(){
+  const q=(($("bs-item-filter")||{}).value||"").trim().toLowerCase();
+  const src=S._restrictedItems||{listings:[],campaigns:[]};
+  const host=$("bs-item-rows"); if(!host) return;
+  host.innerHTML=restrictedItemRowsHtml({
+    listings:(src.listings||[]).filter(l=>!q||(l.name||"").toLowerCase().includes(q)),
+    campaigns:(src.campaigns||[]).filter(c=>!q||(c.title||"").toLowerCase().includes(q)),
+  });
 }
 
 function _acpFocus(tab, focus){
@@ -3033,10 +3082,24 @@ function _acpFocus(tab, focus){
     if(box){ box.value=focus; adminSearchUsers(); }
     return;
   }
+  return _flashRow(focus);
+}
+function _flashRow(focus){
   const el=$("acp-"+focus);
-  if(!el) return;                       // not in this list (e.g. already suspended)
+  if(!el) return false;
   if(el.scrollIntoView) el.scrollIntoView({behavior:"smooth", block:"center"});
   el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),1600);
+  return true;
+}
+
+// A listing/campaign lives on Moderation while live and on Banned/Suspended
+// once withheld, so a link has to try both — otherwise suspending something
+// silently breaks its own deep-link, the bug fixed in 03ddbb4.
+async function openAcpItem(ref){
+  await openAdmin("moderation", ref);
+  if($("acp-"+ref)) return;
+  await openAdmin("banned", ref);
+  if(!$("acp-"+ref)) toast("That item isn't listed — it may have been deleted.");
 }
 
 // Super-Admin shortcut shown on listing/campaign/profile detail views. Purely
@@ -3055,8 +3118,11 @@ function acpAccountLinkHtml(userId, displayName){
       title="Open this account in the Admin Control Panel">🛡️ View on ACP</button>`;
 }
 async function openAcpAccount(userId, displayName){
-  await openAdmin("moderation", "u"+userId);
-  if($("acp-u"+userId)) return;                 // found among the member panels
+  await openAdmin("moderation", "u"+userId);    // active members
+  if($("acp-u"+userId)) return;
+  await openAdmin("banned", "u"+userId);        // suspended or banned members
+  if($("acp-u"+userId)) return;
+  // Neither list has them, which is what a privileged account looks like.
   if(displayName) await openAdmin("admins", displayName);
   else toast("That account isn't listed under Moderation — try the Admins tab.");
 }
@@ -3065,7 +3131,7 @@ function acpLinkHtml(kind, ref){
   if(!can("admin.view")) return "";
   const tab = kind==="account" ? "admins" : "moderation";
   return `<button class="btn btn-o btn-sm" style="margin-left:8px"
-      onclick="event.stopPropagation();closeModal();openAdmin('${tab}','${esc(String(ref))}')"
+      onclick="event.stopPropagation();closeModal();openAcpItem('${esc(String(ref))}')"
       title="Open this in the Admin Control Panel">🛡️ View on ACP</button>`;
 }
 // Look up an existing member by email/name so real team members can be promoted
@@ -3104,15 +3170,19 @@ async function adminSearchUsers(){
       <div class="btn-row">${action}</div></div>`;
   }).join("");
 }
-async function _modAction(path, okMsg){
+async function _modAction(path, okMsg, opts){
+  opts=opts||{};
+  // Duration first: no point collecting credentials for a flow they abandon.
+  let extra={};
+  if(opts.withDuration){ const d=askDuration(); if(!d) return; extra=d; }
   const c=adminCreds(); if(!c) return;
-  try{ await PSApi.post(path, c); }catch(e){ toast(e.message||"Action failed"); return; }
-  toast(okMsg,true); loadMarket(); openAdmin("moderation");
+  try{ await PSApi.post(path, {...c, ...extra}); }catch(e){ toast(e.message||"Action failed"); return; }
+  toast(okMsg,true); loadMarket(); openAdmin(opts.backTo||"moderation");
 }
-const adminSuspendListing   = id => _modAction(`/admin/listings/${id}/suspend`,   "Listing suspended — hidden from the marketplace");
-const adminUnsuspendListing = id => _modAction(`/admin/listings/${id}/unsuspend`, "Listing restored");
-const adminSuspendCampaign  = id => _modAction(`/admin/campaigns/${id}/suspend`,  "Campaign suspended — hidden from the marketplace");
-const adminUnsuspendCampaign= id => _modAction(`/admin/campaigns/${id}/unsuspend`,"Campaign restored");
+const adminSuspendListing   = id => _modAction(`/admin/listings/${id}/suspend`,   "Listing suspended — hidden from the marketplace", {withDuration:true, backTo:"banned"});
+const adminUnsuspendListing = id => _modAction(`/admin/listings/${id}/unsuspend`, "Listing restored", {backTo:"banned"});
+const adminSuspendCampaign  = id => _modAction(`/admin/campaigns/${id}/suspend`,  "Campaign suspended — hidden from the marketplace", {withDuration:true, backTo:"banned"});
+const adminUnsuspendCampaign= id => _modAction(`/admin/campaigns/${id}/unsuspend`,"Campaign restored", {backTo:"banned"});
 // Permanent: the server hard-deletes the row. Distinguished from Suspend in
 // both wording and styling because Suspend can be undone and this cannot. The
 // server still demands password + action code.
@@ -3127,10 +3197,11 @@ async function adminSetRole(userId, role){
   toast("Role updated ✓",true); openAdmin("admins");
 }
 async function adminSuspend(userId){
+  const d=askDuration(); if(!d) return;
   const c=adminCreds(); if(!c) return;
-  try{ await PSApi.post(`/admin/users/${userId}/suspend`, c); }
+  try{ await PSApi.post(`/admin/users/${userId}/suspend`, {...c, ...d}); }
   catch(e){ toast(e.message||"Could not suspend"); return; }
-  toast("Account suspended — sessions revoked",true); openAdmin("admins");
+  toast("Account suspended — sessions revoked",true); openAdmin("banned");
 }
 async function adminUnsuspend(userId){
   const c=adminCreds(); if(!c) return;
@@ -3821,9 +3892,10 @@ openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPrice
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
 renderActionCodePanel,saveActionCode,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
-setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
+askDuration,setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
-acpLinkHtml,acpAccountLinkHtml,openAcpAccount,adminBan,filterBanned,adminRemoveListing,adminRemoveCampaign};
+acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
+restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

@@ -44,10 +44,35 @@ ACTION_CODE_MAX_ATTEMPTS = 5
 ACTION_CODE_LOCKOUT_MINUTES = 15
 
 
+# A suspension either runs for one of these fixed periods or is indefinite.
+# Validated against the set rather than trusting any integer, because
+# duration_days is reachable directly over the API, not only via the picker.
+ALLOWED_DURATION_DAYS = {3, 7, 14, 21, 30, 90, 180, 365}
+
+
 class ReasonIn(BaseModel):
     reason: str = Field(min_length=3, max_length=1000)
     password: Optional[str] = None      # re-authentication for dangerous actions
     action_code: Optional[str] = None
+    duration_days: Optional[int] = None  # None = indefinite
+
+
+def clear_suspension(row) -> None:
+    """Lift a suspension. One definition, used by the manual restore endpoints
+    and by scripts/expire_suspensions.py, so a timed expiry and a manual restore
+    can never leave different state behind."""
+    row.suspended_at = None
+    row.suspended_reason = None
+    row.suspended_until = None
+
+
+def _suspension_until(body: ReasonIn):
+    """Validate the requested duration and turn it into an expiry, or None."""
+    if body.duration_days is None:
+        return None
+    if body.duration_days not in ALLOWED_DURATION_DAYS:
+        raise HTTPException(status_code=422, detail="Invalid suspension duration.")
+    return datetime.utcnow() + timedelta(days=body.duration_days)
 
 
 def _reauth(actor: User, body: ReasonIn, db: Session) -> None:
@@ -135,6 +160,7 @@ def _revoke_sessions(db: Session, user_id: int) -> int:
 
 def _user_snapshot(u: User) -> dict:
     return {"role": u.role, "suspended_at": u.suspended_at.isoformat() if u.suspended_at else None,
+            "suspended_until": u.suspended_until.isoformat() if u.suspended_until else None,
             "banned_at": u.banned_at.isoformat() if u.banned_at else None}
 
 
@@ -255,7 +281,8 @@ def moderation_members(limit: int = 200,
     for u in rows:
         d = {**user_admin_dict(u),
              "banned_at": u.banned_at.isoformat() if u.banned_at else None,
-             "suspended_at": u.suspended_at.isoformat() if u.suspended_at else None}
+             "suspended_at": u.suspended_at.isoformat() if u.suspended_at else None,
+             "suspended_until": u.suspended_until.isoformat() if u.suspended_until else None}
         (restricted if (u.suspended_at or u.banned_at) else active).append(d)
     return {"active": active, "restricted": restricted,
             "limit": limit, "truncated": len(rows) == limit}
@@ -342,9 +369,11 @@ def suspend_user(user_id: int, body: ReasonIn, request: Request,
         require_permission(actor, Perm.ADMIN_SUSPEND)
     _reauth(actor, body, db)
 
+    until = _suspension_until(body)
     before = _user_snapshot(target)
     target.suspended_at = datetime.utcnow()
     target.suspended_reason = body.reason.strip()
+    target.suspended_until = until
     db.commit()
     revoked = _revoke_sessions(db, target.id)       # immediate loss of access
     db.refresh(target)
@@ -365,8 +394,7 @@ def unsuspend_user(user_id: int, body: ReasonIn, request: Request,
     target = _target_user(db, user_id)
     _guard_target(actor, target)
     before = _user_snapshot(target)
-    target.suspended_at = None
-    target.suspended_reason = None
+    clear_suspension(target)
     db.commit()
     db.refresh(target)
     audit.record(db, actor=actor, action="user.unsuspend", target_type="user",
@@ -404,12 +432,14 @@ def ban_user(user_id: int, body: ReasonIn, request: Request,
 
 def _listing_snapshot(p: Platform) -> dict:
     return {"name": p.name, "suspended": p.suspended_at is not None,
-            "suspended_reason": p.suspended_reason}
+            "suspended_reason": p.suspended_reason,
+            "suspended_until": p.suspended_until.isoformat() if p.suspended_until else None}
 
 
 def _campaign_snapshot(c: Campaign) -> dict:
     return {"title": c.title, "suspended": c.suspended_at is not None,
-            "suspended_reason": c.suspended_reason}
+            "suspended_reason": c.suspended_reason,
+            "suspended_until": c.suspended_until.isoformat() if c.suspended_until else None}
 
 
 @router.post("/listings/{platform_id}/request-changes")
@@ -438,11 +468,13 @@ def list_suspended(actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
     return {
         "listings": [{"id": p.id, "name": p.name, "owner_id": p.owner_id,
                       "suspended_reason": p.suspended_reason,
-                      "suspended_at": p.suspended_at.isoformat() if p.suspended_at else None}
+                      "suspended_at": p.suspended_at.isoformat() if p.suspended_at else None,
+                      "suspended_until": p.suspended_until.isoformat() if p.suspended_until else None}
                      for p in ls],
         "campaigns": [{"id": c.id, "title": c.title, "business_id": c.business_id,
                        "suspended_reason": c.suspended_reason,
-                       "suspended_at": c.suspended_at.isoformat() if c.suspended_at else None}
+                       "suspended_at": c.suspended_at.isoformat() if c.suspended_at else None,
+                       "suspended_until": c.suspended_until.isoformat() if c.suspended_until else None}
                       for c in cs],
     }
 
@@ -461,9 +493,11 @@ def listing_suspend(platform_id: int, body: ReasonIn, request: Request,
     if p is None:
         raise HTTPException(status_code=404, detail="Listing not found")
     _reauth(actor, body, db)
+    until = _suspension_until(body)
     before = _listing_snapshot(p)
     p.suspended_at = datetime.utcnow()
     p.suspended_reason = body.reason.strip()
+    p.suspended_until = until
     db.add(Notification(user_id=p.owner_id, type="listing_suspended",
                         body=f"Your listing “{p.name}” has been suspended: {body.reason.strip()}",
                         ref=f"p{p.id}"))
@@ -482,8 +516,7 @@ def listing_unsuspend(platform_id: int, body: ReasonIn, request: Request,
     if p is None:
         raise HTTPException(status_code=404, detail="Listing not found")
     before = _listing_snapshot(p)
-    p.suspended_at = None
-    p.suspended_reason = None
+    clear_suspension(p)
     db.add(Notification(user_id=p.owner_id, type="listing_restored",
                         body=f"Your listing “{p.name}” is live again.", ref=f"p{p.id}"))
     db.commit(); db.refresh(p)
@@ -552,9 +585,11 @@ def campaign_suspend(campaign_id: int, body: ReasonIn, request: Request,
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
     _reauth(actor, body, db)
+    until = _suspension_until(body)
     before = _campaign_snapshot(c)
     c.suspended_at = datetime.utcnow()
     c.suspended_reason = body.reason.strip()
+    c.suspended_until = until
     db.add(Notification(user_id=c.business_id, type="campaign_suspended",
                         body=f"Your campaign “{c.title}” has been suspended: {body.reason.strip()}",
                         ref=f"c{c.id}"))
@@ -573,8 +608,7 @@ def campaign_unsuspend(campaign_id: int, body: ReasonIn, request: Request,
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
     before = _campaign_snapshot(c)
-    c.suspended_at = None
-    c.suspended_reason = None
+    clear_suspension(c)
     db.add(Notification(user_id=c.business_id, type="campaign_restored",
                         body=f"Your campaign “{c.title}” is live again.", ref=f"c{c.id}"))
     db.commit(); db.refresh(c)

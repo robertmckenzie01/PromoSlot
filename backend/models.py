@@ -51,6 +51,10 @@ class User(Base):
     role = Column(String, default="USER", nullable=False, index=True)
     suspended_at = Column(DateTime)             # set -> all power + access revoked
     suspended_reason = Column(String)
+    # When a timed suspension lifts. NULL while suspended means indefinite —
+    # "not suspended" is distinguished by suspended_at being NULL, as before.
+    # Cleared automatically by scripts/expire_suspensions.py.
+    suspended_until = Column(DateTime)
     banned_at = Column(DateTime)
     # Static 8-digit action code, required alongside the password on every
     # dangerous action (mandatory for SUPER_ADMIN). Null = not set up yet, which
@@ -134,6 +138,7 @@ class Platform(Base):
     # but preserved, and restorable by a Super-Admin.
     suspended_at = Column(DateTime)
     suspended_reason = Column(String)
+    suspended_until = Column(DateTime)          # see User.suspended_until
     # Owner-initiated removal, kept distinct from admin suspension above. Set
     # only when real deals reference this listing: the row must survive so those
     # deals (and the reviews/past-campaign history built on them) still resolve.
@@ -185,6 +190,7 @@ class Campaign(Base):
     # Moderation: hidden from the marketplace but preserved and restorable.
     suspended_at = Column(DateTime)
     suspended_reason = Column(String)
+    suspended_until = Column(DateTime)          # see User.suspended_until
     # Owner-initiated removal — see Platform.removed_at.
     removed_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
