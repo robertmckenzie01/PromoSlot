@@ -2900,7 +2900,7 @@ async function openAdmin(tab, focus){
   else if(tab==="audit"){ try{ logs=await PSApi.get("/admin/audit-log?limit=100"); }catch(e){} }
   let body="";
   if(tab==="admins"){
-    body=`<p class="deal-sub" style="padding:0 2px 8px">Privileged accounts. Assigning or removing a role requires your password${S.myRole==="SUPER_ADMIN"?" and authenticator code":""}, and is written to the immutable audit log.</p>
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Privileged accounts. Assigning or removing a role requires your password${S.myRole==="SUPER_ADMIN"?" and action code":""}, and is written to the immutable audit log.</p>
       <div class="panel"><div class="panel-b">
       ${admins.length?admins.map(u=>`<div class="deal-row" style="cursor:default">
         ${pfp(u.display_name||u.email,null)}
@@ -2915,7 +2915,7 @@ async function openAdmin(tab, focus){
         :`<div class="empty-state"><div class="es-ico">🛡️</div><h4>No admins yet</h4></div>`}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Find a member to promote</h4></div><div class="panel-b">
-        <p class="mut" style="font-size:12.5px;margin-bottom:10px">Search an existing account by email or name, then promote it to Admin. You'll confirm with your password and authenticator code, and the change is written to the audit log.</p>
+        <p class="mut" style="font-size:12.5px;margin-bottom:10px">Search an existing account by email or name, then promote it to Admin. You'll confirm with your password and action code, and the change is written to the audit log.</p>
         <div class="frm"><div><label>Search by email or name</label>
           <input type="text" id="ad-search" placeholder="e.g. sam@ or Sam Taylor"
                  onkeydown="if(event.key==='Enter')adminSearchUsers()"></div></div>
