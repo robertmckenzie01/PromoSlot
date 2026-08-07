@@ -349,3 +349,42 @@ def account_suspended_email(reason: str = "") -> tuple:
 def account_banned_email(reason: str = "") -> tuple:
     """(subject, html, text) telling someone their account was banned, and why."""
     return _account_action_email("banned", reason)
+
+
+def account_restored_email(display_name: str = "") -> tuple:
+    """(subject, html, text) telling someone their suspension has been lifted.
+
+    Deliberately not built on _account_action_email: that one exists to deliver
+    bad news precisely, and this is the opposite errand. No reason block — the
+    restore is the whole message — and it ends on a way back in rather than on
+    an appeals address.
+    """
+    name = (display_name or "").strip()
+    hello = f"Welcome back, {name}" if name else "Welcome back"
+    hello_html = f"Welcome back, {_esc(name)}" if name else "Welcome back"
+    title = "Your account is active again — welcome back"
+    url = settings.app_base_url
+
+    html = f"""
+      <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
+        <h2 style="color:#0f172a">{hello_html}</h2>
+        <p style="color:#334155">The suspension on your PromoSlot account has been
+           lifted. You can sign in again, and everything is where you left it —
+           your profile, your listings and campaigns, and any deals in progress.</p>
+        <p style="margin:22px 0">
+          <a href="{url}" style="background:#4f46e5;color:#fff;text-decoration:none;
+             padding:12px 22px;border-radius:10px;font-weight:700;display:inline-block">
+            Sign in to PromoSlot</a>
+        </p>
+        <p style="color:#334155">It's good to have you back. If anything looks off
+           when you sign in, {settings.support_email} will sort it out.</p>
+        <p style="color:#94a3b8;font-size:12px;word-break:break-all">{url}</p>
+      </div>"""
+    text = (f"{hello}\n\n"
+            "The suspension on your PromoSlot account has been lifted. You can sign "
+            "in again, and everything is where you left it — your profile, your "
+            "listings and campaigns, and any deals in progress.\n\n"
+            f"Sign in: {url}\n\n"
+            "It's good to have you back. If anything looks off when you sign in, "
+            f"{settings.support_email} will sort it out.")
+    return title, html, text

@@ -26,8 +26,8 @@ from .. import audit
 from ..config import settings
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
-from ..mailer import (account_banned_email, account_suspended_email,
-                      send_email)
+from ..mailer import (account_banned_email, account_restored_email,
+                      account_suspended_email, send_email)
 from ..models import (Campaign, Deal, DealStatus, Notification, Platform, Session as AuthSession,
                       User)
 from ..permissions import Perm, Role, is_super_admin, permissions_for, require_permission
@@ -387,19 +387,34 @@ def suspend_user(user_id: int, body: ReasonIn, request: Request,
     return user_admin_dict(target)
 
 
+def _notify_account_restored(email: str, display_name: str) -> None:
+    subject, html, text = account_restored_email(display_name)
+    ok, detail = send_email(email, subject, html, text,
+                            reply_to=settings.support_email)
+    if not ok:
+        log.warning("restore notice not sent to %s: %s", email, detail)
+
+
 @router.post("/users/{user_id}/unsuspend")
 def unsuspend_user(user_id: int, body: ReasonIn, request: Request,
+                   background: BackgroundTasks,
                    actor: User = Depends(RequirePerm(Perm.USER_SUSPEND)),
                    db: Session = Depends(get_db)):
     target = _target_user(db, user_id)
     _guard_target(actor, target)
     before = _user_snapshot(target)
     clear_suspension(target)
+    db.add(Notification(user_id=target.id, type="account_restored",
+                        body="Your account is active again — welcome back to PromoSlot."))
     db.commit()
     db.refresh(target)
     audit.record(db, actor=actor, action="user.unsuspend", target_type="user",
                  target_id=target.id, previous_state=before,
                  new_state=_user_snapshot(target), reason=body.reason, request=request)
+    # The in-app notice only lands once they sign in, and they were signed out
+    # when suspended — so the email is what actually tells them they can.
+    background.add_task(_notify_account_restored, target.email,
+                        target.display_name or "")
     return user_admin_dict(target)
 
 
