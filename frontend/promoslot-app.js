@@ -146,13 +146,10 @@ function toast(msg,grn){
 const NUDGE_DELAY_MS = 25000;
 const NUDGE_VIEWS    = 2;
 
-// Firmness tracks how often they have already been turned away. This is the ONLY
-// thing gate bounces are used for — authModal()'s own copy is fixed.
+// Kept short and fixed on purpose — no escalating wording. authModal()'s own
+// copy is fixed too; gate bounces aren't used for text anywhere anymore.
 function nudgeCopy(){
-  const b = S._gateBounces||0;
-  if(b >= 3) return "Almost everything here needs an account. Sign up free to keep going.";
-  if(b >= 1) return "You'll need a free account for that — join now, it's quick.";
-  return "Sign up free — takes 30 seconds.";
+  return "Sign up for free";
 }
 
 function startSignupNudgeTimer(){
