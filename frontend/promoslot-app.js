@@ -1222,6 +1222,7 @@ async function loadConvos(){
   try{ S.convos=await PSApi.get("/conversations"); }catch(e){ S.convos=[]; }
 }
 async function openMessages(){
+  if(!S.account){ authGate("login"); return; }
   showView("view-messages");
   await loadConvos();
   if(!S.activeConv || !(S.convos||[]).some(c=>String(c.id)===String(S.activeConv))){
@@ -1330,6 +1331,7 @@ function partyLink(id,name){
 // backRef: optional "c12"/"p3" so the viewer can return to where they came from
 // instead of only being able to close out entirely.
 async function openProfile(userId, backRef){
+  if(!S.account){ authGate("login"); return; }
   setRoute("profile", userId);
   let p; try{ p=await PSApi.get(`/users/${userId}/public`); }catch(e){ toast("Couldn't load that profile"); return; }
   const roles=[]; if(p.is_business)roles.push("Business"); if(p.is_platform_owner)roles.push("Platform owner");
