@@ -274,6 +274,26 @@ b,strong{font-weight:700}
 .modal{background:var(--card);border-radius:20px;width:100%;max-width:680px;box-shadow:var(--shadow-lg);animation:popIn .3s var(--ease);position:relative}
 .modal.wide{max-width:880px}
 .modal.narrow{max-width:520px}
+/* Login/signup entry modal: branded panel + form. Only authModal() uses this —
+   the verification and password-reset modals stay single-column .narrow. */
+.auth-split{display:grid;grid-template-columns:1fr 1fr;min-height:560px}
+.auth-hero{position:relative;background-size:cover;background-position:center;border-radius:20px 0 0 20px;overflow:hidden}
+.auth-hero-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,4,20,.35),rgba(10,4,20,.75));padding:36px 30px;display:flex;flex-direction:column;justify-content:flex-start;gap:26px}
+.auth-hero-scrim h2{color:#fff;font-size:27px;line-height:1.2;font-weight:800}
+.auth-hero-scrim h2 em{font-style:normal;color:var(--acc)}
+.auth-bullets{list-style:none;display:flex;flex-direction:column;gap:16px}
+.auth-bullets li{color:#fff}
+.auth-bullets li b{display:flex;gap:9px;font-size:14.5px;font-weight:700}
+.auth-bullets li b::before{content:"✓";flex-shrink:0;width:20px;height:20px;border-radius:99px;border:1.5px solid var(--acc);color:var(--acc);font-size:11px;display:flex;align-items:center;justify-content:center}
+.auth-bullets li span{display:block;margin-left:29px;font-size:12.5px;color:rgba(255,255,255,.72);margin-top:2px}
+.auth-form-side{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.auth-legal{font-size:11.5px;color:var(--mut);margin-top:16px;line-height:1.5}
+/* Drop the image panel before it gets too narrow to read — earlier than the
+   600px full-screen-modal breakpoint, so there is no squished in-between state. */
+@media (max-width:760px){
+  .auth-split{grid-template-columns:1fr;min-height:0}
+  .auth-hero{display:none}
+}
 .modal-x{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:10px;border:none;background:var(--bg);color:var(--mut);font-size:15px;z-index:2;transition:all .15s}
 .modal-x:hover{background:var(--line);color:var(--ink);transform:rotate(90deg)}
 .m-pad{padding:28px}
@@ -306,7 +326,7 @@ b,strong{font-weight:700}
 .sel-card.on .sc-check{background:var(--acc);border-color:var(--acc);color:#ffffff;transform:scale(1.05)}
 .frm{display:flex;flex-direction:column;gap:15px}
 .frm label{font-size:13px;font-weight:700;color:var(--ink2);display:block;margin-bottom:5px}
-.frm input[type=text],.frm input[type=number],.frm select,.frm textarea{width:100%;padding:10px 12px;border:1px solid var(--line2);border-radius:11px;background:var(--card);transition:border-color .15s,box-shadow .15s}
+.frm input[type=text],.frm input[type=number],.frm input[type=password],.frm select,.frm textarea{width:100%;padding:10px 12px;border:1px solid var(--line2);border-radius:11px;background:var(--card);transition:border-color .15s,box-shadow .15s}
 .frm textarea{resize:vertical;min-height:70px}
 .frm .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .chips-lg{display:flex;flex-wrap:wrap;gap:7px}
@@ -646,6 +666,25 @@ b,strong{font-weight:700}
 .toast .toast-ico{width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
 .toast.grn{background:var(--money)}
 .toast.grn .toast-ico{background:rgba(255,255,255,.22)}
+
+/* Ambient signup nudge — guests only, once a session. Deliberately borrows the
+   toast's chrome so it reads as the same system, but it is persistent and
+   dismissible rather than timed. Sits bottom-left so it never covers a toast. */
+#signupNudge{position:fixed;bottom:22px;left:22px;z-index:290;max-width:340px;
+  background:#0f172a;color:#f1f5f9;border-radius:13px;padding:13px 12px 13px 14px;
+  box-shadow:var(--shadow-lg);display:flex;gap:11px;align-items:center;
+  animation:toastIn .3s var(--ease);transition:opacity .3s,transform .3s}
+#signupNudge.out{opacity:0;transform:translateY(10px)}
+#signupNudge .nudge-txt{font-size:13px;font-weight:600;line-height:1.35;flex:1}
+#signupNudge .nudge-cta{background:var(--acc);color:#fff;border:none;border-radius:9px;
+  padding:7px 12px;font-size:12.5px;font-weight:700;flex-shrink:0;transition:filter .15s}
+#signupNudge .nudge-cta:hover{filter:brightness(1.12)}
+#signupNudge .nudge-x{background:transparent;border:none;color:rgba(241,245,249,.6);
+  font-size:13px;padding:2px 4px;flex-shrink:0;line-height:1;transition:color .15s}
+#signupNudge .nudge-x:hover{color:#f1f5f9}
+@media (max-width:600px){
+  #signupNudge{left:12px;right:12px;bottom:12px;max-width:none}
+}
 
 /* ---------- Responsive ---------- */
 @media (max-width:1020px){

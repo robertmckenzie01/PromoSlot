@@ -137,6 +137,61 @@ function toast(msg,grn){
   $("toasts").appendChild(t);
   setTimeout(()=>{t.classList.add("out");setTimeout(()=>t.remove(),380)},3400);
 }
+/* ---------- Ambient signup nudge ----------
+   A soft prompt for guests, quite separate from the gates: it fires on its own
+   after 2 detail views or 25s of browsing, whichever comes first, and only once
+   a session. Dismissing it retires it for good — but it has no bearing on the
+   gates, so a guest who dismissed this still gets the full modal the moment they
+   click something that needs an account. */
+const NUDGE_DELAY_MS = 25000;
+const NUDGE_VIEWS    = 2;
+
+// Firmness tracks how often they have already been turned away. This is the ONLY
+// thing gate bounces are used for — authModal()'s own copy is fixed.
+function nudgeCopy(){
+  const b = S._gateBounces||0;
+  if(b >= 3) return "Almost everything here needs an account. Sign up free to keep going.";
+  if(b >= 1) return "You'll need a free account for that — join now, it's quick.";
+  return "Sign up free — takes 30 seconds.";
+}
+
+function startSignupNudgeTimer(){
+  if(S.account || S._nudgeDone || S._nudgeTimer) return;
+  S._nudgeTimer = setTimeout(()=>{ S._nudgeTimer=null; maybeShowSignupNudge(); }, NUDGE_DELAY_MS);
+}
+
+// Detail views are modals, so this counts opens rather than page loads.
+function noteDetailView(){
+  if(S.account || S._nudgeDone) return;
+  S._detailViewsSeen = (S._detailViewsSeen||0) + 1;
+  if(S._detailViewsSeen >= NUDGE_VIEWS) maybeShowSignupNudge();
+}
+
+function maybeShowSignupNudge(){
+  if(S.account || S._nudgeDone || $("signupNudge")) return;
+  // Never over an open modal — wait for it to close rather than stacking two
+  // prompts on top of each other.
+  if($("overlay").classList.contains("open")){ S._nudgePending=true; return; }
+  S._nudgePending=false;
+  S._nudgeDone=true;                       // once a session, shown or not
+  if(S._nudgeTimer){ clearTimeout(S._nudgeTimer); S._nudgeTimer=null; }
+  const el=document.createElement("div");
+  el.id="signupNudge";
+  el.innerHTML=`<span class="nudge-txt">${esc(nudgeCopy())}</span>
+    <button class="nudge-cta" onclick="closeSignupNudge();authModal('signup')">Sign up free</button>
+    <button class="nudge-x" onclick="closeSignupNudge()" aria-label="Dismiss">✕</button>`;
+  document.body.appendChild(el);
+}
+
+function closeSignupNudge(){
+  S._nudgeDone=true; S._nudgePending=false;
+  if(S._nudgeTimer){ clearTimeout(S._nudgeTimer); S._nudgeTimer=null; }
+  const el=$("signupNudge");
+  if(!el) return;
+  el.classList.add("out");
+  setTimeout(()=>el.remove(),320);
+}
+
 function starsHtml(r,c){ if(r==null||c==null||c===0||c==="New"){ return `<span class="stars no-rating">No ratings yet</span>`; } return `<span class="stars">★ ${Number(r).toFixed(1)} <span class="rc">(${c})</span></span>`; }
 function initials(name){ return String(name||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
 // Identity avatar: the member's real uploaded profile picture when they have
@@ -273,7 +328,10 @@ function closeModal(){
   const ov=$("overlay");
   if(!ov.classList.contains("open")) return;
   ov.classList.add("closing");
-  closeTimer=setTimeout(()=>{ closeTimer=null; ov.classList.remove("open","closing"); document.body.style.overflow=""; },170);
+  closeTimer=setTimeout(()=>{
+    closeTimer=null; ov.classList.remove("open","closing"); document.body.style.overflow="";
+    if(S._nudgePending) maybeShowSignupNudge();   // it fired while this was open
+  },170);
 }
 function overlayClick(e){ if(e.target===$("overlay") && !modalLock) closeModal(); }
 
@@ -473,6 +531,9 @@ async function openListing(id,tab){
   const l=findListing(id); if(!l) return;
   const fresh = !$("overlay").classList.contains("open");
   if(fresh) openModal(detSkeleton(),"wide");
+  // Counted after the modal is up on purpose: if this is the view that trips the
+  // nudge, it defers until they close the listing instead of firing underneath it.
+  if(fresh) noteDetailView();
   // Fetch real listings' media (My Work + Past campaigns) once, cache on l.
   if(!l.example && /^p\d+$/.test(String(l.id))){
     const pid=String(l.id).slice(1);
@@ -920,7 +981,7 @@ function requestQuote(id){
   const l=findListing(id); if(!l) return;
   const subj=chatSubject(id);
   if(!subj || !subj.real){ openModal(exampleChat(subj||{name:l.name})); return; }
-  if(!S.account){ window._afterAuth=()=>requestQuote(id); authModal("login"); return; }
+  if(!S.account){ authGate("login"); return; }
   if(String(subj.otherId)===String(S.account.id)){ toast("That's your own listing."); return; }
   openModal(`<div class="m-pad"><h3 class="m-title">Request a custom quote from ${esc(l.name)}</h3>
     <p class="m-sub">${esc(l.owner.split(" ")[0])} will reply with a personalised proposal you can accept, decline, or counter.</p>
@@ -984,6 +1045,7 @@ async function openCampaign(id,tab){
   const fresh = !$("overlay").classList.contains("open");
   if(fresh){ openModal(detSkeleton(),"wide"); setTimeout(()=>renderCampaignModal(c,tab),340); }
   else renderCampaignModal(c,tab);
+  if(fresh) noteDetailView();   // see openListing — deferred until the modal closes
 }
 function applicantsHtml(c, apps){
   if(!apps.length) return `<div class="det-sec"><h5>Applicants</h5><div class="empty-state small"><div class="es-ico">📭</div><h4>No applications yet</h4><p>Platform owners who apply to “${esc(c.title)}” appear here. Each application is a real, protected deal you can review, approve, and fund.</p></div></div>`;
@@ -1099,7 +1161,7 @@ function exampleChat(subj){
 async function openChat(id){
   const subj=chatSubject(id); if(!subj) return;
   if(!subj.real){ openModal(exampleChat(subj)); return; }
-  if(!S.account){ window._afterAuth=()=>openChat(id); authModal("login"); return; }
+  if(!S.account){ authGate("login"); return; }
   if(String(subj.otherId)===String(S.account.id)){ toast("That's your own — you can't message yourself."); return; }
   // Load any existing thread for this (person, subject) so history shows.
   let msgs=[], convoId=null;
@@ -1231,7 +1293,7 @@ async function buyOffer(listingId, priceIdx){
   if(l.example || !/^\d+$/.test(String(l.ownerId))){
     toast("This is an example listing — buy from a real listing to transact."); return;
   }
-  if(!S.account){ window._afterAuth=()=>buyOffer(listingId,priceIdx); authModal("login"); return; }
+  if(!S.account){ authGate("login"); return; }
   if(!S.account.is_business){ toast("Only a business can buy an offer — sign up as a business to fund a deal."); return; }
   const amount=Number(p.amount)||0;
   if(amount<=0){ toast("Commission / custom offers — use “Request a quote”."); requestQuote(listingId); return; }
@@ -1671,7 +1733,7 @@ function collectApplyPricing(){
 async function applyCampaign(campId){
   const c=findCampaign(campId); if(!c) return;
   if(c.example || !/^c\d+$/.test(String(c.id))){ toast("This is an example campaign — apply to a real one to transact."); return; }
-  if(!S.account){ window._afterAuth=()=>applyCampaign(campId); authModal("login"); return; }
+  if(!S.account){ authGate("login"); return; }
   if(!S.account.is_platform_owner){ toast("Only a platform owner can apply — sign up as a platform owner to pitch."); return; }
   if(String(c.businessId)===String(S.account.id)){ toast("That's your own campaign — you can review applicants from it."); return; }
   let plats=S.myPlatforms||[];
@@ -2008,18 +2070,9 @@ function defW(){
     pricing:[]
   };
 }
+// Guests are let in as far as step 1 — seeing what the wizard actually asks for
+// is a better pitch than a signup wall. wizNext() gates the step past it.
 function startWizard(kind){
-  // Real accounts required. If not signed in, sign up first (role preselected),
-  // then resume the wizard.
-  if(!S.account){
-    window._afterAuth=()=>startWizard(kind);
-    authModal("signup");
-    setTimeout(()=>{
-      if(kind==="plat"||kind==="both"){ const b=$("au-r-plat"); if(b)b.classList.add("on"); }
-      if(kind==="biz"||kind==="both"){ const b=$("au-r-biz"); if(b)b.classList.add("on"); }
-    },30);
-    return;
-  }
   W={kind,d:defW(),i:0}; lastPct=0;
   if(kind==="biz") W.steps=["b-intent","b-company","b-target","b-budget","b-who","b-review"];
   else if(kind==="plat") W.steps=["p-intent","p-reg","p-aud","p-serv","p-review"];
@@ -2243,6 +2296,17 @@ function wizNext(){
     if(body){ body.classList.remove("shake"); void body.offsetWidth; body.classList.add("shake"); }
     return;
   }
+  // Guests get step 1 free; advancing past it requires an account. Checked after
+  // validation on purpose — an incomplete step 1 shows the normal error first, so
+  // the signup prompt only appears when they are genuinely ready to move on.
+  if(!S.account && W.i===0){
+    authGate("signup");
+    // Pre-tick the role they implicitly chose by starting this wizard.
+    if(W.kind==="plat"||W.kind==="both"){ const b=$("au-r-plat"); if(b) b.classList.add("on"); }
+    if(W.kind==="biz"||W.kind==="both"){ const b=$("au-r-biz"); if(b) b.classList.add("on"); }
+    return;
+  }
+
   if(step==="x-order"){
     W.steps = W.d.order==="biz" ? ["x-intent","x-order","b-company","b-target","b-budget","b-review"] : ["x-intent","x-order","p-reg","p-aud","p-serv","p-review"];
   }
@@ -3324,27 +3388,69 @@ async function loadMine(){
       : Promise.resolve(S.myCampaigns=[]),
   ]);
 }
+// Every gated action funnels through here rather than calling authModal()
+// directly, so the bounce count stays accurate. A guest clicking "Log in" in the
+// nav is not a bounce — that goes straight to authModal(). The count only ever
+// drives the ambient nudge's wording; the modal itself is identical every time.
+function authGate(mode){
+  S._gateBounces = (S._gateBounces||0) + 1;
+  authModal(mode||"login");
+}
+
+// Where to go once a session exists. Deliberately always the homepage: there is
+// no "resume what you were doing", and login and signup behave identically.
+function _resumeAfterAuth(){
+  window._afterAuth = null;   // nothing reads this any more; cleared for safety
+  closeSignupNudge();         // they signed up — stop asking
+  goHome();
+}
+
+// The single login/signup entry modal, used everywhere: the nav buttons, every
+// gated action, the wizard's step-2 gate and the ambient nudge. The left panel
+// is fixed — it never changes with the mode or with how many gates this guest
+// has already hit. Escalating copy belongs to the nudge, not here.
 function authModal(mode){
   const isSignup = mode==="signup";
-  openModal(`<div class="m-pad">
-    <h3 class="m-title">${isSignup?"Create your PromoSlot account":"Log in"}</h3>
-    <p class="m-sub">${isSignup?"One account — choose one or both roles.":"Welcome back."}</p>
-    <div class="frm">
-      ${isSignup?`<div><label>Display name</label><input type="text" id="au-name" placeholder="Robert Media"></div>`:""}
-      <div><label>Email</label><input type="text" id="au-email" placeholder="you@example.com"></div>
-      <div><label>Password</label><input type="password" id="au-pass" placeholder="${isSignup?"At least 8 characters":"Your password"}" onkeydown="if(event.key==='Enter'){${isSignup?"doSignup":"doLogin"}()}"></div>
-      ${isSignup?`<div><label>I am a…</label><div class="chips-lg">
-        <button type="button" class="chip" id="au-r-biz" onclick="this.classList.toggle('on')">🏢 Business</button>
-        <button type="button" class="chip" id="au-r-plat" onclick="this.classList.toggle('on')">📣 Platform owner</button>
-      </div></div>`:""}
-      <div class="hint-err hide" id="au-err"></div>
-      ${isSignup?"":`<p class="mut" style="font-size:12.5px;margin-top:2px">Signed up but never got the verification email?
-        <a href="#" class="party-link" onclick="event.preventDefault();resendVerification(($('au-email')||{}).value||'')">Send it again</a></p>`}
+  openModal(`<div class="auth-split">
+    <div class="auth-hero" style="background-image:url('/img/signup-hero.jpg')">
+      <div class="auth-hero-scrim">
+        <h2>The future of<br>audience marketing<br><em>starts with you.</em></h2>
+        <ul class="auth-bullets">
+          <li><b>Monetize your audience instantly</b><span>Turn your communities into real revenue.</span></li>
+          <li><b>Connect with platform owners across Discord, Reddit, YouTube, TikTok and more</b><span>Find the right audience and launch campaigns that drive real results.</span></li>
+          <li><b>Secure payments. Verified delivery.</b><span>No risk. No guesswork.</span></li>
+          <li><b>Funds release only after approval</b><span>Backed by money-back protection.</span></li>
+        </ul>
+      </div>
     </div>
-    <div class="m-actions">
-      <button class="btn btn-ghost" onclick="authModal('${isSignup?"login":"signup"}')">${isSignup?"Have an account? Log in":"Need an account? Sign up"}</button>
-      <button class="btn btn-p" id="au-submit" onclick="${isSignup?"doSignup":"doLogin"}()">${isSignup?"Create account":"Log in"}</button>
-    </div></div>`,"narrow");
+    <div class="auth-form-side">
+      <div class="m-pad">
+        <h3 class="m-title">${isSignup?"Create your PromoSlot account":"Log in"}</h3>
+        <p class="m-sub">${isSignup?"One account — choose one or both roles.":"Welcome back."}</p>
+        <div class="frm">
+          ${isSignup?`<div><label>Display name</label><input type="text" id="au-name" placeholder="Robert Media"></div>`:""}
+          <div><label>Email</label><input type="text" id="au-email" placeholder="you@example.com"></div>
+          <div><label>Password</label><input type="password" id="au-pass" placeholder="${isSignup?"At least 8 characters":"Your password"}" onkeydown="if(event.key==='Enter'){${isSignup?"doSignup":"doLogin"}()}"></div>
+          ${isSignup?`<div><label>I am a…</label><div class="chips-lg">
+            <button type="button" class="chip" id="au-r-biz" onclick="this.classList.toggle('on')">🏢 Business</button>
+            <button type="button" class="chip" id="au-r-plat" onclick="this.classList.toggle('on')">📣 Platform owner</button>
+          </div></div>`:""}
+          <div class="hint-err hide" id="au-err"></div>
+          ${isSignup?"":`<p class="mut" style="font-size:12.5px;margin-top:2px">Signed up but never got the verification email?
+            <a href="#" class="party-link" onclick="event.preventDefault();resendVerification(($('au-email')||{}).value||'')">Send it again</a></p>`}
+        </div>
+        <div class="m-actions">
+          <button class="btn btn-ghost" onclick="authModal('${isSignup?"login":"signup"}')">${isSignup?"Have an account? Log in":"Need an account? Sign up"}</button>
+          <button class="btn btn-p" id="au-submit" onclick="${isSignup?"doSignup":"doLogin"}()">${isSignup?"Create account":"Log in"}</button>
+        </div>
+        <p class="auth-legal">By joining, you agree to PromoSlot's
+          <!-- TODO: replace href with the real Terms of Service page once published (see task: publish real ToS/Privacy pages) -->
+          <a href="#">Terms of Service</a> and
+          <!-- TODO: replace href with the real Privacy Policy page once published -->
+          <a href="#">Privacy Policy</a>.</p>
+      </div>
+    </div>
+  </div>`,"wide");
 }
 function _authErr(msg){ const e=$("au-err"); if(e){ e.textContent=msg; e.classList.remove("hide"); } }
 async function doSignup(){
@@ -3437,7 +3543,7 @@ async function verifyEmailFromLink(token){
   await loadPerms(); await loadMine(); await loadNotifications();
   closeModal(); authReflect();
   toast("Email verified — you're signed in ✓",true);
-  openDash();
+  _resumeAfterAuth();   // homepage, same as a normal login
 }
 
 function forgotPasswordModal(prefill){
@@ -3797,6 +3903,9 @@ async function restoreSession(){
     clearRoute();
   }
   authReflect();
+  // Only now is guest status known, so this is the earliest honest point to arm
+  // the browsing timer — doing it on raw page load would race a slow /me.
+  if(!S.account) startSignupNudgeTimer();
   return live;
 }
 
@@ -3945,6 +4054,7 @@ openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerm
 renderActionCodePanel,saveActionCode,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
 askDuration,setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
+authGate,closeSignupNudge,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign};
