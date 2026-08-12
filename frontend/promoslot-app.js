@@ -4779,6 +4779,7 @@ function PSBoot(){
   renderHeroPreview();
   renderPlatBrowseChips();
   renderFooterSupport();
+  djRender();
   syncNav();
   restoreSession().then(restoreRoute);
   startAttnPolling();
@@ -4807,6 +4808,154 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
+// --- "How deals work" interactive Deal Journey component (homepage, #sec-how) ---
+// Illustrative walkthrough only - not a real deal. Ported from the approved
+// Claude Design mockup, wording aligned with real deal-state copy elsewhere in the app.
+const DJ_STAGES=[
+  {title:"Agree the scope", status:"Agreement ready to review", next:"Next: Fund the deal",
+   biz:"Define the content, deadlines and evidence required before funding.",
+   own:"Review exactly what must be delivered before accepting the work."},
+  {title:"Fund the deal", status:"Funding secured", next:"Next: Track delivery",
+   biz:"Fund the agreed deal before promotional work begins.",
+   own:"See that funding is secured before starting the promotion."},
+  {title:"Deliver the promotion", status:"Promotion in progress", next:"Next: Review evidence",
+   biz:"Follow the agreed delivery without relying on informal promises.",
+   own:"Complete the promotion against the accepted terms and deadline."},
+  {title:"Submit evidence", status:"Evidence submitted for PromoSlot approval", next:"Next: Complete the deal",
+   biz:"Review the submitted links and analytics — PromoSlot approves the evidence against the funded agreement.",
+   own:"Submit the proof required by the agreement; PromoSlot approves it before payment is released."},
+  {title:"Approve and release payment", status:"Deal completed", next:"",
+   biz:"Approve delivery once PromoSlot has approved the submitted evidence.",
+   own:"Receive payment after PromoSlot has approved the submitted evidence."}
+];
+let djState={i:0,role:"biz"};
+
+function djSetRole(r){ djState.role=r; djRender(); }
+function djGo(i){ if(i>=0&&i<DJ_STAGES.length){ djState.i=i; djRender(); } }
+function djNext(){ djGo(djState.i+1); }
+function djBack(){ djGo(djState.i-1); }
+function djNavKey(e){
+  const n=DJ_STAGES.length; let t=null;
+  if(e.key==="ArrowDown"||e.key==="ArrowRight") t=(djState.i+1)%n;
+  else if(e.key==="ArrowUp"||e.key==="ArrowLeft") t=(djState.i-1+n)%n;
+  else if(e.key==="Home") t=0;
+  else if(e.key==="End") t=n-1;
+  if(t===null) return;
+  e.preventDefault();
+  djGo(t);
+  const btns=document.querySelectorAll("#djNav .dj-nav-btn");
+  if(btns[t]) btns[t].focus();
+}
+function djRenderNav(){
+  const el=document.getElementById("djNav");
+  if(!el) return;
+  el.innerHTML=DJ_STAGES.map((s,n)=>{
+    const active=n===djState.i, done=n<djState.i;
+    const cls="dj-nav-btn"+(active?" active":"")+(done?" done":"");
+    const mark=done?"&#10003;":String(n+1).padStart(2,"0");
+    const stateLabel=active?"Current stage":done?"Completed":"Upcoming";
+    return `<button type="button" class="${cls}" role="tab" aria-selected="${active}" tabindex="${active?0:-1}" onclick="djGo(${n})">
+      <span class="dj-mark">${mark}</span>
+      <span><span class="dj-nav-title" style="display:block">${s.title}</span><span class="dj-nav-state">${stateLabel}</span></span>
+    </button>`;
+  }).join("");
+}
+function djStagePanel(i){
+  if(i===0) return `
+    <div class="dj-anim" style="display:flex;flex-direction:column;gap:10px">
+      <div class="dj-table">
+        <div class="dj-thead">AGREEMENT</div>
+        <div class="dj-trow"><div class="dj-tk">Deliverable</div><div class="dj-tv">One TikTok video</div></div>
+        <div class="dj-trow"><div class="dj-tk">Live duration</div><div class="dj-tv">30 days</div></div>
+        <div class="dj-trow"><div class="dj-tk">Deadline</div><div class="dj-tv">24 August</div></div>
+        <div class="dj-trow"><div class="dj-tk">Evidence required</div><div class="dj-tv">Published URL and 14-day analytics</div></div>
+        <div class="dj-trow"><div class="dj-tk">Agreed value</div><div class="dj-tv">£500</div></div>
+      </div>
+      <div class="dj-confirms">
+        <span class="dj-confirm">&#10003; Business confirmed</span>
+        <span class="dj-confirm">&#10003; Platform owner confirmed</span>
+      </div>
+    </div>`;
+  if(i===1) return `
+    <div class="dj-anim dj-funded-grid">
+      <div class="dj-funded-icon"><span>
+        <svg width="22" height="22" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 10.5V7.6a4 4 0 018 0v2.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span></div>
+      <div class="dj-table" style="border-radius:14px">
+        <div class="dj-trow" style="border-top:none"><div class="dj-tk">Deal value</div><div class="dj-tv">£500</div></div>
+        <div class="dj-trow"><div class="dj-tk">Funding status</div><div class="dj-tv acc">Secured</div></div>
+        <div class="dj-trow"><div class="dj-tk">Work status</div><div class="dj-tv">Ready to begin</div></div>
+        <div class="dj-trow"><div class="dj-tk">Release condition</div><div class="dj-tv">Delivery evidence approved by PromoSlot</div></div>
+      </div>
+    </div>`;
+  if(i===2) return `
+    <div class="dj-anim dj-delivery-grid">
+      <div class="dj-table" style="border-radius:14px">
+        <div class="dj-trow" style="border-top:none"><div class="dj-tk">Deliverable</div><div class="dj-tv">TikTok video</div></div>
+        <div class="dj-trow"><div class="dj-tk">Publish by</div><div class="dj-tv">24 August</div></div>
+        <div class="dj-trow"><div class="dj-tk">Required duration</div><div class="dj-tv">30 days</div></div>
+        <div class="dj-trow"><div class="dj-tk">Evidence deadline</div><div class="dj-tv">7 September</div></div>
+        <div class="dj-liveperiod">
+          <div class="dj-liveperiod-head"><span>Live period</span><span>Day 9 of 30</span></div>
+          <div class="dj-bar-track"><div class="dj-bar-fill" style="width:30%"></div></div>
+        </div>
+      </div>
+      <div class="dj-placeholder"><span>agreed<br>TikTok<br>deliverable</span></div>
+    </div>`;
+  if(i===3) return `
+    <div class="dj-anim">
+      <div class="dj-evidence-grid">
+        <div class="dj-ev-card">
+          <div class="dj-ev-label">PUBLISHED LINK</div>
+          <div class="dj-ev-val">tiktok.com/@example/&hellip;</div>
+          <div class="dj-ev-received">&#10003; Received</div>
+        </div>
+        <div class="dj-ev-card">
+          <div class="dj-ev-label">SCREENSHOT</div>
+          <div class="dj-ev-screenshot"></div>
+          <div class="dj-ev-received">&#10003; Received</div>
+        </div>
+        <div class="dj-ev-card">
+          <div class="dj-ev-label">14-DAY ANALYTICS</div>
+          <div class="dj-ev-bars">
+            <span style="height:38%"></span><span style="height:56%"></span><span style="height:44%"></span><span style="height:72%"></span><span class="peak" style="height:88%"></span><span style="height:64%"></span>
+          </div>
+          <div class="dj-ev-received">&#10003; Received</div>
+        </div>
+      </div>
+      <p class="dj-ev-note">Submitted 6 September, 14:02 — PromoSlot checks this evidence against the funded agreement and approves it before payment is released.</p>
+    </div>`;
+  return `
+    <div class="dj-anim dj-final">
+      <div class="dj-trow" style="border-top:none"><div class="dj-tk">Deliverable</div><div class="dj-tv acc">Approved</div></div>
+      <div class="dj-trow"><div class="dj-tk">Evidence</div><div class="dj-tv acc">Approved by PromoSlot</div></div>
+      <div class="dj-trow"><div class="dj-tk">Payment status</div><div class="dj-tv">£500 released</div></div>
+      <div class="dj-trow"><div class="dj-tk">Deal record</div><div class="dj-tv">Complete</div></div>
+    </div>
+    <div class="dj-final-cta dj-anim">
+      <a href="#" class="dj-btn dj-btn-p" onclick="event.preventDefault();goHow?goHow():showView('view-landing')">Explore the Marketplace</a>
+      <a href="#" class="dj-btn dj-btn-o" onclick="event.preventDefault();toast('Full Payment Protection details — a dedicated page is coming soon.')">Learn about Payment Protection</a>
+    </div>`;
+}
+function djRender(){
+  const nav=document.getElementById("djNav");
+  if(!nav) return; // component not present on this view
+  djRenderNav();
+  const s=DJ_STAGES[djState.i], last=djState.i===DJ_STAGES.length-1;
+  document.getElementById("djRoleBiz").classList.toggle("on",djState.role==="biz");
+  document.getElementById("djRoleOwn").classList.toggle("on",djState.role!=="biz");
+  document.getElementById("djChip").classList.toggle("on",last);
+  document.getElementById("djChipLabel").textContent=s.status;
+  document.getElementById("djRoleLine").textContent=djState.role==="biz"?s.biz:s.own;
+  document.getElementById("djPanel").innerHTML=djStagePanel(djState.i);
+  document.getElementById("djProgressBar").style.width=((djState.i+1)/DJ_STAGES.length*100)+"%";
+  const backBtn=document.getElementById("djBack");
+  backBtn.disabled=djState.i===0;
+  const nextBtn=document.getElementById("djNext");
+  nextBtn.style.display=last?"none":"inline-flex";
+  nextBtn.innerHTML=s.next?(s.next+' <span aria-hidden="true">&rarr;</span>'):"";
+}
+
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
@@ -4822,7 +4971,8 @@ tourResumeClick,tourHideResume,tourRestart,syncTourResume,maybeOfferTour,tourSta
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
-renderMiniCampaigns,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo};
+renderMiniCampaigns,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
+djSetRole,djGo,djNext,djBack,djNavKey};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
