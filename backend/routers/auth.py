@@ -216,6 +216,20 @@ def update_tour(body: TourIn, user: User = Depends(get_current_user),
     return user
 
 
+@router.post("/profile-viewed", response_model=UserOut)
+def mark_profile_viewed(user: User = Depends(get_current_user),
+                         db: Session = Depends(get_db)):
+    """Record that this account has opened its own profile/account page at
+    least once. Narrow and idempotent, on the same model as /auth/tour -
+    drives the homepage checklist's "set up your public profile" step and
+    nothing else."""
+    if user.profile_setup_viewed_at is None:
+        user.profile_setup_viewed_at = datetime.utcnow()
+        db.commit()
+        db.refresh(user)
+    return user
+
+
 VERIFY_TTL_HOURS = 24
 
 

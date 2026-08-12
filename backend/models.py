@@ -120,6 +120,11 @@ class User(Base):
     # completed tour can then be re-offered without losing what they already saw.
     product_tour_version = Column(String)
 
+    # Set the first time this user opens their own account/profile page.
+    # Drives the homepage "getting started" checklist's "set up your public
+    # profile" step - NULL = not yet, so the checklist item stays open.
+    profile_setup_viewed_at = Column(DateTime)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     @property

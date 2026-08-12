@@ -701,20 +701,44 @@ function landingIsNew(role){
   return false;
 }
 function renderLandingState(){
-  const def=$("heroDefault"), chk=$("heroSignupChecklist"), ret=$("heroReturning");
-  if(!def||!chk||!ret) return;
-  const loggedIn = !!S.account && !!S.activeRole;
-  const isNew = loggedIn && landingIsNew(S.activeRole);
-  const showChecklist = loggedIn && isNew;
-  const showReturning = loggedIn && !isNew;
+  const def=$("heroDefault"), chk=$("heroSignupChecklist"), ret=$("heroReturning"), nr=$("heroNoRole");
+  if(!def||!chk||!ret||!nr) return;
+  const loggedIn = !!S.account;
+  // A logged-in account with zero roles (S.roles empty) can't be "new" or
+  // "returning" for either role — those states presuppose one. This mostly
+  // matters for older accounts; every current signup requires picking at
+  // least one role, so it shouldn't be reachable going forward, but showing
+  // the guest marketing hero to someone who's actually logged in (nav says
+  // "Log out") is more confusing than a dedicated pick-a-role prompt.
+  const hasRole = loggedIn && !!S.roles && S.roles.length>0 && !!S.activeRole;
+  const isNew = hasRole && landingIsNew(S.activeRole);
+  const showNoRole = loggedIn && !hasRole;
+  const showChecklist = hasRole && isNew;
+  const showReturning = hasRole && !isNew;
   def.classList.toggle("hide", loggedIn);
+  nr.classList.toggle("hide", !showNoRole);
   chk.classList.toggle("hide", !showChecklist);
   ret.classList.toggle("hide", !showReturning);
-  if(showChecklist){
-    const el=$("setupAvatarInit");
-    if(el) el.textContent = initials(S.account.display_name||S.account.email||"You");
-  }
+  if(showChecklist) renderSignupChecklist();
   if(showReturning) renderReturningActionCenter();
+}
+function renderSignupChecklist(){
+  const el=$("setupAvatarInit");
+  if(el) el.textContent = initials(S.account.display_name||S.account.email||"You");
+  const viewed = !!S.account.profile_setup_viewed_at;
+  document.querySelectorAll("#heroSignupChecklist .setup-row-profile").forEach(row=>{
+    row.classList.toggle("done", viewed);
+    const check=row.querySelector(".setup-check");
+    if(check) check.innerHTML = viewed ? ICON_CHECK : "";
+    const btn=row.querySelector(".btn");
+    if(btn) btn.textContent = viewed ? "Done" : "Open";
+  });
+  document.querySelectorAll("#heroSignupChecklist .setup-progress-bar").forEach(bar=>{
+    bar.style.width = viewed ? "66%" : "33%";
+  });
+  document.querySelectorAll("#heroSignupChecklist .setup-progress-label").forEach(lbl=>{
+    lbl.textContent = `Getting started · ${viewed?2:1} of 3 complete`;
+  });
 }
 const ICON_MSG='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
 const ICON_CHECK='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
@@ -4317,6 +4341,12 @@ function openAccount(){
   if(!a){ authModal("login"); return; }
   setRoute("account");
   showView("view-account");
+  // Drives the homepage checklist's "set up your public profile" step —
+  // fire-and-forget, same pattern as tourSave(), and idempotent server-side.
+  if(!a.profile_setup_viewed_at){
+    a.profile_setup_viewed_at=new Date().toISOString();
+    PSApi.post("/auth/profile-viewed").then(acct=>{ if(acct) S.account=acct; }).catch(()=>{});
+  }
   $("accountWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>My Account</h2></div>
     <div class="acct-grid">

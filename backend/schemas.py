@@ -84,5 +84,7 @@ class UserOut(BaseModel):
     product_tour_skipped_at: Optional[datetime] = None
     product_tour_current_step: int = 0
     product_tour_version: Optional[str] = None
+    # Drives the homepage checklist's "set up your public profile" step.
+    profile_setup_viewed_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
