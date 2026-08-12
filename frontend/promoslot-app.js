@@ -702,7 +702,6 @@ function landingIsNew(role){
 }
 function renderLandingState(){
   const def=$("heroDefault"), chk=$("heroSignupChecklist"), ret=$("heroReturning"), nr=$("heroNoRole");
-  if(!def||!chk||!ret||!nr) return;
   const loggedIn = !!S.account;
   // A logged-in account with zero roles (S.roles empty) can't be "new" or
   // "returning" for either role — those states presuppose one. This mostly
@@ -712,13 +711,23 @@ function renderLandingState(){
   // "Log out") is more confusing than a dedicated pick-a-role prompt.
   const hasRole = loggedIn && !!S.roles && S.roles.length>0 && !!S.activeRole;
   const isNew = hasRole && landingIsNew(S.activeRole);
+  // showGuest is the ONLY thing that may ever reveal the guest marketing
+  // hero — it is explicitly "not logged in", never inferred from anything
+  // else. #heroDefault also starts with class="hide" in the static markup
+  // (not visible-by-default), so if this function never runs at all —
+  // stale cache, an error earlier in boot, whatever — the failure mode is a
+  // blank landing area, never guest content shown to a signed-in user. Each
+  // block is guarded independently so one missing element (e.g. an old
+  // cached page missing a newer block) can't stop the others from
+  // resolving correctly.
+  const showGuest = !loggedIn;
   const showNoRole = loggedIn && !hasRole;
   const showChecklist = hasRole && isNew;
   const showReturning = hasRole && !isNew;
-  def.classList.toggle("hide", loggedIn);
-  nr.classList.toggle("hide", !showNoRole);
-  chk.classList.toggle("hide", !showChecklist);
-  ret.classList.toggle("hide", !showReturning);
+  if(def) def.classList.toggle("hide", !showGuest);
+  if(nr) nr.classList.toggle("hide", !showNoRole);
+  if(chk) chk.classList.toggle("hide", !showChecklist);
+  if(ret) ret.classList.toggle("hide", !showReturning);
   if(showChecklist) renderSignupChecklist();
   if(showReturning) renderReturningActionCenter();
 }
