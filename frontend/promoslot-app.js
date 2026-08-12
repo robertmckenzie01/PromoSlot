@@ -1704,7 +1704,7 @@ async function openConv(cid){
 }
 function renderMessages(showThread){
   const convos=S.convos||[];
-  const head=`<div class="msgs-head"><h2>Messages</h2><p class="mut" style="font-size:14px">Negotiate freely — when you're ready, move terms into the deal builder so everything is documented and covered by Payment Protection.</p></div>`;
+  const head=`<div class="msgs-head"><h2>Messages</h2></div>`;
   if(!convos.length){
     $("msgsWrap").innerHTML=`${head}
       <div class="empty-state"><div class="es-ico">💬</div><h4>No conversations yet</h4><p>Message a platform owner or business from their profile to start a conversation. Your real threads show up here — nothing is pre-filled.</p><button class="btn btn-o btn-sm" onclick="openMarket()">Browse the marketplace</button></div>`;
