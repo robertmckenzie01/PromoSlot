@@ -884,6 +884,14 @@ function renderHeroChips(){
   const el=$("heroPlatChips"); if(!el) return;
   el.innerHTML = ALL_PLATFORMS.slice(0,7).map(p=>platChipBtn(p)).join("");
 }
+/* Simplified hero (guest-focused): one realistic listing preview instead of
+   the old direction toggle + chip row. Reuses the same example listing (and
+   the same EXAMPLE labelling) already shown in the marketplace, so nothing
+   new is fabricated for the homepage. */
+function renderHeroPreview(){
+  const el=$("heroPreviewCard"); if(!el) return;
+  el.innerHTML = listingCard(LISTINGS[0],0,false);
+}
 function renderPlatBrowseChips(){
   const el=$("platBrowseChips"); if(!el) return;
   el.innerHTML = ALL_PLATFORMS.map(p=>platChipBtn(p)).join("");
@@ -4613,6 +4621,7 @@ function PSBoot(){
   renderMiniMarket();
   renderMiniCampaigns();
   renderHeroChips();
+  renderHeroPreview();
   renderPlatBrowseChips();
   renderFooterSupport();
   syncNav();
