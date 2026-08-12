@@ -181,6 +181,12 @@ b,strong{font-weight:700}
 .dir-btn{border:none;background:none;padding:9px 18px;border-radius:9px;font-size:13.5px;font-weight:700;color:var(--mut);font-family:inherit;transition:all .18s var(--ease)}
 .dir-btn.on{background:var(--acc);color:#fff}
 .trust-line{display:flex;align-items:center;gap:7px;margin-top:16px;font-size:13px;color:var(--mut)}
+.flow-card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.flow-row{display:flex;align-items:center;gap:14px;padding:15px 20px;border-bottom:1px solid var(--line)}
+.flow-row:last-child{border-bottom:none}
+.flow-num{font-size:13px;font-weight:800;color:var(--acc-ink);min-width:20px}
+.flow-t{flex:1;font-size:14px;font-weight:600;color:var(--ink)}
+.flow-s{font-size:12.5px;color:var(--mut)}
 .record-card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
 .record-row{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);color:var(--acc-ink)}
 .record-row:last-child{border-bottom:none}
@@ -1063,16 +1069,12 @@ b,strong{font-weight:700}
     <div class="sec-kicker">How deals work</div>
     <h2 class="sec-title">Protected from agreement to payout</h2>
     <p class="sec-sub">PromoSlot is not the employer, agency or campaign decision-maker. We provide discovery, negotiation tools, deal documentation, secure payment, delivery tracking, evidence and dispute support.</p>
-    <div class="journey">
-      <div class="j-step"><span class="j-num">1</span><h4>Deal funded</h4><p>Business funds the agreed price upfront.</p></div>
-      <span class="j-arrow">→</span>
-      <div class="j-step"><span class="j-num">2</span><h4>Work delivered</h4><p>Promotion is completed as agreed.</p></div>
-      <span class="j-arrow">→</span>
-      <div class="j-step"><span class="j-num">3</span><h4>Proof submitted</h4><p>Links, screenshots and analytics evidence.</p></div>
-      <span class="j-arrow">→</span>
-      <div class="j-step"><span class="j-num">4</span><h4>Approved</h4><p>PromoSlot verifies the evidence meets the agreed criteria.</p></div>
-      <span class="j-arrow">→</span>
-      <div class="j-step"><span class="j-num">5</span><h4>Funds released</h4><p>Payout releases automatically to the platform owner.</p></div>
+    <div class="flow-card">
+      <div class="flow-row"><span class="flow-num">01</span><span class="flow-t">Agree the scope</span><span class="flow-s">Deliverables and price are set before anything is funded.</span></div>
+      <div class="flow-row"><span class="flow-num">02</span><span class="flow-t">Fund the deal</span><span class="flow-s">Business funds the agreed price upfront.</span></div>
+      <div class="flow-row"><span class="flow-num">03</span><span class="flow-t">Deliver the promotion</span><span class="flow-s">Platform owner completes the agreed work.</span></div>
+      <div class="flow-row"><span class="flow-num">04</span><span class="flow-t">Submit evidence</span><span class="flow-s">Links, screenshots and analytics against the agreed criteria.</span></div>
+      <div class="flow-row"><span class="flow-num">05</span><span class="flow-t">Approve and release payment</span><span class="flow-s">PromoSlot verifies the evidence meets the agreed criteria, then payout releases.</span></div>
     </div>
     <div class="sec-kicker" style="margin-top:36px">Proof, not promises</div>
     <h3 class="sec-title" style="font-size:22px;margin:6px 0 14px">What a funded deal actually looks like</h3>
@@ -1082,57 +1084,7 @@ b,strong{font-weight:700}
       <div class="record-row"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span class="rec-t">Evidence required</span><span class="rec-v">Published URL and 14-day analytics</span></div>
       <div class="record-row"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg><span class="rec-t">Current status</span><span class="rec-v">Measurement period active</span></div>
     </div>
-    <p class="sec-sub" style="margin-top:16px">PromoSlot verifies agreed deliverables and evidence — it does not guarantee sales, virality or revenue unless explicitly included in the funded terms. <a href="#" onclick="event.preventDefault();smoothTo($('protectionDetail'))" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Learn about Payment Protection →</a></p>
-    <div class="detail-accordion" id="protectionDetail" style="margin-top:22px">
-      <div class="acc-row">
-        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
-          <span class="acc-num">01</span>
-          <span class="acc-title">Fund protection</span>
-          <span class="acc-plus">+</span>
-        </button>
-        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">The business funds the agreed deal <b>before work starts</b>. The creator knows the money is secured. The business knows nothing is released until the agreed delivery conditions are met.</div></div></div>
-      </div>
-      <div class="acc-row">
-        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
-          <span class="acc-num">02</span>
-          <span class="acc-title">Verified delivery</span>
-          <span class="acc-plus">+</span>
-        </button>
-        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">Platform owners submit proof: published-post links, screenshots, platform analytics, view &amp; impression counts, referral sales, click results, livestream recordings, and live-duration confirmation.</div></div></div>
-      </div>
-      <div class="acc-row">
-        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
-          <span class="acc-num">03</span>
-          <span class="acc-title">Structured payment release</span>
-          <span class="acc-plus">+</span>
-        </button>
-        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">Fixed payment after approved delivery. View-based payment after the measurement period. Monthly payment per placement period. Commission after verified conversions. Hybrid split across milestones.</div></div></div>
-      </div>
-      <div class="acc-row">
-        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
-          <span class="acc-num">04</span>
-          <span class="acc-title">Dispute support</span>
-          <span class="acc-plus">+</span>
-        </button>
-        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">If either party claims non-fulfilment, PromoSlot reviews the accepted terms, content links, evidence, analytics, messages, deadlines and revisions. Decisions follow the <b>agreed deliverables</b> — not whether a brand disliked the commercial outcome.</div></div></div>
-      </div>
-      <div class="acc-row">
-        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
-          <span class="acc-num">05</span>
-          <span class="acc-title">Delivery ≠ performance</span>
-          <span class="acc-plus">+</span>
-        </button>
-        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">A creator may guarantee a video, a 30-minute livestream, 30 days live, minimum impressions or placements. Unless included in a funded performance agreement, they never guarantee sales, virality or revenue.</div></div></div>
-      </div>
-      <div class="acc-row">
-        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
-          <span class="acc-num">06</span>
-          <span class="acc-title">Fraud prevention</span>
-          <span class="acc-plus">+</span>
-        </button>
-        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">Audience analytics evidence on every listing, business verification, review history on both sides, and Payment Protection on every transaction — so neither party works or pays on trust alone.</div></div></div>
-      </div>
-    </div>
+    <p class="sec-sub" style="margin-top:16px">PromoSlot verifies agreed deliverables and evidence — it does not guarantee sales, virality or revenue unless explicitly included in the funded terms. <a href="#" onclick="event.preventDefault();toast('Full Payment Protection details — a dedicated page is coming soon.')" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Learn about Payment Protection →</a></p>
   </section>
 
   <section class="section" id="sec-pricing" style="padding-top:10px">
@@ -1200,11 +1152,11 @@ b,strong{font-weight:700}
         <a href="#" data-act="market-platforms">Browse platform listings</a>
         <a href="#" data-act="market-campaigns">Browse business campaigns</a>
         <a href="#" data-act="how">How it works</a>
-        <a href="#" onclick="event.preventDefault();showView('view-landing');smoothTo($('sec-pricing'))">Pricing</a>
+        <a href="#" onclick="event.preventDefault();showView('view-landing');smoothTo(document.getElementById('sec-pricing'))">Pricing</a>
       </div>
       <div>
         <h4>Company</h4>
-        <a href="#" onclick="event.preventDefault();showView('view-landing');smoothTo($('protectionDetail'))">Payment Protection</a>
+        <a href="#" onclick="event.preventDefault();showView('view-landing');smoothTo(document.getElementById('sec-how'))">Payment Protection</a>
         <div id="footerSupport"></div>
         <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
         <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
