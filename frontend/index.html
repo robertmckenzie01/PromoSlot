@@ -170,6 +170,7 @@ b,strong{font-weight:700}
 .dir-card ul{margin:14px 0 20px 0;list-style:none}
 .dir-card li{font-size:14px;color:var(--ink2);padding:5px 0;display:flex;gap:9px;align-items:flex-start}
 .dir-card li::before{content:"✓";color:var(--money);font-weight:800;flex-shrink:0}
+.dual-market{display:grid;grid-template-columns:1fr 1fr;gap:32px}
 .mini-market{margin-top:32px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .mini-market.hscroll{display:flex;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
 .mini-market.hscroll::-webkit-scrollbar{display:none}
@@ -926,6 +927,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   .role-cards{grid-template-columns:1fr}
   .grid3,.mini-market{grid-template-columns:1fr}
   .mini-market.hscroll{display:flex}
+  .dual-market{grid-template-columns:1fr;gap:40px}
   .dual-dir{grid-template-columns:1fr}
   .pillars,.why3,.pricing-cols{grid-template-columns:1fr}
   .footer-v2 .footer-grid{grid-template-columns:1fr}
@@ -1160,19 +1162,22 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   </div>
 
   <section class="section" style="padding-top:36px">
-    <div class="sec-head-row">
-      <div><div class="sec-kicker">Explore the marketplace</div><h2 class="sec-title">Featured platform owners</h2></div>
-      <button class="btn btn-ghost see-all" data-act="market-platforms">Browse all →</button>
+    <div class="dual-market">
+      <div>
+        <div class="sec-head-row">
+          <div><div class="sec-kicker">Explore the marketplace</div><h2 class="sec-title">Featured platform owners</h2></div>
+          <button class="btn btn-ghost see-all" data-act="market-platforms">Browse all →</button>
+        </div>
+        <div class="mini-market hscroll" id="miniMarket"></div>
+      </div>
+      <div>
+        <div class="sec-head-row">
+          <div><div class="sec-kicker">Businesses publishing now</div><h2 class="sec-title">Active campaigns</h2></div>
+          <button class="btn btn-ghost see-all" data-act="market-campaigns">Browse all →</button>
+        </div>
+        <div class="mini-market hscroll" id="miniCampaigns"></div>
+      </div>
     </div>
-    <div class="mini-market hscroll" id="miniMarket"></div>
-  </section>
-
-  <section class="section" style="padding-top:10px">
-    <div class="sec-head-row">
-      <div><div class="sec-kicker">Businesses publishing now</div><h2 class="sec-title">Active campaigns</h2></div>
-      <button class="btn btn-ghost see-all" data-act="market-campaigns">Browse all →</button>
-    </div>
-    <div class="mini-market hscroll" id="miniCampaigns"></div>
   </section>
 
   <section class="section">
