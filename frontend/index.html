@@ -70,6 +70,10 @@ b,strong{font-weight:700}
 .logo-mark{width:31px;height:31px;border-radius:9px;background:var(--acc);color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;transition:background-color .5s var(--ease)}
 .nav-links{display:flex;gap:2px;margin-left:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
 .nav-links::-webkit-scrollbar{display:none}
+.nav-menu-toggle{display:none;width:36px;height:36px;border-radius:11px;border:1px solid var(--line);
+  background:var(--card);font-size:16px;align-items:center;justify-content:center;flex-shrink:0;
+  transition:all .18s var(--ease)}
+.nav-menu-toggle:hover{border-color:var(--acc-border);background:var(--acc-soft)}
 .nav-link{background:none;border:none;padding:7px 10px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink2);transition:background .15s,color .15s;white-space:nowrap;flex-shrink:0}
 .nav-link:hover{background:rgba(79,70,229,.06);color:var(--ink)}
 .nav-link.active{color:var(--acc-ink);background:var(--acc-soft)}
@@ -408,6 +412,12 @@ b,strong{font-weight:700}
 .op-row:hover{border-color:var(--acc-border);background:var(--acc-soft);transform:translateX(2px)}
 .op-row .pfp{width:34px;height:34px;font-size:13px;border-radius:10px}
 .op-row b{font-size:13.5px}
+/* The text block must be able to shrink/truncate rather than push a trailing
+   button off-screen on a narrow phone — same risk as any flex row with a
+   fixed-width action on one end. */
+.op-row>div{flex:1;min-width:0}
+.op-row>div b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-row .btn,.op-row button{flex-shrink:0}
 .op-row small{color:var(--mut);font-size:12px;display:block}
 .op-go{margin-left:auto;color:var(--acc);font-weight:700;font-size:13px;flex-shrink:0}
 
@@ -791,7 +801,12 @@ b,strong{font-weight:700}
   .role-cards{grid-template-columns:1fr}
   .grid3,.mini-market{grid-template-columns:1fr}
   .dual-dir{grid-template-columns:1fr}
-  .nav-links{display:none}
+  .nav-menu-toggle{display:flex}
+  .nav-links{display:none;position:absolute;top:64px;left:0;right:0;flex-direction:column;
+    gap:2px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:var(--shadow-lg);
+    padding:8px 16px 12px;max-height:calc(100vh - 64px);overflow-y:auto;overflow-x:visible}
+  .nav-links.open{display:flex}
+  .nav-links .nav-link{width:100%;text-align:left;padding:12px 10px}
 }
 @media (max-width:600px){
   .sel-cards{grid-template-columns:1fr}
@@ -861,7 +876,8 @@ b,strong{font-weight:700}
 <nav class="nav">
   <div class="nav-in">
     <button class="logo" data-act="home"><span class="logo-mark">P</span><span class="logo-txt">PromoSlot</span></button>
-    <div class="nav-links">
+    <button class="nav-menu-toggle" id="navMenuToggle" data-act="nav-menu" aria-label="Menu" aria-expanded="false" aria-controls="navLinks">☰</button>
+    <div class="nav-links" id="navLinks">
       <button class="nav-link" id="nl-market" data-act="market">Marketplace</button>
       <button class="nav-link" id="nl-how" data-act="how">How it works</button>
       <button class="nav-link" id="nl-msgs" data-act="messages">Messages<span class="attn-dot hide" id="dot-msgs"></span></button>

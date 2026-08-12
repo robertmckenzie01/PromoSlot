@@ -667,6 +667,7 @@ function setTheme(){
 
 /* ---------- View routing ---------- */
 function showView(id){
+  closeNavMenu();   // any navigation, from any source, retires the mobile menu
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   const el=$(id); el.classList.add("active");
   el.classList.remove("view-anim"); void el.offsetWidth; el.classList.add("view-anim");
@@ -833,6 +834,22 @@ function marketCtaClick(){
   else { S.roles.includes("biz") ? openNewCampaign() : startWizard("biz"); }
 }
 function toggleFilters(){ $("filtersBox").classList.toggle("open"); }
+
+/* ---------- Mobile nav menu ----------
+   Below 900px .nav-links has nowhere to live inline (see index.html), so it
+   becomes a toggleable full-width dropdown instead — same "hide behind a
+   toggle at this width" pattern as the filters panel above. Closes itself on
+   any nav-link click, any outside click, Escape, or any view change (see
+   showView()), so it never gets left open pointing at a stale page. */
+function toggleNavMenu(){
+  const el=$("navLinks"); if(!el) return;
+  const open=el.classList.toggle("open");
+  const t=$("navMenuToggle"); if(t) t.setAttribute("aria-expanded", open?"true":"false");
+}
+function closeNavMenu(){
+  const el=$("navLinks"); if(el) el.classList.remove("open");
+  const t=$("navMenuToggle"); if(t) t.setAttribute("aria-expanded","false");
+}
 function chipsHtml(group,opts){
   return `<div class="f-chips">`+opts.map(o=>`<button class="chip ${S.filters[group].has(o)?"on":""}" onclick="toggleFilter('${group}',this.dataset.v,this)" data-v="${esc(o)}">${esc(o)}</button>`).join("")+`</div>`;
 }
@@ -4504,6 +4521,7 @@ async function applyRoute(r){
 /* ==================== BOOT ==================== */
 const NAV_ACTIONS={
   "home":()=>goHome(),
+  "nav-menu":()=>toggleNavMenu(),
   "get-started":()=>authModal("signup"),
   "login":()=>authModal("login"),
   "logout":()=>doLogout(),
@@ -4543,11 +4561,19 @@ function PSBoot(){
   const _vt=_q.get("verify");
   if(_vt) setTimeout(()=>verifyEmailFromLink(_vt),300);
   loadMarket().then(renderMiniMarket);  // refresh peek with real listings
-  document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); if(e.key==="Escape") closeNavMenu(); });
   document.addEventListener("click",e=>{
     const el=e.target.closest("[data-act]");
-    if(el && NAV_ACTIONS[el.dataset.act]){ e.preventDefault(); NAV_ACTIONS[el.dataset.act](); return; }
+    if(el && NAV_ACTIONS[el.dataset.act]){
+      e.preventDefault(); NAV_ACTIONS[el.dataset.act]();
+      // A link inside the open mobile menu (not the toggle button itself) should
+      // close it — showView() already does this for full page/view switches, but
+      // this covers anything routed through NAV_ACTIONS that doesn't call it.
+      if(el.closest("#navLinks")) closeNavMenu();
+      return;
+    }
     if(notifOpen && !e.target.closest("#notifPop") && !e.target.closest("#navBell")) toggleNotifs(false);
+    if($("navLinks").classList.contains("open") && !e.target.closest("#navLinks") && !e.target.closest("#navMenuToggle")) closeNavMenu();
   });
   bellSync();
 }
