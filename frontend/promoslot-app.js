@@ -835,6 +835,14 @@ function marketCtaClick(){
 }
 function toggleFilters(){ $("filtersBox").classList.toggle("open"); }
 
+/* Homepage "Payment Protection" detail accordion — a premium expand/collapse
+   list (smooth grid-rows height animation, not the native <details> snap),
+   each row independent so a visitor only opens what they care about. */
+function toggleAccRow(headBtn){
+  const row = headBtn.closest(".acc-row");
+  if(row) row.classList.toggle("open");
+}
+
 /* ---------- Homepage: search + platform quick-links ----------
    The hero search bar and the platform chip rows (hero + "Browse by
    platform") are shortcuts into the real marketplace filters, not a
@@ -4632,7 +4640,7 @@ tourResumeClick,tourHideResume,tourRestart,syncTourResume,maybeOfferTour,tourSta
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
-renderMiniCampaigns,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips};
+renderMiniCampaigns,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

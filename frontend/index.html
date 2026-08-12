@@ -199,11 +199,20 @@ b,strong{font-weight:700}
 .pillar{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--card)}
 .pillar h4{font-size:14.5px;margin:10px 0 6px}
 .pillar p{font-size:12.5px;color:var(--mut)}
-.trust-detail{margin-top:22px}
-.trust-detail summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--acc-ink);list-style:none}
-.trust-detail summary::-webkit-details-marker{display:none}
-.trust-detail summary::before{content:"+ ";font-weight:800}
-.trust-detail[open] summary::before{content:"– "}
+.detail-accordion{margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.acc-row{border-bottom:1px solid var(--line)}
+.acc-row:last-child{border-bottom:none}
+.acc-head{display:flex;align-items:center;gap:16px;width:100%;padding:17px 22px;background:transparent;border:none;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s var(--ease)}
+.acc-head:hover{background:var(--bg)}
+.acc-num{font-family:var(--font-d);font-style:italic;font-size:17px;font-weight:600;color:var(--acc-ink);min-width:24px;flex-shrink:0}
+.acc-title{flex:1;font-size:15px;font-weight:700;color:var(--ink)}
+.acc-plus{font-size:23px;font-weight:300;color:var(--faint);line-height:1;transition:transform .3s var(--ease);flex-shrink:0}
+.acc-row.open .acc-plus{transform:rotate(45deg)}
+.acc-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s var(--ease)}
+.acc-row.open .acc-body{grid-template-rows:1fr}
+.acc-body-in{overflow:hidden}
+.acc-body-content{padding:0 22px 22px 62px;font-size:14px;line-height:1.65;color:var(--ink2);opacity:0;transition:opacity .3s ease}
+.acc-row.open .acc-body-content{opacity:1;transition:opacity .3s ease .1s}
 
 .why3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .why-card{border:1px solid var(--line);border-radius:16px;padding:22px;background:var(--card);box-shadow:var(--shadow)}
@@ -1037,30 +1046,69 @@ b,strong{font-weight:700}
       <div class="pillar"><div class="t-ico ico-amb">💸</div><h4>Money-back protection</h4><p>Eligible funds can be returned when agreed deliverables aren't provided.</p></div>
     </div>
     <p class="sec-sub" style="margin-top:14px">10% seller fee + 5% buyer protection fee, calculated on the agreed price and only charged on completed deals.</p>
-    <details class="trust-detail">
-      <summary>See the full delivery, dispute &amp; fraud-prevention details</summary>
-      <div class="grid3" style="margin-top:18px">
-        <div class="tcard"><div class="t-ico ico-grn">🔒</div><h4>Fund protection</h4><p>The business funds the agreed deal <b>before work starts</b>. The creator knows the money is secured. The business knows nothing is released until the agreed delivery conditions are met.</p></div>
-        <div class="tcard"><div class="t-ico ico-acc">✅</div><h4>Verified delivery</h4><p>Platform owners submit proof: published-post links, screenshots, platform analytics, view &amp; impression counts, referral sales, click results, livestream recordings, and live-duration confirmation.</p></div>
-        <div class="tcard"><div class="t-ico ico-amb">💸</div><h4>Structured payment release</h4><p>Fixed payment after approved delivery. View-based payment after the measurement period. Monthly payment per placement period. Commission after verified conversions. Hybrid split across milestones.</p></div>
-        <div class="tcard"><div class="t-ico ico-red">⚖️</div><h4>Dispute support</h4><p>If either party claims non-fulfilment, PromoSlot reviews the accepted terms, content links, evidence, analytics, messages, deadlines and revisions. Decisions follow the <b>agreed deliverables</b> — not whether a brand disliked the commercial outcome.</p></div>
-        <div class="tcard"><div class="t-ico ico-acc">📄</div><h4>Delivery ≠ performance</h4><p>A creator may guarantee a video, a 30-minute livestream, 30 days live, minimum impressions or placements. Unless included in a funded performance agreement, they never guarantee sales, virality or revenue.</p></div>
-        <div class="tcard"><div class="t-ico ico-grn">🛡️</div><h4>Fraud prevention</h4><p>Audience analytics evidence on every listing, business verification, review history on both sides, and Payment Protection on every transaction — so neither party works or pays on trust alone.</p></div>
+    <div class="detail-accordion">
+      <div class="acc-row">
+        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
+          <span class="acc-num">01</span>
+          <span class="acc-title">🔒 Fund protection</span>
+          <span class="acc-plus">+</span>
+        </button>
+        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">The business funds the agreed deal <b>before work starts</b>. The creator knows the money is secured. The business knows nothing is released until the agreed delivery conditions are met.</div></div></div>
       </div>
-      <div class="fee-demo">
-        <div class="fd-col">
-          <h3>Simple pricing: 10% seller fee + 5% buyer protection fee</h3>
-          <p>No subscriptions, no listing fees. Both fees are calculated on the agreed price and only apply to completed deals. On a £500 deal the business pays £525 at checkout, the platform owner receives £450, and PromoSlot's total take is £75.</p>
-        </div>
-        <div class="fee-flow">
-          <div class="fee-pill">£525<small>Business pays (+5% buyer)</small></div>
-          <span class="arrow">→</span>
-          <div class="fee-pill earn">£450<small>Owner receives (−10% seller)</small></div>
-          <span class="arrow">＋</span>
-          <div class="fee-pill">£75<small>PromoSlot (15% total)</small></div>
-        </div>
+      <div class="acc-row">
+        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
+          <span class="acc-num">02</span>
+          <span class="acc-title">✅ Verified delivery</span>
+          <span class="acc-plus">+</span>
+        </button>
+        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">Platform owners submit proof: published-post links, screenshots, platform analytics, view &amp; impression counts, referral sales, click results, livestream recordings, and live-duration confirmation.</div></div></div>
       </div>
-    </details>
+      <div class="acc-row">
+        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
+          <span class="acc-num">03</span>
+          <span class="acc-title">💸 Structured payment release</span>
+          <span class="acc-plus">+</span>
+        </button>
+        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">Fixed payment after approved delivery. View-based payment after the measurement period. Monthly payment per placement period. Commission after verified conversions. Hybrid split across milestones.</div></div></div>
+      </div>
+      <div class="acc-row">
+        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
+          <span class="acc-num">04</span>
+          <span class="acc-title">⚖️ Dispute support</span>
+          <span class="acc-plus">+</span>
+        </button>
+        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">If either party claims non-fulfilment, PromoSlot reviews the accepted terms, content links, evidence, analytics, messages, deadlines and revisions. Decisions follow the <b>agreed deliverables</b> — not whether a brand disliked the commercial outcome.</div></div></div>
+      </div>
+      <div class="acc-row">
+        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
+          <span class="acc-num">05</span>
+          <span class="acc-title">📄 Delivery ≠ performance</span>
+          <span class="acc-plus">+</span>
+        </button>
+        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">A creator may guarantee a video, a 30-minute livestream, 30 days live, minimum impressions or placements. Unless included in a funded performance agreement, they never guarantee sales, virality or revenue.</div></div></div>
+      </div>
+      <div class="acc-row">
+        <button type="button" class="acc-head" onclick="toggleAccRow(this)">
+          <span class="acc-num">06</span>
+          <span class="acc-title">🛡️ Fraud prevention</span>
+          <span class="acc-plus">+</span>
+        </button>
+        <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">Audience analytics evidence on every listing, business verification, review history on both sides, and Payment Protection on every transaction — so neither party works or pays on trust alone.</div></div></div>
+      </div>
+    </div>
+    <div class="fee-demo">
+      <div class="fd-col">
+        <h3>Simple pricing: 10% seller fee + 5% buyer protection fee</h3>
+        <p>No subscriptions, no listing fees. Both fees are calculated on the agreed price and only apply to completed deals. On a £500 deal the business pays £525 at checkout, the platform owner receives £450, and PromoSlot's total take is £75.</p>
+      </div>
+      <div class="fee-flow">
+        <div class="fee-pill">£525<small>Business pays (+5% buyer)</small></div>
+        <span class="arrow">→</span>
+        <div class="fee-pill earn">£450<small>Owner receives (−10% seller)</small></div>
+        <span class="arrow">＋</span>
+        <div class="fee-pill">£75<small>PromoSlot (15% total)</small></div>
+      </div>
+    </div>
   </section>
 
   <section class="section">
