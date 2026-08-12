@@ -3853,11 +3853,10 @@ async function loadMine(){
   ]);
 }
 // Every gated action funnels through here rather than calling authModal()
-// directly, so the bounce count stays accurate. A guest clicking "Log in" in the
-// nav is not a bounce — that goes straight to authModal(). The count only ever
-// drives the ambient nudge's wording; the modal itself is identical every time.
+// directly, for one consistent entry point (defaults to "login" when no mode
+// is given). The modal itself is identical every time regardless of how many
+// gated actions a guest has hit — no escalating copy (see nudgeCopy()).
 function authGate(mode){
-  S._gateBounces = (S._gateBounces||0) + 1;
   authModal(mode||"login");
 }
 
