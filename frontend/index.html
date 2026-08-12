@@ -1361,8 +1361,8 @@ body[data-role="plat"] .role-biz-only{display:none!important}
           <span class="dj-notlive">Not a live transaction</span>
         </div>
         <div class="dj-roletoggle" role="group" aria-label="Choose perspective">
-          <button type="button" class="dj-role-btn on" id="djRoleBiz" onclick="djSetRole('biz')">Business view</button>
-          <button type="button" class="dj-role-btn" id="djRoleOwn" onclick="djSetRole('own')">Platform-owner view</button>
+          <button type="button" class="dj-role-btn on" id="djRoleBiz">Business view</button>
+          <button type="button" class="dj-role-btn" id="djRoleOwn">Platform-owner view</button>
         </div>
       </div>
       <div class="dj-progress-track"><div class="dj-progress-bar" id="djProgressBar" style="width:20%"></div></div>
@@ -1383,8 +1383,8 @@ body[data-role="plat"] .role-biz-only{display:none!important}
           <p class="dj-roleline" id="djRoleLine"></p>
           <div id="djPanel" style="flex:1"></div>
           <div class="dj-foot">
-            <button type="button" class="dj-foot-back" id="djBack" onclick="djBack()">Back</button>
-            <button type="button" class="dj-foot-next" id="djNext" onclick="djNext()">Next<span aria-hidden="true">→</span></button>
+            <button type="button" class="dj-foot-back" id="djBackBtn">Back</button>
+            <button type="button" class="dj-foot-next" id="djNextBtn">Next<span aria-hidden="true">→</span></button>
           </div>
         </div>
       </div>
@@ -1406,21 +1406,21 @@ body[data-role="plat"] .role-biz-only{display:none!important}
           <div class="ps-field">
             <span class="ps-label">Which side of the deal are you on?</span>
             <div class="ps-roles" role="group" aria-label="Select your role">
-              <button type="button" class="ps-role-btn on" id="psRoleBiz" onclick="psPickRole('business')">
+              <button type="button" class="ps-role-btn on" id="psRoleBiz">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 <span>I'm promoting a business</span>
               </button>
-              <button type="button" class="ps-role-btn" id="psRoleOwn" onclick="psPickRole('owner')">
+              <button type="button" class="ps-role-btn" id="psRoleOwn">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 19v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3"/><circle cx="9" cy="7" r="3"/><path d="M17 11a3 3 0 1 0-2-5.2"/><path d="M21 19v-2.5a3.5 3.5 0 0 0-2.4-3.3"/></svg>
                 <span>I own an audience</span>
               </button>
             </div>
           </div>
           <div class="ps-field">
-            <label for="psAmount" class="ps-label">Example deal value</label>
+            <label for="psAmountInput" class="ps-label">Example deal value</label>
             <div class="ps-amount-wrap" id="psAmountWrap">
               <span class="ps-cur" aria-hidden="true">£</span>
-              <input id="psAmount" class="ps-amount-input" type="text" inputmode="decimal" autocomplete="off" aria-describedby="psAmountHelp" value="500" oninput="psAmount(this.value)" onblur="psAmountBlur(this.value)">
+              <input id="psAmountInput" class="ps-amount-input" type="text" inputmode="decimal" autocomplete="off" aria-describedby="psAmountHelp" value="500">
             </div>
             <div id="psAmountHelp" class="ps-help"></div>
             <div class="ps-presets" id="psPresets" role="group" aria-label="Preset deal values"></div>
@@ -1434,7 +1434,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
           <div class="ps-table" id="psTable"></div>
           <p class="ps-foot-note" id="psFootNote"></p>
           <div class="ps-disclosure">
-            <button type="button" class="ps-disclosure-btn" id="psDiscBtn" onclick="psToggleDisclosure()" aria-expanded="false" aria-controls="psPanel">
+            <button type="button" class="ps-disclosure-btn" id="psDiscBtn" aria-expanded="false" aria-controls="psPanel">
               <span>What does PromoSlot support?</span>
               <span class="ps-caret" id="psCaret" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
             </button>

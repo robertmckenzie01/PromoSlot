@@ -4780,7 +4780,9 @@ function PSBoot(){
   renderPlatBrowseChips();
   renderFooterSupport();
   djRender();
+  djBindControls();
   psRender();
+  psBindControls();
   syncNav();
   restoreSession().then(restoreRoute);
   startAttnPolling();
@@ -4950,11 +4952,24 @@ function djRender(){
   document.getElementById("djRoleLine").textContent=djState.role==="biz"?s.biz:s.own;
   document.getElementById("djPanel").innerHTML=djStagePanel(djState.i);
   document.getElementById("djProgressBar").style.width=((djState.i+1)/DJ_STAGES.length*100)+"%";
-  const backBtn=document.getElementById("djBack");
+  const backBtn=document.getElementById("djBackBtn");
   backBtn.disabled=djState.i===0;
-  const nextBtn=document.getElementById("djNext");
+  const nextBtn=document.getElementById("djNextBtn");
   nextBtn.style.display=last?"none":"inline-flex";
   nextBtn.innerHTML=s.next?(s.next+' <span aria-hidden="true">&rarr;</span>'):"";
+}
+// Bound once (not on every render) via addEventListener rather than inline
+// onclick="fn()" attributes. Several of these buttons share an id with the
+// function they call (djBackBtn/djBack, djNextBtn/djNext originally collided
+// before the id rename below) - inline handlers resolve bare identifiers
+// against the element/document scope before the global scope, so a same-named
+// id can shadow the real function and silently no-op the click. Real
+// addEventListener bindings run in normal lexical scope and aren't affected.
+function djBindControls(){
+  document.getElementById("djRoleBiz")?.addEventListener("click",()=>djSetRole("biz"));
+  document.getElementById("djRoleOwn")?.addEventListener("click",()=>djSetRole("own"));
+  document.getElementById("djBackBtn")?.addEventListener("click",djBack);
+  document.getElementById("djNextBtn")?.addEventListener("click",djNext);
 }
 
 // --- Pricing calculator (homepage, #sec-pricing) ---
@@ -5009,7 +5024,7 @@ function psRender(){
   document.getElementById("psRoleBiz").setAttribute("aria-pressed",String(isBusiness));
   document.getElementById("psRoleOwn").setAttribute("aria-pressed",String(!isBusiness));
 
-  const amountInput=document.getElementById("psAmount");
+  const amountInput=document.getElementById("psAmountInput");
   if(document.activeElement!==amountInput) amountInput.value=psState.raw;
   document.getElementById("psAmountWrap").classList.toggle("invalid",!valid);
 
@@ -5066,6 +5081,19 @@ function psRender(){
   psSyncPanelHeight();
 }
 window.addEventListener("resize",()=>{ if(psState.expanded) psSyncPanelHeight(); });
+// Bound once via addEventListener for the same reason as djBindControls() above -
+// psAmountInput previously shared its id ("psAmount") with the psAmount() function
+// it called from an inline oninput attribute, which is the same shadowing hazard.
+function psBindControls(){
+  document.getElementById("psRoleBiz")?.addEventListener("click",()=>psPickRole("business"));
+  document.getElementById("psRoleOwn")?.addEventListener("click",()=>psPickRole("owner"));
+  document.getElementById("psDiscBtn")?.addEventListener("click",psToggleDisclosure);
+  const amt=document.getElementById("psAmountInput");
+  if(amt){
+    amt.addEventListener("input",e=>psAmount(e.target.value));
+    amt.addEventListener("blur",e=>psAmountBlur(e.target.value));
+  }
+}
 
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
