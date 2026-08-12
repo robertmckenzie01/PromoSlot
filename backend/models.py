@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, object_session
 
 from .db import Base
 
@@ -37,7 +37,12 @@ class DealStatus:
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
-    email = Column(String, unique=True, nullable=False, index=True)
+    # No longer globally unique at the column level — a person's two linked
+    # identities (see linked_user_id below) share the same email. Real
+    # uniqueness is enforced per-role by two partial indexes added in the
+    # migration (at most one business identity and one platform-owner
+    # identity per email).
+    email = Column(String, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
     display_name = Column(String)
     is_business = Column(Boolean, default=False, nullable=False)
@@ -45,6 +50,15 @@ class User(Base):
     # Not self-serve: granted out-of-band (scripts/make_reviewer.py). A reviewer
     # is a human on the PromoSlot side who verifies delivery evidence.
     is_reviewer = Column(Boolean, default=False, nullable=False)
+
+    # Self-referential link to this person's OTHER identity under the same
+    # email (business <-> platform-owner). NULL for every single-role account,
+    # including every legacy "both roles on one row" account (never touched,
+    # never linked). A person has at most two identities — always set
+    # symmetrically on both rows in the same transaction (see signup() and
+    # link_profile() in routers/auth.py). Deliberately a plain nullable FK,
+    # not a join table: the ceiling is exactly two, always.
+    linked_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     # ---- Authorization tier (backend permission concept; never a public badge) ----
     # USER | ADMIN | SUPER_ADMIN. Re-read from the DB on every protected request.
@@ -115,6 +129,24 @@ class User(Base):
     @property
     def intro_video_url(self):
         return f"/users/{self.id}/intro-video" if self.intro_video_path else None
+
+    @property
+    def has_published_listing_or_campaign(self) -> bool:
+        """Does this specific identity already have real content of its own?
+        Used only to stop re-offering the 'set up your other profile' upsell
+        once they've actually used it — not a permission check."""
+        sess = object_session(self)
+        if sess is None:
+            return False
+        if self.is_platform_owner:
+            return sess.query(Platform.id).filter(Platform.owner_id == self.id).first() is not None
+        if self.is_business:
+            return sess.query(Campaign.id).filter(Campaign.business_id == self.id).first() is not None
+        return False
+
+    linked_account = relationship(
+        "User", remote_side=[id], foreign_keys=[linked_user_id],
+        uselist=False, post_update=True)
 
 
 class ConnectedAccount(Base):

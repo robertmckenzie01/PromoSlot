@@ -41,5 +41,7 @@
     signup: (b) => req("POST", "/auth/signup", b),
     login: (b) => req("POST", "/auth/login", b),
     logout: () => req("POST", "/auth/logout"),
+    linkProfile: (b) => req("POST", "/auth/link-profile", b),
+    switchAccount: () => req("POST", "/auth/switch-account"),
   };
 })();

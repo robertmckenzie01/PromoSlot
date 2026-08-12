@@ -16,8 +16,8 @@ from ..deps import COOKIE_NAME, assert_active, get_current_user
 from ..mailer import password_reset_email, send_email, welcome_email
 from ..models import (EmailVerificationToken, PasswordResetToken,
                       Session as AuthSession, User)
-from ..schemas import (ChangePasswordIn, ForgotPasswordIn, LoginIn, ResetPasswordIn,
-                       SignupIn, TourIn, VerifyEmailIn, UserOut)
+from ..schemas import (ChangePasswordIn, ForgotPasswordIn, LinkProfileIn, LoginIn,
+                       ResetPasswordIn, SignupIn, TourIn, VerifyEmailIn, UserOut)
 from ..security import hash_password, new_session_token, verify_password
 
 log = logging.getLogger(__name__)
@@ -54,7 +54,9 @@ def find_by_email(db: Session, email: str):
     in — preventing lockouts and duplicate accounts from capitalisation.
     """
     e = (email or "").strip().lower()
-    return db.query(User).filter(func.lower(User.email) == e).first()
+    # Lowest-id row of a linked pair is always the "primary" — see signup().
+    return (db.query(User).filter(func.lower(User.email) == e)
+            .order_by(User.id.asc()).first())
 
 
 # No response_model: signup no longer returns a logged-in user, it returns a
@@ -76,18 +78,48 @@ def signup(body: SignupIn, response: Response, background: BackgroundTasks,
                        "used to create an account. Contact support if you believe "
                        "this is a mistake.")
         raise HTTPException(status_code=409, detail="An account with that email already exists")
+
+    # Choosing both roles now creates two separate, linked identities (own
+    # name each) rather than one blended account — see linked_user_id on User.
+    both = body.is_business and body.is_platform_owner
+    name1 = (body.display_name or "").strip()
+    name2 = (body.second_display_name or "").strip()
+    if both:
+        if not name1 or not name2:
+            raise HTTPException(status_code=422,
+                                detail="Enter a name for both your business and platform-owner profiles")
+        if name1.lower() == name2.lower():
+            raise HTTPException(status_code=422,
+                                detail="Your business and platform-owner profiles need different names")
+
+    # The business identity is always created first when both roles are chosen
+    # together, making it the "primary" identity (see find_by_email above).
     user = User(
         email=email,
         password_hash=hash_password(body.password),
-        display_name=body.display_name,
-        is_business=body.is_business,
-        is_platform_owner=body.is_platform_owner,
+        display_name=name1 or None,
+        is_business=True if both else body.is_business,
+        is_platform_owner=False if both else body.is_platform_owner,
     )
     db.add(user)
+    db.flush()
+
+    if both:
+        secondary = User(
+            email=email, password_hash=user.password_hash,
+            display_name=name2, is_business=False, is_platform_owner=True,
+            linked_user_id=user.id,
+        )
+        db.add(secondary)
+        db.flush()
+        user.linked_user_id = secondary.id
+
     db.commit()
     db.refresh(user)
     # No session here: the account is unusable until the emailed link proves the
     # address is theirs. verified_at stays null and assert_active() blocks login.
+    # One verification email covers both linked identities (same inbox) — see
+    # verify_email() below, which stamps verified_at on the linked row too.
     token = _new_verification_token(db, user)
     # Best effort, and after the response is sent: send_email never raises, but
     # it can block up to its timeout, and a slow mail provider must never delay
@@ -226,6 +258,10 @@ def verify_email(body: VerifyEmailIn, response: Response, db: Session = Depends(
     t.used = True
     if user.verified_at is None:
         user.verified_at = datetime.utcnow()
+        if user.linked_user_id:
+            linked = db.get(User, user.linked_user_id)
+            if linked and linked.verified_at is None:
+                linked.verified_at = user.verified_at
     db.commit()
     db.refresh(user)
 
@@ -233,6 +269,83 @@ def verify_email(body: VerifyEmailIn, response: Response, db: Session = Depends(
     assert_active(user)
     _issue_session(db, user, response)
     return user
+
+
+def _retire_current_session(request: Request, db: Session) -> None:
+    """Delete the session tied to the caller's current cookie, if any — used
+    right before issuing a fresh one for a different identity."""
+    token = request.cookies.get(COOKIE_NAME)
+    if token:
+        sess = db.get(AuthSession, token)
+        if sess:
+            db.delete(sess)
+            db.commit()
+
+
+@router.post("/link-profile", response_model=UserOut)
+def link_profile(body: LinkProfileIn, request: Request, response: Response,
+                 user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Create the caller's second, linked identity (business <-> platform-owner)
+    under the same email, and switch the session straight into it.
+
+    A person has at most two identities. If this account already has a
+    linked_user_id, both roles already exist somewhere in that pair.
+    """
+    if user.linked_user_id is not None:
+        raise HTTPException(status_code=409,
+                            detail="You already have two linked profiles on this email.")
+    wants_business = body.role == "business"
+    if wants_business and user.is_business:
+        raise HTTPException(status_code=409, detail="You already have a business profile.")
+    if not wants_business and user.is_platform_owner:
+        raise HTTPException(status_code=409, detail="You already have a platform-owner profile.")
+
+    name = body.display_name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Enter a name for this profile.")
+    if user.display_name and name.lower() == user.display_name.strip().lower():
+        raise HTTPException(status_code=422,
+                            detail="That name is already used by your other PromoSlot "
+                                   "profile — choose a different one.")
+
+    secondary = User(
+        email=user.email, password_hash=user.password_hash,
+        display_name=name, is_business=wants_business,
+        is_platform_owner=not wants_business,
+        verified_at=user.verified_at,   # same inbox, already proven — no new email
+    )
+    db.add(secondary)
+    db.flush()
+    secondary.linked_user_id = user.id
+    user.linked_user_id = secondary.id
+    db.commit()
+    db.refresh(secondary)
+
+    # Retire the old session and switch straight into the new identity — the
+    # wizard step right after this call needs to be authenticated AS it.
+    _retire_current_session(request, db)
+    _issue_session(db, secondary, response)
+    return secondary
+
+
+@router.post("/switch-account", response_model=UserOut)
+def switch_account(request: Request, response: Response,
+                   user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Swap the active session to this person's other linked identity. Never
+    re-checks a password: linked_user_id is only ever set by the backend
+    itself, inside an already-authenticated action (signup or /link-profile) —
+    never from anything client-supplied — so this can't be used to hop into
+    someone else's account."""
+    if user.linked_user_id is None:
+        raise HTTPException(status_code=409, detail="No linked profile to switch to.")
+    linked = db.get(User, user.linked_user_id)
+    if linked is None:
+        raise HTTPException(status_code=404, detail="Linked profile not found.")
+    assert_active(linked)
+
+    _retire_current_session(request, db)
+    _issue_session(db, linked, response)
+    return linked
 
 
 @router.post("/resend-verification")
@@ -303,6 +416,12 @@ def reset_password(body: ResetPasswordIn, db: Session = Depends(get_db)):
     t.used = True
     # Revoke existing sessions so a stolen session can't outlive the reset.
     db.query(AuthSession).filter(AuthSession.user_id == user.id).delete()
+    # Same real person, same password — keep the linked identity in sync too.
+    if user.linked_user_id:
+        linked = db.get(User, user.linked_user_id)
+        if linked:
+            linked.password_hash = user.password_hash
+            db.query(AuthSession).filter(AuthSession.user_id == linked.id).delete()
     db.commit()
     return {"ok": True}
 
@@ -316,5 +435,10 @@ def change_password(body: ChangePasswordIn, user: User = Depends(get_current_use
     if body.new_password == body.current_password:
         raise HTTPException(status_code=422, detail="New password must be different")
     user.password_hash = hash_password(body.new_password)
+    # Same real person, same password — keep the linked identity in sync too.
+    if user.linked_user_id:
+        linked = db.get(User, user.linked_user_id)
+        if linked:
+            linked.password_hash = user.password_hash
     db.commit()
     return {"ok": True}

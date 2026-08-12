@@ -710,15 +710,54 @@ async function openDash(){
   if(S.activeRole==="biz") renderBizDash(); else renderPlatDash();
 }
 function switchRole(r){
-  if(!S.roles.includes(r)){
-    openModal(`<div class="m-pad"><h3 class="m-title">Set up your ${r==="biz"?"business":"platform-owner"} profile?</h3>
-      <p class="m-sub">You haven't created your ${r==="biz"?"business":"platform-owner"} profile yet. One account covers both roles — set it up in about a minute.</p>
-      <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Not now</button>
-      <button class="btn btn-p" onclick="closeModal();startWizard('${r}')">Set it up</button></div></div>`,"narrow");
+  if(S.roles.includes(r)){
+    S.activeRole=r; setTheme(); syncNav(); openDash();
+    toast(`Switched to your ${r==="biz"?"business":"platform-owner"} dashboard`);
     return;
   }
-  S.activeRole=r; setTheme(); syncNav(); openDash();
-  toast(`Switched to your ${r==="biz"?"business":"platform-owner"} dashboard`);
+  const linked=S.account && S.account.linked_account;
+  const linkedRole = linked ? (linked.is_business?"biz":"plat") : null;
+  if(linked && linkedRole===r){
+    switchToLinkedAccount(r);
+    return;
+  }
+  const label = r==="biz" ? "business" : "platform-owner";
+  openModal(`<div class="m-pad"><h3 class="m-title">Set up your ${label} profile?</h3>
+    <p class="m-sub">This creates a separate, linked profile with its own name — switch between
+      the two anytime from My Account. One login, two identities.</p>
+    <div class="frm"><label>${label==="business"?"Business":"Platform-owner"} name</label>
+      <input type="text" id="lp-name" placeholder="${r==='biz'?'Meadow & Moss':'RobertLifts'}"></div>
+    <div class="hint-err hide" id="lp-err"></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Not now</button>
+    <button class="btn btn-p" id="lp-submit" onclick="confirmLinkProfile('${r}')">Set it up</button></div></div>`,"narrow");
+}
+async function confirmLinkProfile(r){
+  const name=(($("lp-name")||{}).value||"").trim();
+  const err=$("lp-err"); if(err) err.classList.add("hide");
+  if(!name){ if(err){err.textContent="Enter a name for this profile.";err.classList.remove("hide");} return; }
+  if(S.account.display_name && name.toLowerCase()===S.account.display_name.trim().toLowerCase()){
+    if(err){err.textContent="That name is already used by your other PromoSlot profile — choose a different one.";err.classList.remove("hide");}
+    return;
+  }
+  const btn=$("lp-submit"); if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Creating…`; }
+  try{
+    S.account=await PSApi.linkProfile({role: r==="biz"?"business":"platform_owner", display_name:name});
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent="Set it up"; }
+    if(err){ err.textContent=e.message||"Could not set up that profile"; err.classList.remove("hide"); } else toast(e.message||"Could not set up that profile");
+    return;
+  }
+  await loadPerms(); authReflect(); closeModal();
+  S.activeRole=r; setTheme(); syncNav();
+  startWizard(r);
+}
+async function switchToLinkedAccount(r){
+  try{ S.account=await PSApi.switchAccount(); }
+  catch(e){ toast(e.message||"Could not switch accounts"); return; }
+  await loadPerms(); authReflect();
+  S.activeRole=r; setTheme(); syncNav();
+  toast(`Switched to your ${r==="biz"?"business":"platform-owner"} profile`,true);
+  openDash();
 }
 function syncNav(){
   const has=S.roles.length>0;
@@ -1685,7 +1724,7 @@ function renderMessages(showThread){
     thread=`<div class="chat-head">
       <button class="btn btn-ghost conv-back" onclick="renderMessages(false)">←</button>
       ${pfp(t.other_name,null)}<div><b>${esc(t.other_name)}</b><small class="mut" style="color:var(--mut)">Direct message</small></div>${viewBtn}</div>
-    <div style="padding:12px 16px 0"><div class="note blue" style="margin:0">💬 Messages are delivered to <b>${esc(t.other_name)}</b>'s account. Replies appear here only when they actually respond.</div></div>
+    <div style="padding:12px 16px 0"><div class="note grey" style="margin:0"><b>Welcome to Messages.</b> You're free to discuss anything here — pricing, timelines, ideas, whatever's useful. If you do reach an agreement, make sure it's reflected in your listing or campaign, with the other party buying or applying to it. That's what allows PromoSlot to verify delivery and release the correct payout.</div></div>
     <div class="chat-msgs" id="ibMsgs">${threadMsgsHtml(t.messages)}</div>
     <div class="chat-input"><input id="ibInput" autocomplete="off" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendInboxMsg()"><button class="btn btn-p" onclick="sendInboxMsg()">Send</button></div>`;
   }
@@ -2776,7 +2815,8 @@ async function finishBiz(){
   await loadMine(); authReflect();
   S.activeRole="biz"; setTheme();
   const created=S.myCampaigns[0];
-  const isBothFlow = W.kind==="both" && S.account.is_platform_owner && S.myPlatforms.length===0;
+  const linkedP = S.account.linked_account;
+  const isBothFlow = W.kind==="both" && linkedP && linkedP.is_platform_owner && !linkedP.has_published_listing_or_campaign;
   wizSuccess("Your business profile is live 🎉",`“${created?created.title:title}” has been published to the marketplace — platform owners can now apply, accept your terms, or counter-offer.`, isBothFlow?"plat":null);
 }
 async function finishPlat(){
@@ -2789,7 +2829,8 @@ async function finishPlat(){
   await loadMine(); authReflect();
   S.activeRole="plat"; setTheme();
   const created=S.myPlatforms[0];
-  const isBothFlow = W.kind==="both" && S.account.is_business && S.myCampaigns.length===0;
+  const linkedB = S.account.linked_account;
+  const isBothFlow = W.kind==="both" && linkedB && linkedB.is_business && !linkedB.has_published_listing_or_campaign;
   wizSuccess("Your listing is live 🎉",`“${created?created.name:l.name}” is now visible to every business on PromoSlot. Got another audience? You can list each platform you own as its own separate listing.`, isBothFlow?"biz":null, true);
 }
 function confettiBurst(host){
@@ -2813,7 +2854,7 @@ function wizSuccess(title,sub,offerOtherRole,offerAnother){
     <div class="ring"><svg viewBox="0 0 52 52" width="40" height="40"><path class="tick-path" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M14 27l8 8 16-17"/></svg></div>
     <h3>${esc(title)}</h3><p>${esc(sub)}</p>
     <div class="success-actions">
-      ${offerOtherRole?`<button class="btn btn-p btn-lg" onclick="startWizard('${offerOtherRole}')">Set up my ${offerOtherRole==="biz"?"business":"platform-owner"} profile too</button>`:""}
+      ${offerOtherRole?`<button class="btn btn-p btn-lg" onclick="closeModal();switchToLinkedAccount('${offerOtherRole}').then(()=>startWizard('${offerOtherRole}'))">Set up my ${offerOtherRole==="biz"?"business":"platform-owner"} profile too</button>`:""}
       ${offerAnother?`<button class="btn ${offerOtherRole?"btn-o":"btn-p"}" onclick="closeModal();openRegisterPlatform()">＋ Register another platform</button>`:""}
       <button class="btn btn-o" onclick="closeModal();W=null;syncNav();openDash()">Go to my dashboard →</button>
     </div></div></div>`,"",true);
@@ -3837,6 +3878,13 @@ function _resumeAfterAuth(){
 // gated action, the wizard's step-2 gate and the ambient nudge. The left panel
 // is fixed — it never changes with the mode or with how many gates this guest
 // has already hit. Escalating copy belongs to the nudge, not here.
+function _authSyncNameFields(){
+  const biz=$("au-r-biz"), plat=$("au-r-plat"); if(!biz||!plat) return;
+  const both = biz.classList.contains("on") && plat.classList.contains("on");
+  $("au-name2-wrap").classList.toggle("hide", !both);
+  $("au-name-lbl").textContent = both ? "Business name"
+    : plat.classList.contains("on") ? "Platform-owner name" : "Display name";
+}
 function authModal(mode){
   const isSignup = mode==="signup";
   openModal(`<div class="auth-split">
@@ -3856,12 +3904,13 @@ function authModal(mode){
         <h3 class="m-title">${isSignup?"Create your PromoSlot account":"Log in"}</h3>
         <p class="m-sub">${isSignup?"One account — choose one or both roles.":"Welcome back."}</p>
         <div class="frm">
-          ${isSignup?`<div><label>Display name</label><input type="text" id="au-name" placeholder="Robert Media"></div>`:""}
+          ${isSignup?`<div id="au-name-wrap"><label id="au-name-lbl">Display name</label><input type="text" id="au-name" placeholder="Robert Media"></div>
+          <div id="au-name2-wrap" class="hide"><label>Platform-owner name</label><input type="text" id="au-name2" placeholder="RobertLifts"></div>`:""}
           <div><label>Email</label><input type="text" id="au-email" placeholder="you@example.com"></div>
           <div><label>Password</label><input type="password" id="au-pass" placeholder="${isSignup?"At least 8 characters":"Your password"}" onkeydown="if(event.key==='Enter'){${isSignup?"doSignup":"doLogin"}()}"></div>
           ${isSignup?`<div><label>I am a…</label><div class="chips-lg">
-            <button type="button" class="chip" id="au-r-biz" onclick="this.classList.toggle('on')">🏢 Business</button>
-            <button type="button" class="chip" id="au-r-plat" onclick="this.classList.toggle('on')">📣 Platform owner</button>
+            <button type="button" class="chip" id="au-r-biz" onclick="this.classList.toggle('on');_authSyncNameFields()">🏢 Business</button>
+            <button type="button" class="chip" id="au-r-plat" onclick="this.classList.toggle('on');_authSyncNameFields()">📣 Platform owner</button>
           </div></div>`:""}
           <div class="hint-err hide" id="au-err"></div>
           ${isSignup?"":`<p class="mut" style="font-size:12.5px;margin-top:2px">Signed up but never got the verification email?
@@ -3886,12 +3935,20 @@ async function doSignup(){
   const display_name=($("au-name").value||"").trim();
   const is_business=$("au-r-biz").classList.contains("on");
   const is_platform_owner=$("au-r-plat").classList.contains("on");
+  const both = is_business && is_platform_owner;
+  const second_display_name = both ? ($("au-name2").value||"").trim() : null;
   if(!email||!password){ _authErr("Email and password are required."); return; }
   if(!is_business && !is_platform_owner){ _authErr("Select at least one role."); return; }
+  if(both){
+    if(!display_name||!second_display_name){ _authErr("Enter a name for both profiles."); return; }
+    if(display_name.toLowerCase()===second_display_name.toLowerCase()){
+      _authErr("Your business and platform-owner profiles need different names."); return;
+    }
+  }
   const btn=$("au-submit"); btn.disabled=true; btn.textContent="Creating…";
   let res;
   try{
-    res=await PSApi.signup({email,password,display_name:display_name||null,is_business,is_platform_owner});
+    res=await PSApi.signup({email,password,display_name:display_name||null,is_business,is_platform_owner,second_display_name});
   }catch(err){ btn.disabled=false; btn.textContent="Create account"; _authErr(err.message||"Signup failed"); return; }
   // The account exists but cannot be used until the emailed link is clicked, so
   // there is no session to reflect — say what happens next instead.
@@ -4085,6 +4142,23 @@ function openAccount(){
         </div>
         <div style="margin-top:16px"><button class="btn btn-o btn-sm" onclick="doLogout()">Log out</button></div>
       </div></div>
+
+      ${a.linked_account ? `
+      <div class="panel" style="grid-column:1/-1"><div class="panel-b">
+        <h5 style="margin-bottom:8px">Linked profiles</h5>
+        <p class="mut" style="font-size:12.5px;margin-bottom:10px">One login, two identities — switch anytime, no need to log out.</p>
+        <div class="op-row">${avatarBlock(null, a.linked_account.display_name, false)}
+          <div><b>${esc(a.linked_account.display_name||"—")}</b>
+            <small>${a.linked_account.is_business?"Business":"Platform owner"} profile</small></div>
+          <button class="btn btn-p btn-sm" onclick="switchToLinkedAccount('${a.linked_account.is_business?"biz":"plat"}')">Switch to this profile</button></div>
+      </div></div>` : `
+      <div class="panel" style="grid-column:1/-1"><div class="panel-b">
+        <h5 style="margin-bottom:8px">Add another profile</h5>
+        <p class="mut" style="font-size:12.5px;margin-bottom:10px">Run a business and a platform-owner profile from the same login, each with its own name.</p>
+        ${!a.is_business?`<button class="btn btn-o btn-sm" onclick="switchRole('biz')">＋ Set up a business profile</button>`:""}
+        ${!a.is_platform_owner?`<button class="btn btn-o btn-sm" style="margin-left:8px" onclick="switchRole('plat')">＋ Set up a platform-owner profile</button>`:""}
+        ${a.is_business&&a.is_platform_owner?`<p class="mut" style="font-size:12.5px">Both roles are already on this one account (set up before this feature shipped) — nothing to add.</p>`:""}
+      </div></div>`}
 
       <div class="panel"><div class="panel-b">
         <h5 style="margin-bottom:8px">Profile intro video</h5>
@@ -4480,7 +4554,7 @@ function PSBoot(){
 }
 window.PSBoot=PSBoot;
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
