@@ -139,7 +139,7 @@ function reviewsFor(id){
 /* ==================== STATE & HELPERS ==================== */
 const S = {
   roles:[], activeRole:null, biz:null, myPlatforms:[], myCampaigns:[], deals:[],
-  notifications:[], marketTab:"platforms", filters:null, dealSeq:1,
+  notifications:[], marketTab:"platforms", heroDirection:"promotion", filters:null, dealSeq:1,
   convos:[], activeConv:null, activeThread:null,
   attn:{unread:0,review_pending:0,awaiting_payout:0},
   perms:[], myRole:"USER"
@@ -851,16 +851,34 @@ function toggleAccRow(headBtn){
 function heroSearchGo(){
   const v = ($("heroSearchInput")||{}).value || "";
   S.filters.q = v.trim();
-  openMarket("platforms");
+  openMarket(S.heroDirection==="campaigns" ? "campaigns" : "platforms");
 }
 function heroPlatformGo(name){
   resetFilters();
   S.filters.platforms.add(name);
-  openMarket("platforms");
+  openMarket(S.heroDirection==="campaigns" ? "campaigns" : "platforms");
+}
+/* Hero "Find promotion / Find campaigns" toggle — demonstrates the two-sided
+   model directly rather than explaining it. Swaps the search placeholder and
+   which marketplace tab "Explore Marketplace" / the search bar target. */
+function setHeroDirection(dir){
+  S.heroDirection = (dir==="campaigns") ? "campaigns" : "promotion";
+  const isPromo = S.heroDirection==="promotion";
+  document.querySelectorAll("#heroDirToggle .dir-btn").forEach(b=>{
+    b.classList.toggle("on", b.dataset.dir===S.heroDirection);
+  });
+  const input=$("heroSearchInput");
+  if(input) input.placeholder = isPromo
+    ? "Search creators, communities, newsletters and audience platforms"
+    : "Search campaigns by industry, platform, budget or audience";
+  S.marketTab = isPromo ? "platforms" : "campaigns";
 }
 function platChipBtn(p){
+  // Neutral pill + neutral label — only the small icon swatch keeps the
+  // platform's brand colour, so a row of these reads as one calm control
+  // instead of a rainbow of competing colours.
   const m=PLATFORM_META[p];
-  return `<button type="button" class="plat-chip-btn" onclick="heroPlatformGo('${esc(p)}')" style="background:${m.color}14;color:${m.color};border-color:${m.color}33">${m.ico} ${esc(p)}</button>`;
+  return `<button type="button" class="plat-chip-btn" onclick="heroPlatformGo('${esc(p)}')"><span class="pcb-ico" style="background:${m.color}1a;color:${m.color}">${m.ico}</span>${esc(p)}</button>`;
 }
 function renderHeroChips(){
   const el=$("heroPlatChips"); if(!el) return;
@@ -4640,7 +4658,7 @@ tourResumeClick,tourHideResume,tourRestart,syncTourResume,maybeOfferTour,tourSta
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
-renderMiniCampaigns,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow};
+renderMiniCampaigns,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

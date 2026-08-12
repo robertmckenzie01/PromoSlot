@@ -175,6 +175,33 @@ b,strong{font-weight:700}
 .mini-market.hscroll::-webkit-scrollbar{display:none}
 .mini-market.hscroll .lcard,.mini-market.hscroll .example-card{min-width:270px;flex:0 0 270px}
 
+.ic{width:15px;height:15px;stroke-width:2;flex-shrink:0}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--acc-ink);margin-bottom:14px}
+.dir-toggle{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;gap:2px;margin-top:6px}
+.dir-btn{border:none;background:none;padding:9px 18px;border-radius:9px;font-size:13.5px;font-weight:700;color:var(--mut);font-family:inherit;transition:all .18s var(--ease)}
+.dir-btn.on{background:var(--acc);color:#fff}
+.trust-line{display:flex;align-items:center;gap:7px;margin-top:16px;font-size:13px;color:var(--mut)}
+.record-card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.record-row{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);color:var(--acc-ink)}
+.record-row:last-child{border-bottom:none}
+.record-row .rec-t{flex:1;font-size:14px;font-weight:600;color:var(--ink)}
+.record-row .rec-v{font-size:13px;color:var(--mut)}
+.pricing-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px;max-width:680px}
+.price-box{border:1px solid var(--line);border-radius:16px;padding:22px;background:var(--card)}
+.price-box h4{font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin-bottom:6px}
+.price-big{font-size:24px;font-weight:800;margin-bottom:8px}
+.price-box .price-d{font-size:13px;color:var(--mut);margin-bottom:16px}
+.price-rows{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.price-rows div{display:flex;justify-content:space-between}
+.price-rows b{font-weight:700}
+.price-rows .total{border-top:1px dashed var(--line2);padding-top:8px;margin-top:2px}
+.footer-v2{background:#0f172a;color:#94a3b8;border-top:none;margin-top:44px}
+.footer-v2 .footer-grid{max-width:1220px;margin:0 auto;padding:44px 20px 26px;display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:32px;border-bottom:1px solid #1e293b}
+.footer-v2 .footer-grid h4{color:#fff;font-size:14px;margin-bottom:12px;font-family:var(--font-d)}
+.footer-v2 .footer-grid a{display:block;color:#94a3b8;font-size:13.5px;margin-bottom:8px;text-decoration:none}
+.footer-v2 .footer-grid a:hover{color:#fff}
+.footer-v2 #footerSupport{color:#94a3b8;font-size:13.5px;margin-bottom:8px}
+.footer-v2 .footer-bottom{max-width:1220px;margin:0 auto;padding:16px 20px;display:flex;justify-content:space-between;font-size:12.5px;flex-wrap:wrap;gap:10px}
 .hero-v2{background:none;text-align:left;padding:64px 20px 40px}
 .hero-v2 h1{margin:20px 0 0;max-width:680px;font-size:clamp(32px,4.6vw,52px)}
 .hero-v2 p.sub{margin:14px 0 26px 0;max-width:540px;text-align:left}
@@ -182,8 +209,9 @@ b,strong{font-weight:700}
 .hero-search-bar input{flex:1;border:none;outline:none;font-size:14.5px;padding:10px;font-family:inherit;color:var(--ink);background:none}
 .hero-search-bar input::placeholder{color:var(--faint)}
 .chips-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
-.plat-chip-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:12px;padding:9px 15px;font-size:13.5px;font-weight:700;font-family:var(--font-b);transition:all .18s var(--ease)}
-.plat-chip-btn:hover{filter:brightness(.94);transform:translateY(-1px)}
+.plat-chip-btn{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:12px;padding:8px 15px 8px 8px;font-size:13.5px;font-weight:600;font-family:var(--font-b);transition:all .18s var(--ease)}
+.plat-chip-btn:hover{border-color:var(--line2);background:var(--bg)}
+.pcb-ico{width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .hero-ctas{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;align-items:center}
 
 .sec-head-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:4px}
@@ -856,7 +884,8 @@ b,strong{font-weight:700}
   .grid3,.mini-market{grid-template-columns:1fr}
   .mini-market.hscroll{display:flex}
   .dual-dir{grid-template-columns:1fr}
-  .pillars,.why3{grid-template-columns:1fr}
+  .pillars,.why3,.pricing-cols{grid-template-columns:1fr}
+  .footer-v2 .footer-grid{grid-template-columns:1fr}
   .hero-v2{padding:48px 16px 34px}
   .hero-search-bar{max-width:100%}
   .final-cta{padding:32px 22px;margin:40px 16px}
@@ -964,24 +993,29 @@ b,strong{font-weight:700}
 
 <div class="view active view-anim" id="view-landing" data-screen-label="Landing">
   <section class="hero hero-v2">
-    <span class="hero-badge">🔒 Every deal is funded &amp; covered by Payment Protection</span>
+    <div class="eyebrow">Two-sided promotional marketplace</div>
     <h1>Find the right audience for <em>your next campaign</em>.</h1>
     <p class="sub">Discover creators, communities and platforms ready to promote — or list your audience and get discovered by brands.</p>
+    <div class="dir-toggle" id="heroDirToggle">
+      <button type="button" class="dir-btn on" data-dir="promotion" onclick="setHeroDirection('promotion')">Find promotion</button>
+      <button type="button" class="dir-btn" data-dir="campaigns" onclick="setHeroDirection('campaigns')">Find campaigns</button>
+    </div>
     <div class="hero-search-bar">
-      <input type="text" id="heroSearchInput" placeholder="Search TikTok pages, Discord communities, newsletters, creators…" onkeydown="if(event.key==='Enter')heroSearchGo()">
+      <input type="text" id="heroSearchInput" placeholder="Search creators, communities, newsletters and audience platforms" onkeydown="if(event.key==='Enter')heroSearchGo()">
       <button class="btn btn-p btn-sm" onclick="heroSearchGo()">Search</button>
     </div>
     <div class="chips-row" id="heroPlatChips"></div>
     <div class="hero-ctas">
       <button class="btn btn-p btn-lg" data-act="market">Explore Marketplace</button>
-      <button class="btn btn-o btn-lg" data-act="wiz-plat">📣 List Your Platform</button>
-      <button class="btn btn-ghost" data-act="wiz-biz" style="font-weight:800;color:var(--acc-ink)">🏢 Post a campaign →</button>
+      <button class="btn btn-o btn-lg" data-act="wiz-plat">List Your Platform</button>
+      <button class="btn btn-ghost" data-act="wiz-biz" style="font-weight:800;color:var(--acc-ink)">Post a campaign →</button>
     </div>
+    <div class="trust-line"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Funded deals include documented deliverables and Payment Protection.</div>
   </section>
 
   <section class="section" style="padding-top:36px">
     <div class="sec-head-row">
-      <div><div class="sec-kicker">Live right now</div><h2 class="sec-title">Trending platform owners</h2></div>
+      <div><div class="sec-kicker">Explore the marketplace</div><h2 class="sec-title">Featured platform owners</h2></div>
       <button class="btn btn-ghost see-all" data-act="market-platforms">Browse all →</button>
     </div>
     <div class="mini-market hscroll" id="miniMarket"></div>
@@ -989,7 +1023,7 @@ b,strong{font-weight:700}
 
   <section class="section" style="padding-top:10px">
     <div class="sec-head-row">
-      <div><div class="sec-kicker">Businesses buying now</div><h2 class="sec-title">Active campaigns</h2></div>
+      <div><div class="sec-kicker">Businesses publishing now</div><h2 class="sec-title">Active campaigns</h2></div>
       <button class="btn btn-ghost see-all" data-act="market-campaigns">Browse all →</button>
     </div>
     <div class="mini-market hscroll" id="miniCampaigns"></div>
@@ -998,7 +1032,7 @@ b,strong{font-weight:700}
   <section class="section">
     <div class="sec-kicker">A two-way marketplace</div>
     <h2 class="sec-title">Neither side waits for the other</h2>
-    <p class="sec-sub">Unlike Fiverr, both sides openly publish what they want. Platform owners publish services and pricing. Businesses publish campaigns and payment terms. Either side can search, contact, propose, negotiate and buy.</p>
+    <p class="sec-sub">Both sides publish opportunities, discover matches and initiate deals. Platform owners publish services and pricing. Businesses publish campaigns and payment terms.</p>
     <div class="dual-dir">
       <div class="dir-card">
         <span class="tag ind">For businesses</span>
@@ -1026,7 +1060,7 @@ b,strong{font-weight:700}
   </section>
 
   <section class="section" id="sec-how" style="padding-top: 20px;">
-    <div class="sec-kicker">Trust — our core advantage</div>
+    <div class="sec-kicker">How deals work</div>
     <h2 class="sec-title">Protected from agreement to payout</h2>
     <p class="sec-sub">PromoSlot is not the employer, agency or campaign decision-maker. We provide discovery, negotiation tools, deal documentation, secure payment, delivery tracking, evidence and dispute support.</p>
     <div class="journey">
@@ -1040,17 +1074,20 @@ b,strong{font-weight:700}
       <span class="j-arrow">→</span>
       <div class="j-step"><span class="j-num">5</span><h4>Funds released</h4><p>Payout releases automatically to the platform owner.</p></div>
     </div>
-    <div class="pillars">
-      <div class="pillar"><div class="t-ico ico-grn">🔒</div><h4>Secured payment</h4><p>Funds are protected while the agreed promotion is being completed.</p></div>
-      <div class="pillar"><div class="t-ico ico-acc">✅</div><h4>Verified delivery</h4><p>Platform owners submit evidence that agreed deliverables were completed.</p></div>
-      <div class="pillar"><div class="t-ico ico-amb">💸</div><h4>Money-back protection</h4><p>Eligible funds can be returned when agreed deliverables aren't provided.</p></div>
+    <div class="sec-kicker" style="margin-top:36px">Proof, not promises</div>
+    <h3 class="sec-title" style="font-size:22px;margin:6px 0 14px">What a funded deal actually looks like</h3>
+    <div class="record-card">
+      <div class="record-row"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="rec-t">Campaign funded</span><span class="rec-v">£500 secured</span></div>
+      <div class="record-row"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="rec-t">Deliverable</span><span class="rec-v">One TikTok video, live for 30 days</span></div>
+      <div class="record-row"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span class="rec-t">Evidence required</span><span class="rec-v">Published URL and 14-day analytics</span></div>
+      <div class="record-row"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg><span class="rec-t">Current status</span><span class="rec-v">Measurement period active</span></div>
     </div>
-    <p class="sec-sub" style="margin-top:14px">10% seller fee + 5% buyer protection fee, calculated on the agreed price and only charged on completed deals.</p>
-    <div class="detail-accordion">
+    <p class="sec-sub" style="margin-top:16px">PromoSlot verifies agreed deliverables and evidence — it does not guarantee sales, virality or revenue unless explicitly included in the funded terms. <a href="#" onclick="event.preventDefault();smoothTo($('protectionDetail'))" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Learn about Payment Protection →</a></p>
+    <div class="detail-accordion" id="protectionDetail" style="margin-top:22px">
       <div class="acc-row">
         <button type="button" class="acc-head" onclick="toggleAccRow(this)">
           <span class="acc-num">01</span>
-          <span class="acc-title">🔒 Fund protection</span>
+          <span class="acc-title">Fund protection</span>
           <span class="acc-plus">+</span>
         </button>
         <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">The business funds the agreed deal <b>before work starts</b>. The creator knows the money is secured. The business knows nothing is released until the agreed delivery conditions are met.</div></div></div>
@@ -1058,7 +1095,7 @@ b,strong{font-weight:700}
       <div class="acc-row">
         <button type="button" class="acc-head" onclick="toggleAccRow(this)">
           <span class="acc-num">02</span>
-          <span class="acc-title">✅ Verified delivery</span>
+          <span class="acc-title">Verified delivery</span>
           <span class="acc-plus">+</span>
         </button>
         <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">Platform owners submit proof: published-post links, screenshots, platform analytics, view &amp; impression counts, referral sales, click results, livestream recordings, and live-duration confirmation.</div></div></div>
@@ -1066,7 +1103,7 @@ b,strong{font-weight:700}
       <div class="acc-row">
         <button type="button" class="acc-head" onclick="toggleAccRow(this)">
           <span class="acc-num">03</span>
-          <span class="acc-title">💸 Structured payment release</span>
+          <span class="acc-title">Structured payment release</span>
           <span class="acc-plus">+</span>
         </button>
         <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">Fixed payment after approved delivery. View-based payment after the measurement period. Monthly payment per placement period. Commission after verified conversions. Hybrid split across milestones.</div></div></div>
@@ -1074,7 +1111,7 @@ b,strong{font-weight:700}
       <div class="acc-row">
         <button type="button" class="acc-head" onclick="toggleAccRow(this)">
           <span class="acc-num">04</span>
-          <span class="acc-title">⚖️ Dispute support</span>
+          <span class="acc-title">Dispute support</span>
           <span class="acc-plus">+</span>
         </button>
         <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">If either party claims non-fulfilment, PromoSlot reviews the accepted terms, content links, evidence, analytics, messages, deadlines and revisions. Decisions follow the <b>agreed deliverables</b> — not whether a brand disliked the commercial outcome.</div></div></div>
@@ -1082,7 +1119,7 @@ b,strong{font-weight:700}
       <div class="acc-row">
         <button type="button" class="acc-head" onclick="toggleAccRow(this)">
           <span class="acc-num">05</span>
-          <span class="acc-title">📄 Delivery ≠ performance</span>
+          <span class="acc-title">Delivery ≠ performance</span>
           <span class="acc-plus">+</span>
         </button>
         <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">A creator may guarantee a video, a 30-minute livestream, 30 days live, minimum impressions or placements. Unless included in a funded performance agreement, they never guarantee sales, virality or revenue.</div></div></div>
@@ -1090,25 +1127,41 @@ b,strong{font-weight:700}
       <div class="acc-row">
         <button type="button" class="acc-head" onclick="toggleAccRow(this)">
           <span class="acc-num">06</span>
-          <span class="acc-title">🛡️ Fraud prevention</span>
+          <span class="acc-title">Fraud prevention</span>
           <span class="acc-plus">+</span>
         </button>
         <div class="acc-body"><div class="acc-body-in"><div class="acc-body-content">Audience analytics evidence on every listing, business verification, review history on both sides, and Payment Protection on every transaction — so neither party works or pays on trust alone.</div></div></div>
       </div>
     </div>
-    <div class="fee-demo">
-      <div class="fd-col">
-        <h3>Simple pricing: 10% seller fee + 5% buyer protection fee</h3>
-        <p>No subscriptions, no listing fees. Both fees are calculated on the agreed price and only apply to completed deals. On a £500 deal the business pays £525 at checkout, the platform owner receives £450, and PromoSlot's total take is £75.</p>
+  </section>
+
+  <section class="section" id="sec-pricing" style="padding-top:10px">
+    <div class="sec-kicker">Pricing</div>
+    <h2 class="sec-title">Simple pricing. No surprises.</h2>
+    <p class="sec-sub">No subscription and no listing fee. PromoSlot earns when a deal is successfully completed.</p>
+    <div class="pricing-cols">
+      <div class="price-box">
+        <h4>For businesses</h4>
+        <div class="price-big">5% Payment Protection fee</div>
+        <p class="price-d">Shown before funding so you always know the total cost.</p>
+        <div class="price-rows">
+          <div><span class="mut">Agreed campaign</span><b>£500</b></div>
+          <div><span class="mut">Payment Protection fee</span><b>£25</b></div>
+          <div class="total"><span>Total funded</span><b>£525</b></div>
+        </div>
       </div>
-      <div class="fee-flow">
-        <div class="fee-pill">£525<small>Business pays (+5% buyer)</small></div>
-        <span class="arrow">→</span>
-        <div class="fee-pill earn">£450<small>Owner receives (−10% seller)</small></div>
-        <span class="arrow">＋</span>
-        <div class="fee-pill">£75<small>PromoSlot (15% total)</small></div>
+      <div class="price-box">
+        <h4>For platform owners</h4>
+        <div class="price-big">10% service fee</div>
+        <p class="price-d">Deducted from the agreed deal value once the deal is completed.</p>
+        <div class="price-rows">
+          <div><span class="mut">Agreed deal value</span><b>£500</b></div>
+          <div><span class="mut">Service fee</span><b>£50</b></div>
+          <div class="total"><span>You receive</span><b>£450</b></div>
+        </div>
       </div>
     </div>
+    <p style="margin-top:14px"><a href="#" data-act="toast-fees" style="color:var(--acc-ink);font-weight:700;font-size:13.5px;text-decoration:none">View full fees and protection terms →</a></p>
   </section>
 
   <section class="section">
@@ -1136,11 +1189,30 @@ b,strong{font-weight:700}
     </div>
   </div>
 
-  <footer class="footer">
-    <div class="footer-in">
-      <div style="max-width:340px"><b style="color: var(--ink);">PromoSlot</b> · Brands buy traction. Platform owners monetise their reach. PromoSlot protects the deal.</div>
-      <div class="footer-support"><b style="color:var(--ink)">Support</b><div id="footerSupport"></div></div>
-      <div>© 2026 PromoSlot Ltd · <a href="#" data-act="toast-terms">Terms</a> · <a href="#" data-act="toast-privacy">Privacy</a> · <a href="#" data-act="toast-fees">Fees</a></div>
+  <footer class="footer footer-v2">
+    <div class="footer-grid">
+      <div>
+        <h4>PromoSlot</h4>
+        <p style="font-size:13px;line-height:1.7;max-width:300px;color:#94a3b8">Brands buy traction. Platform owners monetise their reach. PromoSlot protects the deal.</p>
+      </div>
+      <div>
+        <h4>Marketplace</h4>
+        <a href="#" data-act="market-platforms">Browse platform listings</a>
+        <a href="#" data-act="market-campaigns">Browse business campaigns</a>
+        <a href="#" data-act="how">How it works</a>
+        <a href="#" onclick="event.preventDefault();showView('view-landing');smoothTo($('sec-pricing'))">Pricing</a>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <a href="#" onclick="event.preventDefault();showView('view-landing');smoothTo($('protectionDetail'))">Payment Protection</a>
+        <div id="footerSupport"></div>
+        <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
+        <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 PromoSlot Ltd</span>
+      <span>All amounts shown in GBP.</span>
     </div>
   </footer>
 </div>
