@@ -701,14 +701,101 @@ function landingIsNew(role){
   return false;
 }
 function renderLandingState(){
-  const def=$("heroDefault"), chk=$("heroSignupChecklist");
-  if(!def||!chk) return;
-  const showChecklist = !!S.account && !!S.activeRole && landingIsNew(S.activeRole);
-  def.classList.toggle("hide", showChecklist);
+  const def=$("heroDefault"), chk=$("heroSignupChecklist"), ret=$("heroReturning");
+  if(!def||!chk||!ret) return;
+  const loggedIn = !!S.account && !!S.activeRole;
+  const isNew = loggedIn && landingIsNew(S.activeRole);
+  const showChecklist = loggedIn && isNew;
+  const showReturning = loggedIn && !isNew;
+  def.classList.toggle("hide", loggedIn);
   chk.classList.toggle("hide", !showChecklist);
+  ret.classList.toggle("hide", !showReturning);
   if(showChecklist){
     const el=$("setupAvatarInit");
     if(el) el.textContent = initials(S.account.display_name||S.account.email||"You");
+  }
+  if(showReturning) renderReturningActionCenter();
+}
+const ICON_MSG='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+const ICON_CHECK='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+/* ---------- Homepage: returning-user action centre ----------
+   Every row here is a real, already-loaded (or one extra real fetch of)
+   signal — no invented deadlines, no fabricated "matching" and no evidence-
+   review items for the account holder, since PromoSlot's reviewer (not the
+   business or the platform owner) verifies delivery. See deal_state.py:
+   only business_approved/owner_approved and unread messages are things the
+   account holder can actually act on themselves. */
+function returningAttnRows(role){
+  const myId=String(S.account.id);
+  const deals=S.realDeals||[];
+  const convos=S.convos||[];
+  const unread=convos.reduce((n,c)=>n+(c.unread||0),0);
+  const mostUnread=convos.filter(c=>c.unread>0).sort((a,b)=>new Date(b.last_at)-new Date(a.last_at))[0];
+  const rows=[];
+  if(role==="biz"){
+    const mine=deals.filter(d=>String(d.business_id)===myId);
+    const awaiting=mine.filter(d=>d.status==="awaiting_approval" && !d.business_approved);
+    if(awaiting.length) rows.push({color:"#dc2626",
+      title:`${awaiting.length} deal${awaiting.length>1?"s":""} awaiting your approval`,
+      sub:`With ${awaiting.slice(0,2).map(d=>esc(d.owner_name)).join(", ")}`, act:"dash"});
+  } else if(role==="plat"){
+    const mine=deals.filter(d=>String(d.platform_owner_id)===myId);
+    const awaiting=mine.filter(d=>d.status==="awaiting_approval" && !d.owner_approved);
+    const changes=mine.filter(d=>d.status==="changes_requested");
+    if(awaiting.length) rows.push({color:"#dc2626",
+      title:`${awaiting.length} deal${awaiting.length>1?"s":""} awaiting your approval`,
+      sub:`With ${awaiting.slice(0,2).map(d=>esc(d.business_name)).join(", ")}`, act:"dash"});
+    if(changes.length) rows.push({color:"#d97706",
+      title:`${changes.length} deal${changes.length>1?"s":""} need${changes.length>1?"":"s"} changes`,
+      sub:"Resubmit evidence after the requested changes", act:"dash"});
+  }
+  if(unread) rows.push({color:"#4f46e5",
+    title:`${unread} unread message${unread>1?"s":""}`,
+    sub: mostUnread?`From ${esc(mostUnread.other_name)}`:"", act:"messages"});
+  return {rows, mostUnread};
+}
+function renderReturningActionCenter(){
+  const role=S.activeRole;
+  const name=(S.account.display_name||S.account.email||"there").split(" ")[0];
+  const greetEl=$("returningGreeting"); if(greetEl) greetEl.textContent=`Welcome back, ${esc(name)}.`;
+
+  const {rows, mostUnread}=returningAttnRows(role);
+  const subEl=$("returningSub");
+  if(subEl) subEl.textContent = rows.length ? "Here's what needs a look." : "You're all caught up.";
+
+  const attnEl=$("returningAttnCard");
+  if(attnEl){
+    attnEl.innerHTML = rows.length
+      ? `<div class="attn-card">${rows.map(r=>`<div class="attn-row"><span class="attn-dot" style="background:${r.color}"></span><div class="attn-t"><h4>${r.title}</h4><p>${r.sub}</p></div><button class="btn btn-o btn-sm" data-act="${r.act}">Open</button></div>`).join("")}</div>`
+      : `<div class="attn-empty-card">${ICON_CHECK}<div><h4>You're all caught up</h4><p>${role==="biz"?"Nothing needs your attention right now — explore the marketplace or check your active campaigns.":"Nothing needs your attention right now — browse open campaigns or check your active deals."}</p></div></div>`;
+  }
+
+  const oppEl=$("returningOppList"), oppTitleEl=$("returningOppTitle");
+  if(oppEl){
+    if(role==="biz"){
+      const real=(S.marketPlatforms||[]).slice(0,6);
+      oppEl.innerHTML = real.length ? real.map((l,i)=>listingCard(l,i,false)).join("") : `<p class="mut" style="font-size:13.5px">No new listings yet — check back soon.</p>`;
+      if(oppTitleEl) oppTitleEl.textContent="Recently published platform owners";
+    } else {
+      const real=(S.marketCampaigns||[]).slice(0,6);
+      oppEl.innerHTML = real.length ? real.map((c,i)=>campaignCard(c,i,false)).join("") : `<p class="mut" style="font-size:13.5px">No new campaigns yet — check back soon.</p>`;
+      if(oppTitleEl) oppTitleEl.textContent="Recently published campaigns";
+    }
+  }
+
+  const actEl=$("returningActivity");
+  if(actEl){
+    const notifs=(S.realNotifs||[]).slice(0,5);
+    actEl.innerHTML = notifs.length
+      ? notifs.map(n=>`<div class="activity-row"><span class="act-time">${relTime(n.created_at)}</span><span>${esc(n.body)}</span></div>`).join("")
+      : `<div class="activity-row"><span class="mut">Nothing yet — updates from your deals and messages appear here.</span></div>`;
+  }
+
+  const nudgeEl=$("returningNudges");
+  if(nudgeEl){
+    const nudges=[];
+    if(mostUnread) nudges.push(`<div class="nudge-card">${ICON_MSG}<div><h4>Reply to ${esc(mostUnread.other_name)}</h4><p>Waiting on your reply</p></div></div>`);
+    nudgeEl.innerHTML = nudges.length ? nudges.join("") : `<p class="mut" style="font-size:13px">Nothing new to flag right now.</p>`;
   }
 }
 function goHow(){ showView("view-landing"); setTimeout(()=>smoothTo($("sec-how")),80); }
@@ -4508,7 +4595,9 @@ async function restoreSession(){
   try{
     S.account=await PSApi.me();          // the httpOnly cookie is the only proof
     live=true;
-    await Promise.all([loadPerms(), loadMine(), loadNotifications()]);
+    // loadDeals()/loadConvos() are added here (not just from the dashboards)
+    // so the homepage action centre has real deal/message data on first load.
+    await Promise.all([loadPerms(), loadMine(), loadNotifications(), loadDeals(), loadConvos()]);
   }catch(e){
     // Expired, revoked, suspended or never signed in — all land here. Treat every
     // one as logged out: drop client state and forget where they were, so a stale
@@ -4660,7 +4749,7 @@ function PSBoot(){
   if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
   const _vt=_q.get("verify");
   if(_vt) setTimeout(()=>verifyEmailFromLink(_vt),300);
-  loadMarket().then(()=>{renderMiniMarket();renderMiniCampaigns();});  // refresh peek with real listings/campaigns
+  loadMarket().then(()=>{renderMiniMarket();renderMiniCampaigns();renderLandingState();});  // refresh peek with real listings/campaigns, and the returning-user opportunities strip once real data is in
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); if(e.key==="Escape") closeNavMenu(); });
   document.addEventListener("click",e=>{
     const el=e.target.closest("[data-act]");

@@ -234,9 +234,28 @@ b,strong{font-weight:700}
 .setup-t{flex:1}
 .setup-t h4{font-size:14.5px;font-weight:700}
 .setup-t p{font-size:12.5px;color:var(--mut);margin-top:2px}
-.role-biz-only,.role-plat-only{display:block}
-body[data-role="biz"] .role-plat-only{display:none}
-body[data-role="plat"] .role-biz-only{display:none}
+body[data-role="biz"] .role-plat-only{display:none!important}
+body[data-role="plat"] .role-biz-only{display:none!important}
+.attn-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.attn-row{display:flex;align-items:center;gap:14px;padding:16px 22px;border-bottom:1px solid var(--line)}
+.attn-row:last-child{border-bottom:none}
+.attn-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.attn-t{flex:1}
+.attn-t h4{font-size:14px;font-weight:700}
+.attn-t p{font-size:12.5px;color:var(--mut);margin-top:2px}
+.attn-empty-card{display:flex;align-items:center;gap:12px;border:1px dashed var(--line2);border-radius:18px;padding:20px 22px;color:var(--mut)}
+.attn-empty-card svg{color:var(--faint);flex-shrink:0}
+.attn-empty-card h4{font-size:14px;font-weight:700;color:var(--ink2)}
+.attn-empty-card p{font-size:12.5px;color:var(--mut);margin-top:2px}
+.two-col-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:20px}
+.activity-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:6px 0}
+.activity-row{display:flex;gap:14px;align-items:baseline;padding:13px 22px;border-bottom:1px solid var(--line);font-size:13.5px}
+.activity-row:last-child{border-bottom:none}
+.act-time{color:var(--faint);font-size:11.5px;min-width:50px;flex-shrink:0}
+.nudge-stack{display:flex;flex-direction:column;gap:12px}
+.nudge-card{background:var(--acc-soft);border:1px solid var(--acc-border);border-radius:14px;padding:16px;display:flex;gap:12px;align-items:flex-start}
+.nudge-card h4{font-size:13.5px;font-weight:700;color:var(--acc-ink)}
+.nudge-card p{font-size:12.5px;color:var(--ink2);margin-top:2px}
 
 .sec-head-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:4px}
 .sec-head-row .see-all{font-weight:800;color:var(--acc-ink);font-size:13.5px;padding:6px 4px}
@@ -913,6 +932,7 @@ body[data-role="plat"] .role-biz-only{display:none}
   .hero-v2{padding:48px 16px 34px}
   .hero-search-bar{max-width:100%}
   .hero-split{grid-template-columns:1fr}
+  .two-col-grid{grid-template-columns:1fr}
   .final-cta{padding:32px 22px;margin:40px 16px}
   .nav-menu-toggle{display:flex}
   .nav-links{display:none;position:absolute;top:64px;left:0;right:0;flex-direction:column;
@@ -1071,6 +1091,54 @@ body[data-role="plat"] .role-biz-only{display:none}
         <button class="btn btn-o btn-lg" onclick="tourBegin()">Take the 2-minute tour</button>
       </div>
       <p class="mut" style="font-size:13px;margin-top:16px"><a href="#" data-act="market-campaigns" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Browse campaigns →</a></p>
+    </div>
+  </section>
+  </div>
+
+  <div id="heroReturning" class="hide">
+  <section class="hero hero-v2" style="padding-bottom:16px">
+    <div class="eyebrow role-biz-only">Business account</div>
+    <div class="eyebrow role-plat-only">Platform owner account</div>
+    <h1 style="font-size:29px" id="returningGreeting">Welcome back.</h1>
+    <p class="sub" id="returningSub"></p>
+    <div class="hero-ctas role-biz-only">
+      <button class="btn btn-p btn-lg" data-act="wiz-biz">Post a campaign</button>
+      <button class="btn btn-o btn-lg" data-act="market-platforms">Find platform owners</button>
+    </div>
+    <div class="hero-ctas role-plat-only">
+      <button class="btn btn-p btn-lg" data-act="market-campaigns">Find campaigns</button>
+      <button class="btn btn-o btn-lg" data-act="dash">Manage my platforms</button>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <div class="sec-head-row" style="margin-bottom:16px">
+      <div><div class="sec-kicker">Needs your attention</div><h2 class="sec-title">Do these next</h2></div>
+    </div>
+    <div id="returningAttnCard"></div>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <div class="sec-head-row">
+      <div><div class="sec-kicker">New on the marketplace</div><h2 class="sec-title" id="returningOppTitle">Recently published</h2></div>
+      <button class="btn btn-ghost see-all role-biz-only" data-act="market-platforms">Browse all →</button>
+      <button class="btn btn-ghost see-all role-plat-only" data-act="market-campaigns">Browse all →</button>
+    </div>
+    <div class="mini-market hscroll" id="returningOppList"></div>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <div class="two-col-grid">
+      <div>
+        <div class="sec-kicker">Recent activity</div>
+        <h2 class="sec-title" style="margin-bottom:14px">What's happened lately</h2>
+        <div class="activity-card" id="returningActivity"></div>
+      </div>
+      <div>
+        <div class="sec-kicker">For your account</div>
+        <h2 class="sec-title" style="margin-bottom:14px">Worth a look</h2>
+        <div class="nudge-stack" id="returningNudges"></div>
+      </div>
     </div>
   </section>
   </div>
