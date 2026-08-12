@@ -835,6 +835,34 @@ function marketCtaClick(){
 }
 function toggleFilters(){ $("filtersBox").classList.toggle("open"); }
 
+/* ---------- Homepage: search + platform quick-links ----------
+   The hero search bar and the platform chip rows (hero + "Browse by
+   platform") are shortcuts into the real marketplace filters, not a
+   separate search system — they just set S.filters and hand off to the
+   same openMarket() the rest of the app already uses. */
+function heroSearchGo(){
+  const v = ($("heroSearchInput")||{}).value || "";
+  S.filters.q = v.trim();
+  openMarket("platforms");
+}
+function heroPlatformGo(name){
+  resetFilters();
+  S.filters.platforms.add(name);
+  openMarket("platforms");
+}
+function platChipBtn(p){
+  const m=PLATFORM_META[p];
+  return `<button type="button" class="plat-chip-btn" onclick="heroPlatformGo('${esc(p)}')" style="background:${m.color}14;color:${m.color};border-color:${m.color}33">${m.ico} ${esc(p)}</button>`;
+}
+function renderHeroChips(){
+  const el=$("heroPlatChips"); if(!el) return;
+  el.innerHTML = ALL_PLATFORMS.slice(0,7).map(p=>platChipBtn(p)).join("");
+}
+function renderPlatBrowseChips(){
+  const el=$("platBrowseChips"); if(!el) return;
+  el.innerHTML = ALL_PLATFORMS.map(p=>platChipBtn(p)).join("");
+}
+
 /* ---------- Mobile nav menu ----------
    Below 900px .nav-links has nowhere to live inline (see index.html), so it
    becomes a toggleable full-width dropdown instead — same "hide behind a
@@ -990,9 +1018,16 @@ function renderMarketNow(){
       </div>`;
 }
 function renderMiniMarket(){
+  const el=$("miniMarket"); if(!el) return;
   const reals=(S.marketPlatforms||[]).slice(0,3);
   const picks = reals.length ? reals : [LISTINGS[0]];
-  $("miniMarket").innerHTML=picks.map((l,i)=>listingCard(l,i)).join("");
+  el.innerHTML=picks.map((l,i)=>listingCard(l,i)).join("");
+}
+function renderMiniCampaigns(){
+  const el=$("miniCampaigns"); if(!el) return;
+  const reals=(S.marketCampaigns||[]).slice(0,3);
+  const picks = reals.length ? reals : [CAMPAIGNS[0]];
+  el.innerHTML=picks.map((c,i)=>campaignCard(c,i)).join("");
 }
 
 /* ==================== LISTING DETAIL ==================== */
@@ -4550,6 +4585,9 @@ const NAV_ACTIONS={
 };
 function PSBoot(){
   renderMiniMarket();
+  renderMiniCampaigns();
+  renderHeroChips();
+  renderPlatBrowseChips();
   renderFooterSupport();
   syncNav();
   restoreSession().then(restoreRoute);
@@ -4560,7 +4598,7 @@ function PSBoot(){
   if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
   const _vt=_q.get("verify");
   if(_vt) setTimeout(()=>verifyEmailFromLink(_vt),300);
-  loadMarket().then(renderMiniMarket);  // refresh peek with real listings
+  loadMarket().then(()=>{renderMiniMarket();renderMiniCampaigns();});  // refresh peek with real listings/campaigns
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); if(e.key==="Escape") closeNavMenu(); });
   document.addEventListener("click",e=>{
     const el=e.target.closest("[data-act]");
@@ -4593,7 +4631,8 @@ tourBegin,tourDismissWelcome,tourNext,tourBack,tourSkip,tourFinish,
 tourResumeClick,tourHideResume,tourRestart,syncTourResume,maybeOfferTour,tourStart,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
-restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign};
+restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
+renderMiniCampaigns,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

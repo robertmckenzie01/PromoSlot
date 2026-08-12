@@ -171,6 +171,51 @@ b,strong{font-weight:700}
 .dir-card li{font-size:14px;color:var(--ink2);padding:5px 0;display:flex;gap:9px;align-items:flex-start}
 .dir-card li::before{content:"✓";color:var(--money);font-weight:800;flex-shrink:0}
 .mini-market{margin-top:32px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.mini-market.hscroll{display:flex;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.mini-market.hscroll::-webkit-scrollbar{display:none}
+.mini-market.hscroll .lcard,.mini-market.hscroll .example-card{min-width:270px;flex:0 0 270px}
+
+.hero-v2{background:none;text-align:left;padding:64px 20px 40px}
+.hero-v2 h1{margin:20px 0 0;max-width:680px;font-size:clamp(32px,4.6vw,52px)}
+.hero-v2 .sub{margin:14px 0 26px;max-width:540px;text-align:left}
+.hero-search-bar{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:8px;display:flex;align-items:center;gap:8px;max-width:640px}
+.hero-search-bar input{flex:1;border:none;outline:none;font-size:14.5px;padding:10px;font-family:inherit;color:var(--ink);background:none}
+.hero-search-bar input::placeholder{color:var(--faint)}
+.chips-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.plat-chip-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:12px;padding:9px 15px;font-size:13.5px;font-weight:700;font-family:var(--font-b);transition:all .18s var(--ease)}
+.plat-chip-btn:hover{filter:brightness(.94);transform:translateY(-1px)}
+.hero-ctas{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;align-items:center}
+
+.sec-head-row{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:4px}
+.sec-head-row .see-all{font-weight:800;color:var(--acc-ink);font-size:13.5px;padding:6px 4px}
+
+.journey{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:22px 0 6px;margin-top:26px}
+.j-step{display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1}
+.j-num{width:26px;height:26px;border-radius:8px;background:var(--acc-soft);color:var(--acc-ink);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.j-step h4{font-size:14.5px}
+.j-step p{font-size:12.5px;color:var(--mut)}
+.j-arrow{color:var(--faint);font-size:18px;padding:9px 6px 0}
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:8px}
+.pillar{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--card)}
+.pillar h4{font-size:14.5px;margin:10px 0 6px}
+.pillar p{font-size:12.5px;color:var(--mut)}
+.trust-detail{margin-top:22px}
+.trust-detail summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--acc-ink);list-style:none}
+.trust-detail summary::-webkit-details-marker{display:none}
+.trust-detail summary::before{content:"+ ";font-weight:800}
+.trust-detail[open] summary::before{content:"– "}
+
+.why3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.why-card{border:1px solid var(--line);border-radius:16px;padding:22px;background:var(--card);box-shadow:var(--shadow)}
+.why-card h4{font-size:16px;margin-bottom:8px}
+.why-card p{font-size:13.5px;color:var(--mut)}
+
+.final-cta{background:#0f172a;border-radius:24px;padding:48px;text-align:center;max-width:1180px;margin:56px auto}
+.final-cta h2{color:#fff;font-size:clamp(24px,3vw,32px)}
+.final-cta p{color:#94a3b8;margin:10px 0 22px;font-size:14.5px}
+.split-cta{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.final-cta-o{background:transparent;border-color:#334155;color:#fff}
+.final-cta-o:hover{background:rgba(255,255,255,.08);border-color:#475569;color:#fff}
 .footer{border-top:1px solid var(--line);background:var(--card);margin-top:44px}
 .footer-in{max-width:1220px;margin:0 auto;padding:38px 20px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;color:var(--mut);font-size:13.5px}
 
@@ -800,7 +845,12 @@ b,strong{font-weight:700}
   .f-toggle{display:inline-flex}
   .role-cards{grid-template-columns:1fr}
   .grid3,.mini-market{grid-template-columns:1fr}
+  .mini-market.hscroll{display:flex}
   .dual-dir{grid-template-columns:1fr}
+  .pillars,.why3{grid-template-columns:1fr}
+  .hero-v2{padding:48px 16px 34px}
+  .hero-search-bar{max-width:100%}
+  .final-cta{padding:32px 22px;margin:40px 16px}
   .nav-menu-toggle{display:flex}
   .nav-links{display:none;position:absolute;top:64px;left:0;right:0;flex-direction:column;
     gap:2px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:var(--shadow-lg);
@@ -904,36 +954,36 @@ b,strong{font-weight:700}
 </nav>
 
 <div class="view active view-anim" id="view-landing" data-screen-label="Landing">
-  <section class="hero">
-    <span class="hero-badge">🔒 Every deal is funded &amp; covered by Payment Protection · 10% seller fee + 5% buyer protection fee, only when a deal completes</span>
-    <h1>The marketplace where <em>brands find audiences</em> and audience owners find <em class="gold">paid opportunities</em>.</h1>
-    <p class="sub">Brands buy traction. Platform owners monetise their reach. PromoSlot protects the deal.</p>
-    <div class="role-cards" id="roleCards">
-      <div class="role-card" data-act="wiz-biz">
-        <div class="rc-ico ico-acc">🏢</div>
-        <h3>I'm a Business Owner</h3>
-        <p>Publish campaigns, set your payment terms, and buy promotion from real, vetted platform owners.</p>
-        <div class="rc-cta"><span>Set up my business profile</span><span>→</span></div>
-      </div>
-      <div class="role-card" data-act="wiz-plat">
-        <div class="rc-ico ico-grn">📣</div>
-        <h3>I'm a Platform Owner</h3>
-        <p>List your TikTok, Instagram, Discord, newsletter or channel. Set your own services &amp; prices.</p>
-        <div class="rc-cta"><span>List my platforms</span><span>→</span></div>
-      </div>
-      <div class="role-card" data-act="wiz-both">
-        <div class="rc-ico ico-amb">🔁</div>
-        <h3>I'm Both</h3>
-        <p>One account, two dashboards. Run campaigns for your brand and monetise your own audience.</p>
-        <div class="rc-cta"><span>Set up both profiles</span><span>→</span></div>
-      </div>
+  <section class="hero hero-v2">
+    <span class="hero-badge">🔒 Every deal is funded &amp; covered by Payment Protection</span>
+    <h1>Find the right audience for <em>your next campaign</em>.</h1>
+    <p class="sub">Discover creators, communities and platforms ready to promote — or list your audience and get discovered by brands.</p>
+    <div class="hero-search-bar">
+      <input type="text" id="heroSearchInput" placeholder="Search TikTok pages, Discord communities, newsletters, creators…" onkeydown="if(event.key==='Enter')heroSearchGo()">
+      <button class="btn btn-p btn-sm" onclick="heroSearchGo()">Search</button>
     </div>
-    <div class="hero-proof">
-      <div><b>Est. July 2026</b></div>
-      <div><b>Cohort now open</b></div>
-      <div><b>Reviewed by hand</b></div>
-      <div><b>Built in public</b></div>
+    <div class="chips-row" id="heroPlatChips"></div>
+    <div class="hero-ctas">
+      <button class="btn btn-p btn-lg" data-act="market">Explore Marketplace</button>
+      <button class="btn btn-o btn-lg" data-act="wiz-plat">📣 List Your Platform</button>
+      <button class="btn btn-ghost" data-act="wiz-biz" style="font-weight:800;color:var(--acc-ink)">🏢 Post a campaign →</button>
     </div>
+  </section>
+
+  <section class="section" style="padding-top:36px">
+    <div class="sec-head-row">
+      <div><div class="sec-kicker">Live right now</div><h2 class="sec-title">Trending platform owners</h2></div>
+      <button class="btn btn-ghost see-all" data-act="market-platforms">Browse all →</button>
+    </div>
+    <div class="mini-market hscroll" id="miniMarket"></div>
+  </section>
+
+  <section class="section" style="padding-top:10px">
+    <div class="sec-head-row">
+      <div><div class="sec-kicker">Businesses buying now</div><h2 class="sec-title">Active campaigns</h2></div>
+      <button class="btn btn-ghost see-all" data-act="market-campaigns">Browse all →</button>
+    </div>
+    <div class="mini-market hscroll" id="miniCampaigns"></div>
   </section>
 
   <section class="section">
@@ -968,37 +1018,75 @@ b,strong{font-weight:700}
 
   <section class="section" id="sec-how" style="padding-top: 20px;">
     <div class="sec-kicker">Trust — our core advantage</div>
-    <h2 class="sec-title">PromoSlot protects the transaction. You control the deal.</h2>
-    <p class="sec-sub">PromoSlot is not the employer, agency or campaign decision-maker. We provide discovery, negotiation tools, deal documentation, secure payment, delivery tracking, evidence, reviews, dispute support and fraud prevention.</p>
-    <div class="grid3">
-      <div class="tcard"><div class="t-ico ico-grn">🔒</div><h4>Fund protection</h4><p>The business funds the agreed deal <b>before work starts</b>. The creator knows the money is secured. The business knows nothing is released until the agreed delivery conditions are met.</p></div>
-      <div class="tcard"><div class="t-ico ico-acc">✅</div><h4>Verified delivery</h4><p>Platform owners submit proof: published-post links, screenshots, platform analytics, view &amp; impression counts, referral sales, click results, livestream recordings, and live-duration confirmation.</p></div>
-      <div class="tcard"><div class="t-ico ico-amb">💸</div><h4>Structured payment release</h4><p>Fixed payment after approved delivery. View-based payment after the measurement period. Monthly payment per placement period. Commission after verified conversions. Hybrid split across milestones.</p></div>
-      <div class="tcard"><div class="t-ico ico-red">⚖️</div><h4>Dispute support</h4><p>If either party claims non-fulfilment, PromoSlot reviews the accepted terms, content links, evidence, analytics, messages, deadlines and revisions. Decisions follow the <b>agreed deliverables</b> — not whether a brand disliked the commercial outcome.</p></div>
-      <div class="tcard"><div class="t-ico ico-acc">📄</div><h4>Delivery ≠ performance</h4><p>A creator may guarantee a video, a 30-minute livestream, 30 days live, minimum impressions or placements. Unless included in a funded performance agreement, they never guarantee sales, virality or revenue.</p></div>
-      <div class="tcard"><div class="t-ico ico-grn">🛡️</div><h4>Fraud prevention</h4><p>Audience analytics evidence on every listing, business verification, review history on both sides, and Payment Protection on every transaction — so neither party works or pays on trust alone.</p></div>
+    <h2 class="sec-title">Protected from agreement to payout</h2>
+    <p class="sec-sub">PromoSlot is not the employer, agency or campaign decision-maker. We provide discovery, negotiation tools, deal documentation, secure payment, delivery tracking, evidence and dispute support.</p>
+    <div class="journey">
+      <div class="j-step"><span class="j-num">1</span><h4>Deal funded</h4><p>Business funds the agreed price upfront.</p></div>
+      <span class="j-arrow">→</span>
+      <div class="j-step"><span class="j-num">2</span><h4>Work delivered</h4><p>Promotion is completed as agreed.</p></div>
+      <span class="j-arrow">→</span>
+      <div class="j-step"><span class="j-num">3</span><h4>Proof submitted</h4><p>Links, screenshots and analytics evidence.</p></div>
+      <span class="j-arrow">→</span>
+      <div class="j-step"><span class="j-num">4</span><h4>Approved</h4><p>Business reviews the completed work.</p></div>
+      <span class="j-arrow">→</span>
+      <div class="j-step"><span class="j-num">5</span><h4>Funds released</h4><p>Payout reaches the platform owner.</p></div>
     </div>
-    <div class="fee-demo">
-      <div class="fd-col">
-        <h3>Simple pricing: 10% seller fee + 5% buyer protection fee</h3>
-        <p>No subscriptions, no listing fees. Both fees are calculated on the agreed price and only apply to completed deals. On a £500 deal the business pays £525 at checkout, the platform owner receives £450, and PromoSlot's total take is £75.</p>
+    <div class="pillars">
+      <div class="pillar"><div class="t-ico ico-grn">🔒</div><h4>Secured payment</h4><p>Funds are protected while the agreed promotion is being completed.</p></div>
+      <div class="pillar"><div class="t-ico ico-acc">✅</div><h4>Verified delivery</h4><p>Platform owners submit evidence that agreed deliverables were completed.</p></div>
+      <div class="pillar"><div class="t-ico ico-amb">💸</div><h4>Money-back protection</h4><p>Eligible funds can be returned when agreed deliverables aren't provided.</p></div>
+    </div>
+    <p class="sec-sub" style="margin-top:14px">10% seller fee + 5% buyer protection fee, calculated on the agreed price and only charged on completed deals.</p>
+    <details class="trust-detail">
+      <summary>See the full delivery, dispute &amp; fraud-prevention details</summary>
+      <div class="grid3" style="margin-top:18px">
+        <div class="tcard"><div class="t-ico ico-grn">🔒</div><h4>Fund protection</h4><p>The business funds the agreed deal <b>before work starts</b>. The creator knows the money is secured. The business knows nothing is released until the agreed delivery conditions are met.</p></div>
+        <div class="tcard"><div class="t-ico ico-acc">✅</div><h4>Verified delivery</h4><p>Platform owners submit proof: published-post links, screenshots, platform analytics, view &amp; impression counts, referral sales, click results, livestream recordings, and live-duration confirmation.</p></div>
+        <div class="tcard"><div class="t-ico ico-amb">💸</div><h4>Structured payment release</h4><p>Fixed payment after approved delivery. View-based payment after the measurement period. Monthly payment per placement period. Commission after verified conversions. Hybrid split across milestones.</p></div>
+        <div class="tcard"><div class="t-ico ico-red">⚖️</div><h4>Dispute support</h4><p>If either party claims non-fulfilment, PromoSlot reviews the accepted terms, content links, evidence, analytics, messages, deadlines and revisions. Decisions follow the <b>agreed deliverables</b> — not whether a brand disliked the commercial outcome.</p></div>
+        <div class="tcard"><div class="t-ico ico-acc">📄</div><h4>Delivery ≠ performance</h4><p>A creator may guarantee a video, a 30-minute livestream, 30 days live, minimum impressions or placements. Unless included in a funded performance agreement, they never guarantee sales, virality or revenue.</p></div>
+        <div class="tcard"><div class="t-ico ico-grn">🛡️</div><h4>Fraud prevention</h4><p>Audience analytics evidence on every listing, business verification, review history on both sides, and Payment Protection on every transaction — so neither party works or pays on trust alone.</p></div>
       </div>
-      <div class="fee-flow">
-        <div class="fee-pill">£525<small>Business pays (+5% buyer)</small></div>
-        <span class="arrow">→</span>
-        <div class="fee-pill earn">£450<small>Owner receives (−10% seller)</small></div>
-        <span class="arrow">＋</span>
-        <div class="fee-pill">£75<small>PromoSlot (15% total)</small></div>
+      <div class="fee-demo">
+        <div class="fd-col">
+          <h3>Simple pricing: 10% seller fee + 5% buyer protection fee</h3>
+          <p>No subscriptions, no listing fees. Both fees are calculated on the agreed price and only apply to completed deals. On a £500 deal the business pays £525 at checkout, the platform owner receives £450, and PromoSlot's total take is £75.</p>
+        </div>
+        <div class="fee-flow">
+          <div class="fee-pill">£525<small>Business pays (+5% buyer)</small></div>
+          <span class="arrow">→</span>
+          <div class="fee-pill earn">£450<small>Owner receives (−10% seller)</small></div>
+          <span class="arrow">＋</span>
+          <div class="fee-pill">£75<small>PromoSlot (15% total)</small></div>
+        </div>
       </div>
+    </details>
+  </section>
+
+  <section class="section">
+    <div class="sec-kicker">Browse by platform</div>
+    <h2 class="sec-title" style="margin-bottom:18px">Every channel that carries an audience</h2>
+    <div class="chips-row" id="platBrowseChips"></div>
+  </section>
+
+  <section class="section">
+    <div class="sec-kicker">Why PromoSlot</div>
+    <h2 class="sec-title" style="margin-bottom:18px">Built for both sides of the deal</h2>
+    <div class="why3">
+      <div class="why-card"><h4>Direct access</h4><p>Connect businesses directly with people who already own relevant audiences.</p></div>
+      <div class="why-card"><h4>Flexible deals</h4><p>Both sides control pricing, deliverables and commercial terms.</p></div>
+      <div class="why-card"><h4>Protected transactions</h4><p>Structured payment and verification make online promotion safer for both sides.</p></div>
     </div>
   </section>
 
-  <section class="section" style="padding-top: 10px;">
-    <div class="sec-kicker">Live right now</div>
-    <h2 class="sec-title">A peek at the marketplace</h2>
-    <div class="mini-market" id="miniMarket"></div>
-    <div style="text-align: center; margin-top: 28px;"><button class="btn btn-p btn-lg" data-act="market">Explore the full marketplace</button></div>
-  </section>
+  <div class="final-cta">
+    <h2>Ready to start?</h2>
+    <p>Find promotion for your brand, or monetise the audience you've already built.</p>
+    <div class="split-cta">
+      <button class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</button>
+      <button class="btn btn-o btn-lg final-cta-o" data-act="wiz-plat">Monetise your audience</button>
+    </div>
+  </div>
 
   <footer class="footer">
     <div class="footer-in">
