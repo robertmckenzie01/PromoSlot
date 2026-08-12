@@ -293,6 +293,58 @@ b,strong{font-weight:700}
 .price-rows div{display:flex;justify-content:space-between}
 .price-rows b{font-weight:700}
 .price-rows .total{border-top:1px dashed var(--line2);padding-top:8px;margin-top:2px}
+
+.ps-card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+.ps-grid{display:grid;grid-template-columns:minmax(280px,.86fr) minmax(300px,1.14fr);align-items:start}
+.ps-left{padding:30px;background:var(--bg);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:26px}
+.ps-label{font-size:13px;font-weight:700;color:var(--ink2)}
+.ps-roles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ps-role-btn{display:flex;align-items:center;gap:9px;min-height:52px;padding:12px 13px;border-radius:11px;border:1.5px solid var(--line);background:var(--card);color:var(--ink2);font-size:13.5px;font-weight:700;text-align:left;cursor:pointer;transition:all .15s var(--ease);font-family:inherit}
+.ps-role-btn.on{border-color:var(--acc);background:var(--acc-soft);color:var(--acc-ink)}
+.ps-role-btn svg{flex:none}
+.ps-field{display:flex;flex-direction:column;gap:12px}
+.ps-amount-wrap{display:flex;align-items:center;gap:2px;background:var(--card);border:1.5px solid var(--line);border-radius:11px;padding:0 14px;min-height:56px;transition:border-color .15s}
+.ps-amount-wrap.invalid{border-color:#f4a8a0}
+.ps-cur{font-size:20px;font-weight:800;color:var(--faint)}
+.ps-amount-input{flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:20px;font-weight:800;color:var(--ink);padding:16px 4px;font-family:inherit}
+.ps-help{font-size:12.5px;font-weight:600;color:var(--faint)}
+.ps-help.err{color:#b42318}
+.ps-presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+.ps-preset-btn{min-height:44px;padding:11px 16px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink2);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.ps-preset-btn.on{border-color:var(--acc);background:var(--acc-soft);color:var(--acc-ink)}
+.ps-left-note{margin:0;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--faint)}
+.ps-right{padding:30px 32px}
+.ps-badge{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:99px;background:var(--acc-soft);color:var(--acc-ink);font-size:11px;font-weight:800;letter-spacing:.06em}
+.ps-badge-dot{width:6px;height:6px;border-radius:99px;background:var(--acc);display:inline-block}
+.ps-headline{font-family:var(--font-d);font-size:clamp(28px,3.6vw,40px);font-weight:800;letter-spacing:-.02em;color:var(--ink);margin:16px 0 8px}
+.ps-sub{font-size:15px;color:var(--mut);max-width:430px;margin:0 0 18px}
+.ps-table{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:2px 16px}
+.ps-trow{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid var(--line);font-size:14.5px;color:var(--ink2)}
+.ps-trow:last-child{border-bottom:none;font-weight:700;font-size:15.5px;color:var(--ink);padding:14px 0}
+.ps-trow b{font-weight:700;color:var(--ink)}
+.ps-foot-note{font-size:13px;color:var(--faint);margin:14px 0 0}
+.ps-disclosure{border-top:1px solid var(--line);margin-top:20px;padding-top:4px}
+.ps-disclosure-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:12px 0;background:transparent;border:0;cursor:pointer;font-size:14.5px;font-weight:700;color:var(--ink);text-align:left;font-family:inherit}
+.ps-caret{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--acc-soft);color:var(--acc);transition:transform .24s var(--ease);flex:none}
+.ps-caret.open{transform:rotate(180deg)}
+.ps-panel{grid-column:1/-1;overflow:hidden;max-height:0;transition:max-height .38s var(--ease)}
+.ps-panel-inner{border-top:1px solid var(--line);background:var(--bg);padding:26px 32px}
+.ps-cols2{display:grid;grid-template-columns:1fr 1px 1fr;gap:0 32px;align-items:start}
+.ps-vdiv{align-self:stretch;background:var(--line)}
+.ps-benefit{display:flex;flex-direction:column;gap:5px;margin-bottom:18px;max-width:40ch}
+.ps-benefit:last-child{margin-bottom:0}
+.ps-benefit-t{font-size:14px;font-weight:700;color:var(--ink)}
+.ps-benefit-b{font-size:13px;color:var(--mut);line-height:1.55}
+.ps-terms{display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.ps-terms-t{font-size:14.5px;font-weight:700;color:var(--ink)}
+.ps-terms-b{font-size:13.5px;color:var(--mut);max-width:44ch}
+.ps-terms-link{font-size:14px;font-weight:700;color:var(--acc-ink);text-decoration:none}
+@media (max-width:900px){
+  .ps-grid{grid-template-columns:1fr}
+  .ps-left{border-right:0;border-bottom:1px solid var(--line)}
+  .ps-cols2{grid-template-columns:1fr;gap:20px}
+  .ps-vdiv{display:none}
+}
 .footer-v2{background:#0f172a;color:#94a3b8;border-top:none;margin-top:44px}
 .footer-v2 .footer-grid{max-width:1220px;margin:0 auto;padding:44px 20px 26px;display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:32px;border-bottom:1px solid #1e293b}
 .footer-v2 .footer-grid h4{color:#fff;font-size:14px;margin-bottom:12px;font-family:var(--font-d)}
@@ -1344,32 +1396,55 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   </section>
 
   <section class="section" id="sec-pricing" style="padding-top:10px">
-    <div class="sec-kicker">Pricing</div>
-    <h2 class="sec-title">Simple pricing. No surprises.</h2>
-    <p class="sec-sub">No subscription and no listing fee. PromoSlot earns when a deal is successfully completed.</p>
-    <div class="pricing-cols">
-      <div class="price-box">
-        <h4>For businesses</h4>
-        <div class="price-big">5% Payment Protection fee</div>
-        <p class="price-d">Shown before funding so you always know the total cost.</p>
-        <div class="price-rows">
-          <div><span class="mut">Agreed campaign</span><b>£500</b></div>
-          <div><span class="mut">Payment Protection fee</span><b>£25</b></div>
-          <div class="total"><span>Total funded</span><b>£525</b></div>
+    <div class="sec-kicker">Clear from the start</div>
+    <h2 class="sec-title">Know where you stand before you say yes.</h2>
+    <p class="sec-sub">No subscription. No listing fee. See exactly what you'll fund or receive before a deal begins.</p>
+
+    <div class="ps-card">
+      <div class="ps-grid" id="psGrid">
+        <div class="ps-left">
+          <div class="ps-field">
+            <span class="ps-label">Which side of the deal are you on?</span>
+            <div class="ps-roles" role="group" aria-label="Select your role">
+              <button type="button" class="ps-role-btn on" id="psRoleBiz" onclick="psPickRole('business')">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>I'm promoting a business</span>
+              </button>
+              <button type="button" class="ps-role-btn" id="psRoleOwn" onclick="psPickRole('owner')">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 19v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3"/><circle cx="9" cy="7" r="3"/><path d="M17 11a3 3 0 1 0-2-5.2"/><path d="M21 19v-2.5a3.5 3.5 0 0 0-2.4-3.3"/></svg>
+                <span>I own an audience</span>
+              </button>
+            </div>
+          </div>
+          <div class="ps-field">
+            <label for="psAmount" class="ps-label">Example deal value</label>
+            <div class="ps-amount-wrap" id="psAmountWrap">
+              <span class="ps-cur" aria-hidden="true">£</span>
+              <input id="psAmount" class="ps-amount-input" type="text" inputmode="decimal" autocomplete="off" aria-describedby="psAmountHelp" value="500" oninput="psAmount(this.value)" onblur="psAmountBlur(this.value)">
+            </div>
+            <div id="psAmountHelp" class="ps-help"></div>
+            <div class="ps-presets" id="psPresets" role="group" aria-label="Preset deal values"></div>
+          </div>
+          <p class="ps-left-note">Example only. Nothing is charged or saved here — GBP, fees applied per completed deal.</p>
         </div>
-      </div>
-      <div class="price-box">
-        <h4>For platform owners</h4>
-        <div class="price-big">10% service fee</div>
-        <p class="price-d">Deducted from the agreed deal value once the deal is completed.</p>
-        <div class="price-rows">
-          <div><span class="mut">Agreed deal value</span><b>£500</b></div>
-          <div><span class="mut">Service fee</span><b>£50</b></div>
-          <div class="total"><span>You receive</span><b>£450</b></div>
+        <div class="ps-right">
+          <span class="ps-badge" id="psBadge"><span class="ps-badge-dot"></span><span id="psBadgeLabel"></span></span>
+          <div class="ps-headline" id="psHeadline"></div>
+          <p class="ps-sub" id="psSub"></p>
+          <div class="ps-table" id="psTable"></div>
+          <p class="ps-foot-note" id="psFootNote"></p>
+          <div class="ps-disclosure">
+            <button type="button" class="ps-disclosure-btn" id="psDiscBtn" onclick="psToggleDisclosure()" aria-expanded="false" aria-controls="psPanel">
+              <span>What does PromoSlot support?</span>
+              <span class="ps-caret" id="psCaret" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+            </button>
+          </div>
+        </div>
+        <div class="ps-panel" id="psPanel" aria-hidden="true">
+          <div class="ps-panel-inner" id="psPanelInner"></div>
         </div>
       </div>
     </div>
-    <p style="margin-top:14px"><a href="#" data-act="toast-fees" style="color:var(--acc-ink);font-weight:700;font-size:13.5px;text-decoration:none">View full fees and protection terms →</a></p>
   </section>
 
   <section class="section">

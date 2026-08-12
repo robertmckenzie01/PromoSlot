@@ -4780,6 +4780,7 @@ function PSBoot(){
   renderPlatBrowseChips();
   renderFooterSupport();
   djRender();
+  psRender();
   syncNav();
   restoreSession().then(restoreRoute);
   startAttnPolling();
@@ -4956,6 +4957,116 @@ function djRender(){
   nextBtn.innerHTML=s.next?(s.next+' <span aria-hidden="true">&rarr;</span>'):"";
 }
 
+// --- Pricing calculator (homepage, #sec-pricing) ---
+// Illustrative fee calculator - not wired to real deal creation. Ported from
+// the approved Claude Design mockup. Percentages (5% business Payment
+// Protection fee, 10% platform-owner service fee) match the real fee
+// structure used elsewhere in the app.
+const PS_MIN=10, PS_MAX=100000;
+const PS_BENEFITS={
+  business:[
+    {t:"Clear deal terms", b:"Deliverables, deadlines and evidence requirements are agreed before funding."},
+    {t:"Funded transaction", b:"The agreed amount is funded before promotional work begins and paid out once delivery evidence is reviewed and verified by the PromoSlot team. Deals can be cancelled by either party before payment is funded."},
+    {t:"Documented delivery", b:"Links, screenshots and analytics can be submitted against the agreement."},
+    {t:"Money-back protection", b:"If the pre-agreed conditions are not met, PromoSlot reviews the deal record and returns eligible funds to the party that funded it."}
+  ],
+  owner:[
+    {t:"Free to list", b:"Create platform listings and publish services without a subscription or listing fee."},
+    {t:"Funding visibility", b:"Know that the agreed deal has been funded before beginning the promotion."},
+    {t:"Delivery record", b:"Submit links, screenshots and analytics in one documented place."},
+    {t:"Structured payout", b:"See the expected payout and follow the deal through approval and release."}
+  ]
+};
+let psState={role:"business", raw:"500", expanded:false};
+
+function psFmt(n){ return "£"+n.toLocaleString("en-GB",{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2}); }
+function psParsed(){ const n=parseFloat(String(psState.raw).replace(/[^0-9.]/g,"")); return isNaN(n)?null:Math.round(n*100)/100; }
+function psPickRole(r){ psState.role=r; psRender(); }
+function psAmount(v){ psState.raw=v; psRender(); }
+function psAmountBlur(v){
+  const n=parseFloat(String(v).replace(/[^0-9.]/g,""));
+  if(!isNaN(n)&&n>=PS_MIN&&n<=PS_MAX){ psState.raw=String(Math.round(n*100)/100); psRender(); }
+}
+function psPresetPick(v){ psState.raw=String(v); psRender(); }
+function psToggleDisclosure(){ psState.expanded=!psState.expanded; psRender(); }
+function psSyncPanelHeight(){
+  const panel=document.getElementById("psPanel"), inner=document.getElementById("psPanelInner");
+  if(!panel||!inner) return;
+  panel.style.maxHeight=psState.expanded?(inner.scrollHeight+"px"):"0px";
+}
+function psRender(){
+  const badge=document.getElementById("psBadge");
+  if(!badge) return; // component not present on this view
+  const isBusiness=psState.role==="business";
+  const n=psParsed();
+  const valid=n!==null&&n>=PS_MIN&&n<=PS_MAX;
+  const value=valid?n:500;
+  const fee=Math.round(value*(isBusiness?0.05:0.10)*100)/100;
+  const total=Math.round((isBusiness?value+fee:value-fee)*100)/100;
+
+  document.getElementById("psRoleBiz").classList.toggle("on",isBusiness);
+  document.getElementById("psRoleOwn").classList.toggle("on",!isBusiness);
+  document.getElementById("psRoleBiz").setAttribute("aria-pressed",String(isBusiness));
+  document.getElementById("psRoleOwn").setAttribute("aria-pressed",String(!isBusiness));
+
+  const amountInput=document.getElementById("psAmount");
+  if(document.activeElement!==amountInput) amountInput.value=psState.raw;
+  document.getElementById("psAmountWrap").classList.toggle("invalid",!valid);
+
+  const help=document.getElementById("psAmountHelp");
+  let helpText="Type any amount between £10 and £100,000.", isErr=false;
+  if(psState.raw.trim()===""||n===null){ helpText="Enter a deal value to see your numbers."; isErr=true; }
+  else if(n<PS_MIN){ helpText="Minimum deal value is £10 — showing the £500 example."; isErr=true; }
+  else if(n>PS_MAX){ helpText="Maximum deal value is £100,000 — showing the £500 example."; isErr=true; }
+  help.textContent=helpText;
+  help.classList.toggle("err",isErr);
+
+  document.getElementById("psPresets").innerHTML=[100,250,500,1000].map(v=>{
+    const on=valid&&value===v;
+    return `<button type="button" class="ps-preset-btn${on?" on":""}" aria-pressed="${on}" onclick="psPresetPick(${v})">${psFmt(v)}</button>`;
+  }).join("");
+
+  document.getElementById("psBadgeLabel").textContent=isBusiness?"YOUR FUNDING SUMMARY":"YOUR PAYOUT SUMMARY";
+  document.getElementById("psHeadline").textContent=isBusiness?`You'll fund ${psFmt(total)}`:`You'll receive ${psFmt(total)}`;
+  document.getElementById("psSub").textContent=isBusiness
+    ?`This includes the ${psFmt(value)} campaign value and ${psFmt(fee)} Payment Protection fee.`
+    :`The 10% service fee is deducted from the ${psFmt(value)} agreed deal value.`;
+  document.getElementById("psTable").innerHTML=isBusiness?`
+    <div class="ps-trow"><span>Campaign value</span><b>${psFmt(value)}</b></div>
+    <div class="ps-trow"><span>Payment Protection fee (5%)</span><b>${psFmt(fee)}</b></div>
+    <div class="ps-trow"><span>Total funded</span><b>${psFmt(total)}</b></div>`:`
+    <div class="ps-trow"><span>Agreed deal value</span><b>${psFmt(value)}</b></div>
+    <div class="ps-trow"><span>Service fee (10%)</span><b>${psFmt(fee)}</b></div>
+    <div class="ps-trow"><span>You receive</span><b>${psFmt(total)}</b></div>`;
+  document.getElementById("psFootNote").textContent=isBusiness
+    ?"You'll see this full breakdown again before confirming payment."
+    :"Your expected payout is shown before you accept the deal.";
+
+  document.getElementById("psDiscBtn").setAttribute("aria-expanded",String(psState.expanded));
+  document.getElementById("psCaret").classList.toggle("open",psState.expanded);
+  document.getElementById("psPanel").setAttribute("aria-hidden",String(!psState.expanded));
+
+  const bx=PS_BENEFITS[isBusiness?"business":"owner"];
+  document.getElementById("psPanelInner").innerHTML=`
+    <div class="ps-cols2">
+      <div>
+        ${[bx[0],bx[2]].map(x=>`<div class="ps-benefit"><span class="ps-benefit-t">${x.t}</span><span class="ps-benefit-b">${x.b}</span></div>`).join("")}
+      </div>
+      <div class="ps-vdiv" aria-hidden="true"></div>
+      <div>
+        ${[bx[1],bx[3]].map(x=>`<div class="ps-benefit"><span class="ps-benefit-t">${x.t}</span><span class="ps-benefit-b">${x.b}</span></div>`).join("")}
+      </div>
+    </div>
+    <div class="ps-terms">
+      <span class="ps-terms-t">Want the finer details?</span>
+      <span class="ps-terms-b">See how fees, protected payments, refunds and payouts work.</span>
+      <a href="#" class="ps-terms-link" data-act="toast-fees">Read the full terms →</a>
+    </div>`;
+
+  psSyncPanelHeight();
+}
+window.addEventListener("resize",()=>{ if(psState.expanded) psSyncPanelHeight(); });
+
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
@@ -4972,7 +5083,8 @@ openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSuppor
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
 renderMiniCampaigns,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
-djSetRole,djGo,djNext,djBack,djNavKey};
+djSetRole,djGo,djNext,djBack,djNavKey,
+psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
