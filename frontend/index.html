@@ -221,6 +221,22 @@ b,strong{font-weight:700}
 .hero-ctas{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;align-items:center}
 .hero-split{display:grid;grid-template-columns:1.15fr .85fr;gap:44px;align-items:center}
 .hero-preview-kicker{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--acc-ink);margin-bottom:12px}
+.welcome-row{display:flex;align-items:center;gap:14px}
+.welcome-row .avatar-dot{width:46px;height:46px;font-size:16px}
+.setup-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px;box-shadow:var(--shadow)}
+.setup-progress-track{background:var(--bg);border-radius:99px;height:8px;overflow:hidden;margin:16px 0 22px;border:1px solid var(--line)}
+.setup-progress-bar{display:block;height:100%;background:var(--acc);border-radius:99px}
+.setup-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.setup-row:last-child{border-bottom:none}
+.setup-row.done{opacity:.5}
+.setup-check{width:26px;height:26px;border-radius:50%;border:2px solid var(--line2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:transparent}
+.setup-row.done .setup-check{background:var(--acc);border-color:var(--acc);color:#fff}
+.setup-t{flex:1}
+.setup-t h4{font-size:14.5px;font-weight:700}
+.setup-t p{font-size:12.5px;color:var(--mut);margin-top:2px}
+.role-biz-only,.role-plat-only{display:block}
+body[data-role="biz"] .role-plat-only{display:none}
+body[data-role="plat"] .role-biz-only{display:none}
 
 .sec-head-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:4px}
 .sec-head-row .see-all{font-weight:800;color:var(--acc-ink);font-size:13.5px;padding:6px 4px}
@@ -1001,6 +1017,7 @@ b,strong{font-weight:700}
 </nav>
 
 <div class="view active view-anim" id="view-landing" data-screen-label="Landing">
+  <div id="heroDefault">
   <section class="hero hero-v2">
     <div class="hero-split">
       <div>
@@ -1023,6 +1040,40 @@ b,strong{font-weight:700}
       </div>
     </div>
   </section>
+  </div>
+
+  <div id="heroSignupChecklist" class="hide">
+  <section class="hero hero-v2" style="padding-bottom:12px">
+    <div class="welcome-row">
+      <span class="avatar-dot" id="setupAvatarInit">•</span>
+      <div><div class="eyebrow" style="margin-bottom:2px">Welcome to PromoSlot</div><h1 style="font-size:27px">Let's get you set up.</h1></div>
+    </div>
+  </section>
+  <section class="section" style="padding-top:0;max-width:760px">
+    <div class="setup-card role-biz-only">
+      <div class="sec-kicker">Getting started · 1 of 2 complete</div>
+      <div class="setup-progress-track"><span class="setup-progress-bar" style="width:50%"></span></div>
+      <div class="setup-row done"><span class="setup-check"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M20 6 9 17l-5-5"/></svg></span><div class="setup-t"><h4>Create your account</h4><p>Done</p></div></div>
+      <div class="setup-row"><span class="setup-check"></span><div class="setup-t"><h4>Set up your business profile and post your first campaign</h4><p>Add your company, product, budget and deliverables — platform owners see this as your business profile</p></div><button class="btn btn-o btn-sm" data-act="wiz-biz">Start</button></div>
+      <div class="hero-ctas" style="margin-top:22px">
+        <button class="btn btn-p btn-lg" data-act="wiz-biz">Create my first campaign</button>
+        <button class="btn btn-o btn-lg" onclick="tourBegin()">Take the 2-minute tour</button>
+      </div>
+      <p class="mut" style="font-size:13px;margin-top:16px"><a href="#" data-act="market-platforms" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Browse platform owners →</a></p>
+    </div>
+    <div class="setup-card role-plat-only">
+      <div class="sec-kicker">Getting started · 1 of 2 complete</div>
+      <div class="setup-progress-track"><span class="setup-progress-bar" style="width:50%"></span></div>
+      <div class="setup-row done"><span class="setup-check"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M20 6 9 17l-5-5"/></svg></span><div class="setup-t"><h4>Create your account</h4><p>Done</p></div></div>
+      <div class="setup-row"><span class="setup-check"></span><div class="setup-t"><h4>Add your profile and list your first platform</h4><p>Add your niche, audience figures, services and pricing — all in one step</p></div><button class="btn btn-o btn-sm" data-act="wiz-plat">Start</button></div>
+      <div class="hero-ctas" style="margin-top:22px">
+        <button class="btn btn-p btn-lg" data-act="wiz-plat">List my first platform</button>
+        <button class="btn btn-o btn-lg" onclick="tourBegin()">Take the 2-minute tour</button>
+      </div>
+      <p class="mut" style="font-size:13px;margin-top:16px"><a href="#" data-act="market-campaigns" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Browse campaigns →</a></p>
+    </div>
+  </section>
+  </div>
 
   <section class="section" style="padding-top:36px">
     <div class="sec-head-row">

@@ -671,6 +671,7 @@ function showView(id){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   const el=$(id); el.classList.add("active");
   el.classList.remove("view-anim"); void el.offsetWidth; el.classList.add("view-anim");
+  if(id==="view-landing") renderLandingState();
   window.scrollTo({top:0});
   document.querySelectorAll(".nav-link").forEach(b=>b.classList.remove("active"));
   if(id==="view-market") $("nl-market").classList.add("active");
@@ -687,6 +688,28 @@ function goHome(scrollRoles){
   showView("view-landing");
   if(scrollRoles && S.roles.length){ openDash(); return; }
   if(scrollRoles) setTimeout(()=>smoothTo($("roleCards")),80);
+}
+/* ---------- Homepage: new-signup checklist vs default hero ----------
+   Deliberately simple: "new" for a role means that role hasn't published
+   its first campaign/listing yet — the one real, already-loaded signal
+   (S.myCampaigns/S.myPlatforms) rather than anything fabricated. Once that
+   role has published, this always resolves back to the default hero, so
+   there is no half-done checklist state to design for. */
+function landingIsNew(role){
+  if(role==="biz") return !S.myCampaigns || S.myCampaigns.length===0;
+  if(role==="plat") return !S.myPlatforms || S.myPlatforms.length===0;
+  return false;
+}
+function renderLandingState(){
+  const def=$("heroDefault"), chk=$("heroSignupChecklist");
+  if(!def||!chk) return;
+  const showChecklist = !!S.account && !!S.activeRole && landingIsNew(S.activeRole);
+  def.classList.toggle("hide", showChecklist);
+  chk.classList.toggle("hide", !showChecklist);
+  if(showChecklist){
+    const el=$("setupAvatarInit");
+    if(el) el.textContent = initials(S.account.display_name||S.account.email||"You");
+  }
 }
 function goHow(){ showView("view-landing"); setTimeout(()=>smoothTo($("sec-how")),80); }
 async function openDash(){
@@ -4500,6 +4523,10 @@ async function restoreSession(){
   // A returning account that started the tour but never finished gets the
   // resume pill; one that never saw it gets the welcome card.
   else { syncTourResume(); maybeOfferTour(); }
+  // view-landing is active by default in the static HTML before this resolves,
+  // so it needs its own render call rather than relying on a showView() that
+  // may never happen this page load.
+  renderLandingState();
   return live;
 }
 
