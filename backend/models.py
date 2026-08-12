@@ -89,6 +89,23 @@ class User(Base):
     avatar_content_type = Column(String)
     intro_video_path = Column(String)          # profile intro video (separate from My Work)
     intro_video_content_type = Column(String)
+
+    # ---- Guided product tour (first-run onboarding) ----
+    # All three timestamps NULL = never offered, the only state that triggers the
+    # welcome card. The backend is authoritative so a finished tour stays finished
+    # on every device; the client mirrors it only for smooth in-page state.
+    # Skipped and completed are kept apart deliberately: skipping leaves the
+    # "continue setup tour" affordance available, completing retires it.
+    product_tour_started_at = Column(DateTime)
+    product_tour_completed_at = Column(DateTime)
+    product_tour_skipped_at = Column(DateTime)
+    # 0-based index of the furthest step reached, so a resumed tour picks up
+    # where it left off rather than restarting.
+    product_tour_current_step = Column(Integer, default=0, nullable=False)
+    # Bump the client's TOUR_VERSION when the steps change materially; an old
+    # completed tour can then be re-offered without losing what they already saw.
+    product_tour_version = Column(String)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     @property

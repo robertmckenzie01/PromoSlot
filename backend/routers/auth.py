@@ -17,7 +17,7 @@ from ..mailer import password_reset_email, send_email, welcome_email
 from ..models import (EmailVerificationToken, PasswordResetToken,
                       Session as AuthSession, User)
 from ..schemas import (ChangePasswordIn, ForgotPasswordIn, LoginIn, ResetPasswordIn,
-                       SignupIn, VerifyEmailIn, UserOut)
+                       SignupIn, TourIn, VerifyEmailIn, UserOut)
 from ..security import hash_password, new_session_token, verify_password
 
 log = logging.getLogger(__name__)
@@ -138,6 +138,49 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
+    return user
+
+
+@router.post("/tour", response_model=UserOut)
+def update_tour(body: TourIn, user: User = Depends(get_current_user),
+                db: Session = Depends(get_db)):
+    """Record one state change of the guided product tour.
+
+    Narrow and single-purpose, on the model of /notifications/queue-viewed:
+    tour progress is account state and has no business travelling through the
+    profile-content endpoint.
+
+    `current_step` only ever moves forward on advance/skip — walking back
+    through earlier steps must not rewind where a resumed tour picks up.
+    """
+    now = datetime.utcnow()
+    step = body.step
+    seen = user.product_tour_current_step or 0
+    if body.action == "start":
+        # Restarting (from Help, or after a skip) makes the tour genuinely live
+        # again rather than leaving it half-retired.
+        user.product_tour_started_at = now
+        user.product_tour_completed_at = None
+        user.product_tour_skipped_at = None
+        user.product_tour_current_step = step or 0
+    elif body.action == "advance":
+        if user.product_tour_started_at is None:
+            user.product_tour_started_at = now
+        if step is not None:
+            user.product_tour_current_step = max(seen, step)
+    elif body.action == "skip":
+        user.product_tour_skipped_at = now
+        if step is not None:
+            user.product_tour_current_step = max(seen, step)
+    elif body.action == "complete":
+        user.product_tour_completed_at = now
+        user.product_tour_skipped_at = None       # finishing beats abandoning
+        if step is not None:
+            user.product_tour_current_step = step
+    if body.version:
+        user.product_tour_version = body.version
+    db.commit()
+    db.refresh(user)
     return user
 
 

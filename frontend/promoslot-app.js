@@ -189,6 +189,407 @@ function closeSignupNudge(){
   setTimeout(()=>el.remove(),320);
 }
 
+/* ==================== GUIDED PRODUCT TOUR ====================
+   A five-step spotlight tour of the nav, offered once to a brand-new account.
+
+   Desktop / wide-tablet only. Below 901px `.nav-links` is display:none with
+   nothing replacing it (there is no mobile menu in this app), so three of the
+   five targets do not exist — the tour is never offered at that width rather
+   than pointing at empty space. The "continue setup tour" pill stays available
+   at every width so a half-finished tour is never stranded.
+
+   The backend is authoritative (users.product_tour_*); T below is only the
+   live in-page state. */
+const TOUR_VERSION = "1";
+const TOUR_MIN_W   = 901;
+let T = null;
+
+function tourRoleKey(){
+  const b=S.roles.includes("biz"), p=S.roles.includes("plat");
+  return b&&p ? "both" : (p ? "plat" : "biz");
+}
+
+// Copy for steps 3 and 5 follows the role the account actually holds, using the
+// same S.roles the rest of the app switches on.
+function tourSteps(){
+  const rk=tourRoleKey();
+  const dash={
+    biz:"A live view of your campaigns — what's running, what you're spending, who has applied, deliverables you're waiting on, and recent activity.",
+    plat:"A live view of your deals — what's active, applications you've sent, what you've earned, deliveries due, and fresh opportunities.",
+    both:"Both sides in one place: campaigns you run and deals you deliver, spend and earnings, applications either way, and anything waiting on you."
+  }[rk];
+  const prof={
+    biz:"Keep your company details, industry and campaigns current — platform owners weigh that up before applying. Verified activity and reviews build the rest.",
+    plat:"Keep your platforms, audience figures, services and pricing current — businesses weigh that up before they buy. Verified activity and reviews build the rest.",
+    both:"Keep both sides current: company and campaigns, plus your platforms, audience and pricing. Verified activity and reviews build the rest."
+  }[rk];
+  return [
+    {sel:"#nl-market", label:"Marketplace", title:"Discover opportunities",
+     body:"The Marketplace is where both sides of PromoSlot meet. Browse active campaigns, discover platform owners, compare opportunities, and find partnerships that fit.",
+     sub:"Businesses find platform owners and promotional offers. Platform owners find businesses actively looking for promotion."},
+    {sel:"#nl-msgs", label:"Messages", title:"Keep every deal organised",
+     body:"Talk directly with businesses or platform owners — discuss requirements, negotiate terms, ask questions, all tied to your PromoSlot activity.",
+     sub:"Keeping it here preserves deal history, documents what was agreed, and protects both sides if anything is ever disputed."},
+    {sel:"#nl-dash", label:"Dashboard", title:"Everything in one place", body:dash},
+    {sel:"#navBell", label:"Notifications", title:"Never miss an opportunity",
+     body:"You'll hear about new messages, applications, deal updates, delivery reviews and payment activity as they happen.",
+     sub:"You can fine-tune what reaches you later from your account settings."},
+    {sel:"#userChip", label:"Your Profile", title:"Build your reputation", body:prof}
+  ];
+}
+
+// A target that is hidden has no rect to spotlight. #nl-dash is the real case:
+// syncNav() hides it for an account with no business/platform role (a
+// reviewer-only login), so that step is dropped rather than left pointing at
+// nothing.
+function tourVisible(sel){
+  const el=document.querySelector(sel);
+  return el && el.offsetParent !== null ? el : null;
+}
+function tourWideEnough(){ return window.innerWidth >= TOUR_MIN_W; }
+
+// Never offered before = all three timestamps null. Anyone who skipped or
+// finished is left alone; that is what stops the tour reappearing every login.
+function tourNeverOffered(){
+  const a=S.account;
+  return !!a && !a.product_tour_started_at && !a.product_tour_completed_at
+              && !a.product_tour_skipped_at;
+}
+function tourUnfinished(){
+  const a=S.account;
+  return !!a && !!a.product_tour_started_at && !a.product_tour_completed_at;
+}
+
+// Fire-and-forget: the tour must never stall because a write is slow or fails,
+// so the UI advances on its own and the server catches up.
+function tourSave(action, step){
+  if(!S.account) return;
+  const body={action, step, version:TOUR_VERSION};
+  PSApi.post("/auth/tour", body).then(acct=>{ if(acct) S.account=acct; }).catch(()=>{});
+  // Mirror locally so a reload mid-tour doesn't re-offer from scratch.
+  const a=S.account, now=new Date().toISOString();
+  if(action==="start"){ a.product_tour_started_at=now; a.product_tour_completed_at=null; a.product_tour_skipped_at=null; }
+  if(action==="skip") a.product_tour_skipped_at=now;
+  if(action==="complete"){ a.product_tour_completed_at=now; a.product_tour_skipped_at=null; }
+  if(typeof step==="number") a.product_tour_current_step=Math.max(a.product_tour_current_step||0, step);
+}
+
+/* ---- the welcome offer ---- */
+function maybeOfferTour(){
+  if(!tourNeverOffered() || !tourWideEnough() || T) return;
+  // Let the page settle first — landing straight into an overlay reads as an
+  // interruption rather than an offer.
+  setTimeout(()=>{ if(tourNeverOffered() && tourWideEnough() && !T) tourWelcome(); }, 800);
+}
+
+function tourWelcome(){
+  tourMount();
+  T.mode="welcome";
+  // Centred, with no spotlight — nothing is being pointed at yet.
+  $("tourPop").classList.add("tour-center");
+  tourPaintCard(`<h4 id="tourTitle">Welcome to PromoSlot</h4>
+    <p id="tourBody">Want a 60-second tour of the marketplace? We'll show you the five things worth knowing, then leave you to it.</p>
+    <div class="tour-foot">
+      <span class="tour-count">Takes about a minute</span>
+      <button class="btn btn-ghost" onclick="tourDismissWelcome()">Maybe later</button>
+      <button class="btn btn-p" onclick="tourBegin()">Start tour</button>
+    </div>`);
+}
+
+function tourDismissWelcome(){
+  // "Maybe later" is a skip, not a refusal: it leaves the resume pill up.
+  tourSave("skip", 0);
+  tourTeardown();
+  syncTourResume();
+}
+
+function tourBegin(){
+  const from = Math.min(S.account?.product_tour_current_step||0, 4);
+  tourSave("start", from);
+  tourStart(from);
+}
+
+/* ---- lifecycle ---- */
+function tourMount(){
+  if($("tourRoot")) return;
+  const r=document.createElement("div");
+  r.id="tourRoot";
+  r.setAttribute("role","dialog");
+  r.setAttribute("aria-modal","true");
+  r.setAttribute("aria-labelledby","tourTitle");
+  r.setAttribute("aria-describedby","tourBody");
+  r.innerHTML=`<div class="tour-blur" id="tourBlur"></div>
+    <div class="tour-catch"></div>
+    <div class="tour-hole" id="tourHole" style="opacity:0"></div>
+    <div class="tour-pop" id="tourPop"></div>
+    <div class="tour-prog hide" id="tourProg"></div>`;
+  document.body.appendChild(r);
+  r.classList.add("on");
+  T={i:0, steps:[], mode:"welcome", prevFocus:document.activeElement};
+  document.addEventListener("keydown", tourKey, true);   // capture: beat the app's own handlers
+  window.addEventListener("resize", tourReflow);
+  window.addEventListener("scroll", tourReflow, true);
+  // Crossing the breakpoint is the case that actually matters, and a media
+  // query reports it even where a resize event doesn't (some embedded/remote
+  // viewports resize without emitting one).
+  T._mq = window.matchMedia(`(max-width:${TOUR_MIN_W-1}px)`);
+  T._mqFn = () => tourReflow();
+  if(T._mq.addEventListener) T._mq.addEventListener("change", T._mqFn);
+  else T._mq.addListener(T._mqFn);                       // older Safari
+}
+
+function tourTeardown(){
+  document.removeEventListener("keydown", tourKey, true);
+  window.removeEventListener("resize", tourReflow);
+  window.removeEventListener("scroll", tourReflow, true);
+  if(T && T._mq){
+    if(T._mq.removeEventListener) T._mq.removeEventListener("change", T._mqFn);
+    else T._mq.removeListener(T._mqFn);
+  }
+  const r=$("tourRoot"); if(r) r.remove();
+  const f=T && T.prevFocus;
+  T=null;
+  if(f && f.focus) { try{ f.focus(); }catch(e){} }
+}
+
+function tourStart(from){
+  tourMount();
+  T.steps=tourSteps().filter(s=>tourVisible(s.sel));
+  T.mode="steps";
+  T.i=Math.min(from||0, T.steps.length-1);
+  $("tourProg").classList.remove("hide");
+  tourRender();
+}
+
+/* ---- rendering ---- */
+function tourRender(justCompleted){
+  const step=T.steps[T.i];
+  const el=tourVisible(step.sel);
+  if(!el){ tourNext(); return; }                 // vanished mid-tour — move on
+  const pad=8, r=el.getBoundingClientRect();
+  const hole=$("tourHole");
+  hole.style.opacity="1";
+  hole.style.top=(r.top-pad)+"px";
+  hole.style.left=(r.left-pad)+"px";
+  hole.style.width=(r.width+pad*2)+"px";
+  hole.style.height=(r.height+pad*2)+"px";
+  const rad=parseFloat(getComputedStyle(el).borderRadius)||10;
+  hole.style.borderRadius=(rad+pad)+"px";
+  tourClip(r, pad, rad);
+
+  const pop=$("tourPop");
+  pop.classList.remove("tour-center");
+  pop.classList.add("fade");
+  setTimeout(()=>{
+    // Skip / Escape / a narrowing resize can tear the tour down inside this
+    // fade window, taking T and the card with it. Bail rather than throw.
+    if(!T || !$("tourPop")) return;
+    tourPaintCard(`<h4 id="tourTitle">${esc(step.title)}</h4>
+      <p id="tourBody">${esc(step.body)}</p>
+      ${step.sub?`<p class="tour-sub">${esc(step.sub)}</p>`:""}
+      <div class="tour-foot">
+        <span class="tour-count">Step ${T.i+1} of ${T.steps.length}</span>
+        <button class="tour-skip" onclick="tourSkip()">Skip tour</button>
+        ${T.i>0?`<button class="btn btn-ghost" onclick="tourBack()">Back</button>`:""}
+        <button class="btn btn-p" onclick="tourNext()">${T.i===T.steps.length-1?"Finish":"Next"}</button>
+      </div>`);
+    tourPlacePop(r);
+    pop.classList.remove("fade");
+  }, 190);
+  tourProgress(justCompleted);
+}
+
+// Anchor under the target (every target lives in the sticky top nav), clamped
+// so the card can never hang off either edge.
+function tourPlacePop(r){
+  const pop=$("tourPop"), pw=pop.offsetWidth||335;
+  let left=r.left + r.width/2 - pw/2;
+  left=Math.max(16, Math.min(left, window.innerWidth-pw-16));
+  pop.style.left=left+"px";
+  pop.style.top=(r.bottom+16)+"px";
+}
+
+function tourPaintCard(html){
+  const pop=$("tourPop");
+  pop.innerHTML=html;
+  // Focus moves to the card each step so a keyboard user lands on the new
+  // content rather than being left where the last button was.
+  const first=pop.querySelector(".btn-p")||pop.querySelector("button");
+  if(first) setTimeout(()=>{ try{ first.focus(); }catch(e){} },20);
+}
+
+// The blur layer is cut out over the target so the spotlit element stays sharp.
+// Where clip-path:path() isn't supported the layer is simply dropped and the
+// box-shadow dim carries the effect on its own.
+function tourClip(r, pad, rad){
+  const b=$("tourBlur");
+  if(!window.CSS || !CSS.supports || !CSS.supports("clip-path",'path("M0 0")')){
+    b.style.display="none"; return;
+  }
+  const W=window.innerWidth, H=window.innerHeight;
+  const x=r.left-pad, y=r.top-pad, w=r.width+pad*2, h=r.height+pad*2;
+  const k=Math.min(rad+pad, w/2, h/2);
+  const hole=`M${x+k},${y} H${x+w-k} A${k},${k} 0 0 1 ${x+w},${y+k} V${y+h-k} `+
+             `A${k},${k} 0 0 1 ${x+w-k},${y+h} H${x+k} A${k},${k} 0 0 1 ${x},${y+h-k} `+
+             `V${y+k} A${k},${k} 0 0 1 ${x+k},${y} Z`;
+  b.style.clipPath=`path(evenodd,"M0,0 H${W} V${H} H0 Z ${hole}")`;
+}
+
+function tourProgress(justCompleted){
+  const p=$("tourProg");
+  p.innerHTML=`<div class="tour-prog-head"><span class="tour-prog-mark">P</span>
+      <b>Getting started</b><span>${Math.min(T.i+1,T.steps.length)} of ${T.steps.length}</span></div>
+    <ul>${T.steps.map((s,n)=>{
+      const done=n<T.i, now=n===T.i;
+      const jd = justCompleted===n ? " just-done" : "";
+      return `<li class="${done?"done":now?"now":""}${jd}"><span class="tour-tick">✓</span>${esc(s.label)}</li>`;
+    }).join("")}</ul>`;
+}
+
+/* ---- navigation ---- */
+function tourNext(){
+  if(T.i>=T.steps.length-1){ tourComplete(); return; }
+  const done=T.i;
+  const hole=$("tourHole");
+  hole.classList.add("shrink");                 // contract, travel, expand
+  setTimeout(()=>{ const h=$("tourHole"); if(h) h.classList.remove("shrink"); },180);
+  T.i++;
+  tourSave("advance", T.i);
+  tourRender(done);
+}
+function tourBack(){
+  if(T.i<=0) return;
+  T.i--;
+  tourRender();                                  // no save: step only moves forward
+}
+function tourSkip(){
+  tourSave("skip", T.i);
+  tourTeardown();
+  syncTourResume();
+  toast("Tour paused — pick it up any time from the corner.");
+}
+
+function tourComplete(){
+  tourSave("complete", T.steps.length);
+  T.mode="done";
+  T.i=T.steps.length;                            // every row reads as complete
+  tourProgress();
+  $("tourProg").classList.add("celebrate");
+  $("tourHole").style.opacity="0";
+  const b=$("tourBlur"); if(b) b.style.clipPath="";
+  const pop=$("tourPop");
+  pop.classList.add("fade");
+  setTimeout(()=>{
+    if(!T || !$("tourPop")) return;              // dismissed inside the fade
+    pop.classList.add("tour-center");
+    pop.style.left=""; pop.style.top="";
+    tourPaintCard(`<h4 id="tourTitle">You're ready to use PromoSlot</h4>
+      <p id="tourBody">You now know the core tools. Explore the marketplace, connect with the right people, and start building your first opportunity.</p>
+      <div class="tour-foot">
+        <span class="tour-count">All five done</span>
+        <button class="btn btn-ghost" onclick="tourFinish()">Finish tour</button>
+        <button class="btn btn-p" onclick="tourFinish(true)">Explore marketplace</button>
+      </div>`);
+    pop.classList.remove("fade");
+  }, 200);
+}
+
+function tourFinish(goMarket){
+  tourTeardown();
+  syncTourResume();
+  if(goMarket) openMarket();
+}
+
+/* ---- resume pill ---- */
+// Deliberately available at any width, including below 901px where the tour
+// itself is never offered — someone who starts on a laptop and reopens on a
+// phone still sees that it is waiting for them.
+function syncTourResume(){
+  const want = tourUnfinished() && !T;
+  const el=$("tourResume");
+  if(!want){ if(el) el.remove(); return; }
+  if(el) return;
+  const d=document.createElement("div");
+  d.id="tourResume";
+  d.innerHTML=`<span>Continue setup tour</span>
+    <button class="btn btn-p btn-sm" onclick="tourResumeClick()">Resume</button>
+    <button class="tr-x" onclick="tourHideResume()" aria-label="Hide">✕</button>`;
+  document.body.appendChild(d);
+}
+function tourHideResume(){ const e=$("tourResume"); if(e) e.remove(); }
+
+// Restart from My Account. Goes home first: every target lives in the nav, but
+// the tour reads better against the landing page than a half-scrolled settings
+// form.
+function tourRestart(){
+  if(!tourWideEnough()){
+    toast("The tour needs a wider screen — open PromoSlot on a laptop or desktop.");
+    return;
+  }
+  tourHideResume();
+  goHome();
+  tourSave("start", 0);
+  setTimeout(()=>tourStart(0), 120);
+}
+function tourResumeClick(){
+  if(!tourWideEnough()){
+    toast("The tour needs a wider screen — open PromoSlot on a laptop or desktop.");
+    return;
+  }
+  tourHideResume();
+  tourStart(Math.min(S.account?.product_tour_current_step||0, 4));
+}
+
+/* ---- input blocking + focus trap ---- */
+// Capture phase, so this runs before the app's own document-level keydown
+// (Escape closes modals) and before anything a background view is listening for.
+function tourKey(e){
+  if(!T) return;
+  const root=$("tourRoot");
+  // Below the supported width the CSS hides #tourRoot. A tour nobody can see
+  // must not go on swallowing keystrokes, so stand down until reflow tidies up.
+  // Checked via computed display, not offsetParent: #tourRoot is position:fixed
+  // and fixed elements always report a null offsetParent.
+  if(!root || getComputedStyle(root).display==="none") return;
+  if(e.key==="Escape"){
+    e.preventDefault(); e.stopPropagation();
+    if(T.mode==="welcome") tourDismissWelcome(); else tourSkip();
+    return;
+  }
+  if(e.key==="Tab"){
+    const f=[...root.querySelectorAll("button:not([disabled])")].filter(b=>b.offsetParent!==null);
+    if(!f.length) return;
+    const first=f[0], last=f[f.length-1];
+    const cur=document.activeElement;
+    // Wrap at both ends, and pull focus back in if it ever escaped the card.
+    if(e.shiftKey && (cur===first || !root.contains(cur))){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && (cur===last || !root.contains(cur))){ e.preventDefault(); first.focus(); }
+    return;
+  }
+  // Enter/Space on a tour button is the browser's own default — leave it be.
+  if(e.key==="Enter"||e.key===" "){ if(root.contains(document.activeElement)) return; }
+  // Everything else (app shortcuts, typing into a background form) is swallowed.
+  if(!root.contains(e.target)){ e.preventDefault(); e.stopPropagation(); }
+}
+
+// Targets move when the window resizes or the page scrolls under the sticky nav.
+function tourReflow(){
+  if(!T || T.mode!=="steps") return;
+  if(!tourWideEnough()){ tourSkip(); return; }   // narrowed past the supported width
+  if(T._raf) return;
+  T._raf=requestAnimationFrame(()=>{
+    T._raf=null;
+    const step=T.steps[T.i], el=step && tourVisible(step.sel);
+    if(!el) return;
+    const pad=8, r=el.getBoundingClientRect();
+    const hole=$("tourHole");
+    hole.style.top=(r.top-pad)+"px";  hole.style.left=(r.left-pad)+"px";
+    hole.style.width=(r.width+pad*2)+"px"; hole.style.height=(r.height+pad*2)+"px";
+    tourClip(r, pad, parseFloat(getComputedStyle(el).borderRadius)||10);
+    tourPlacePop(r);
+  });
+}
+
 function starsHtml(r,c){ if(r==null||c==null||c===0||c==="New"){ return `<span class="stars no-rating">No ratings yet</span>`; } return `<span class="stars">★ ${Number(r).toFixed(1)} <span class="rc">(${c})</span></span>`; }
 function initials(name){ return String(name||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
 // Identity avatar: the member's real uploaded profile picture when they have
@@ -3402,6 +3803,11 @@ function _resumeAfterAuth(){
   window._afterAuth = null;   // nothing reads this any more; cleared for safety
   closeSignupNudge();         // they signed up — stop asking
   goHome();
+  // Both login and email-verification land here, so this is the single point
+  // where a brand-new account gets offered the tour. maybeOfferTour() no-ops
+  // for anyone who has already seen, skipped or finished it.
+  maybeOfferTour();
+  syncTourResume();
 }
 
 // The single login/signup entry modal, used everywhere: the nav buttons, every
@@ -3649,6 +4055,10 @@ function openAccount(){
           <div class="acct-row"><span>Name</span><b>${esc(a.display_name||"—")}</b></div>
           <div class="acct-row"><span>Email</span><b>${esc(a.email)}</b></div>
           <div class="acct-row"><span>Role${roleLabels(a).length>1?"s":""}</span><b>${roleLabels(a).map(r=>`<span class="tag">${esc(r)}</span>`).join(" ")}</b></div>
+        </div>
+        <div class="acct-rows" style="margin-top:14px">
+          <div class="acct-row"><span>Product tour</span>
+            <b><button class="btn btn-o btn-sm" onclick="tourRestart()">${a.product_tour_completed_at?"Replay tour":"Take the tour"}</button></b></div>
         </div>
         <div style="margin-top:16px"><button class="btn btn-o btn-sm" onclick="doLogout()">Log out</button></div>
       </div></div>
@@ -3905,6 +4315,9 @@ async function restoreSession(){
   // Only now is guest status known, so this is the earliest honest point to arm
   // the browsing timer — doing it on raw page load would race a slow /me.
   if(!S.account) startSignupNudgeTimer();
+  // A returning account that started the tour but never finished gets the
+  // resume pill; one that never saw it gets the welcome card.
+  else { syncTourResume(); maybeOfferTour(); }
   return live;
 }
 
@@ -4054,6 +4467,8 @@ renderActionCodePanel,saveActionCode,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
 askDuration,setRoute,clearRoute,readRoute,restoreRoute,restoreSession,togglePayMethod,useSuggestion,
 authGate,closeSignupNudge,
+tourBegin,tourDismissWelcome,tourNext,tourBack,tourSkip,tourFinish,
+tourResumeClick,tourHideResume,tourRestart,syncTourResume,maybeOfferTour,tourStart,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign};

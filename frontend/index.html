@@ -686,6 +686,95 @@ b,strong{font-weight:700}
   #signupNudge{left:12px;right:12px;bottom:12px;max-width:none}
 }
 
+/* ---------- Guided product tour ----------
+   Desktop / wide-tablet only (>900px): below that the nav links this tour
+   points at are display:none with nothing replacing them, so the tour is never
+   offered rather than pointing at empty space. See .tour-resume, which stays
+   available at any width so a half-finished tour can be picked up later.
+
+   The spotlight is one element. A huge box-shadow spread dims everything
+   outside it, so the target below stays completely crisp, and morphing between
+   steps is a plain transition on position/size/radius — no geometry maths and
+   no per-frame JS. */
+#tourRoot{position:fixed;inset:0;z-index:400;display:none}
+#tourRoot.on{display:block}
+/* Swallows every pointer event that isn't on the tour's own controls. */
+.tour-catch{position:absolute;inset:0;cursor:default}
+.tour-blur{position:absolute;inset:0;backdrop-filter:blur(2.5px);-webkit-backdrop-filter:blur(2.5px);
+  transition:clip-path .42s var(--ease);pointer-events:none}
+.tour-hole{position:absolute;pointer-events:none;border-radius:14px;
+  box-shadow:0 0 0 100vmax rgba(10,4,20,.62), 0 0 0 2px var(--acc), 0 0 26px 6px rgba(79,70,229,.45);
+  transition:top .44s var(--ease),left .44s var(--ease),width .44s var(--ease),
+             height .44s var(--ease),border-radius .44s var(--ease),opacity .25s var(--ease)}
+.tour-hole.shrink{opacity:.55;transform:scale(.97)}
+
+.tour-pop{position:absolute;width:335px;max-width:calc(100vw - 32px);background:var(--card);
+  border-radius:16px;box-shadow:var(--shadow-lg);padding:18px 18px 15px;
+  border:1px solid var(--line);transition:top .3s var(--ease),left .3s var(--ease),opacity .24s var(--ease);
+  opacity:1}
+.tour-pop.fade{opacity:0}
+.tour-pop h4{font-size:16.5px;margin-bottom:6px}
+.tour-pop p{font-size:13px;color:var(--ink2);line-height:1.5}
+.tour-pop .tour-sub{font-size:12.5px;color:var(--mut);margin-top:8px;line-height:1.5}
+.tour-foot{display:flex;align-items:center;gap:8px;margin-top:15px}
+.tour-count{font-size:12px;color:var(--mut);font-weight:600;margin-right:auto}
+.tour-skip{background:none;border:none;color:var(--mut);font-size:12.5px;font-weight:600;
+  padding:6px 4px;transition:color .15s}
+.tour-skip:hover{color:var(--ink)}
+
+/* Progress widget — a PromoSlot element, not a browser checklist. */
+.tour-prog{position:absolute;right:22px;bottom:22px;width:212px;background:#0f172a;color:#f1f5f9;
+  border-radius:15px;padding:14px 15px;box-shadow:var(--shadow-lg);
+  border:1px solid rgba(129,140,248,.34);transition:box-shadow .45s var(--ease)}
+.tour-prog.celebrate{box-shadow:var(--shadow-lg),0 0 30px 5px rgba(79,70,229,.55)}
+.tour-prog-head{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.tour-prog-mark{width:19px;height:19px;border-radius:6px;background:var(--acc);color:#fff;
+  font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tour-prog-head b{font-size:12.5px;font-weight:700;flex:1}
+.tour-prog-head span{font-size:11px;color:rgba(241,245,249,.55);font-weight:600}
+.tour-prog li{list-style:none;display:flex;align-items:center;gap:9px;font-size:12px;
+  color:rgba(241,245,249,.5);padding:3.5px 0;transition:color .3s var(--ease)}
+.tour-prog li.now{color:#f1f5f9;font-weight:600}
+.tour-prog li.done{color:rgba(241,245,249,.72)}
+.tour-tick{width:15px;height:15px;border-radius:99px;border:1.5px solid rgba(241,245,249,.28);
+  display:flex;align-items:center;justify-content:center;font-size:9px;color:transparent;
+  flex-shrink:0;transition:all .3s var(--ease)}
+.tour-prog li.now .tour-tick{border-color:var(--acc)}
+.tour-prog li.done .tour-tick{background:var(--acc);border-color:var(--acc);color:#fff}
+.tour-prog li.just-done{animation:tourTick .42s var(--ease)}
+@keyframes tourTick{0%{transform:scale(1)}40%{transform:scale(1.09)}100%{transform:scale(1)}}
+
+/* Welcome / completion card — centred, no spotlight. */
+.tour-pop.tour-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:400px;text-align:left;transition:opacity .24s var(--ease)}
+
+/* "Continue setup tour" — available at any width, including where the tour
+   itself is not offered, so a half-finished tour is never stranded. */
+#tourResume{position:fixed;right:22px;bottom:22px;z-index:280;background:#0f172a;color:#f1f5f9;
+  border:1px solid rgba(129,140,248,.34);border-radius:99px;padding:9px 15px;font-size:12.5px;
+  font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:9px;
+  animation:toastIn .3s var(--ease)}
+#tourResume .tr-x{background:transparent;border:none;color:rgba(241,245,249,.55);font-size:12px;
+  padding:0 0 0 2px;line-height:1}
+#tourResume .tr-x:hover{color:#f1f5f9}
+
+@media (max-width:900px){
+  /* The tour is never started at this width; this only hides a widget left
+     over from a resize mid-tour. */
+  #tourRoot{display:none!important}
+}
+@media (max-width:600px){
+  #tourResume{right:12px;left:12px;bottom:12px;justify-content:center}
+}
+/* Reduced motion: identical functionality, no travel. The spotlight jumps and
+   the cards cross-fade instead of morphing and sliding. */
+@media (prefers-reduced-motion:reduce){
+  .tour-hole,.tour-pop,.tour-blur,.tour-prog,.tour-tick,.tour-prog li{transition:none!important}
+  .tour-hole.shrink{transform:none}
+  .tour-prog li.just-done{animation:none}
+  #tourRoot .tour-pop,#tourResume{animation:none!important}
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width:1020px){
   .deal-grid{grid-template-columns:1fr}
