@@ -1381,10 +1381,35 @@ async function uploadWork(listingId){
   openListing(l.id,"work");
 }
 /* ============ EDIT A PUBLISHED LISTING / CAMPAIGN (from the dashboard) ============ */
-function editChips(field,opts){
+function editChips(field,opts,customLabel){
   const sel=S._edit.sets[field];
-  return `<div class="f-chips">${opts.map(o=>`<button type="button" class="chip ${sel.has(o)?"on":""}" data-v="${esc(o)}"
-    onclick="const s=S._edit.sets['${field}'];s.has(this.dataset.v)?s.delete(this.dataset.v):s.add(this.dataset.v);this.classList.toggle('on')">${esc(o)}</button>`).join("")}</div>`;
+  const toggleAttr=`onclick="const s=S._edit.sets['${field}'];s.has(this.dataset.v)?s.delete(this.dataset.v):s.add(this.dataset.v);this.classList.toggle('on')"`;
+  let html=`<div class="f-chips" id="ec-chips-${field}">${opts.map(o=>`<button type="button" class="chip ${sel.has(o)?"on":""}" data-v="${esc(o)}" ${toggleAttr}>${esc(o)}</button>`).join("")}`;
+  if(customLabel){
+    const customVals=[...sel].filter(v=>!opts.includes(v));
+    html+=customVals.map(v=>`<button type="button" class="chip on" data-v="${esc(v)}" ${toggleAttr}>${esc(v)}</button>`).join("");
+    html+=`<button type="button" class="chip chip-add" onclick="eAddCustomChip('${field}','${esc(customLabel)}')">+ Add ${esc(customLabel)}</button>`;
+  }
+  html+=`</div>`;
+  return html;
+}
+function eAddCustomChip(field,label){
+  const v=(window.prompt(`Add a custom ${label}:`,"")||"").trim();
+  if(!v) return;
+  const sel=S._edit.sets[field];
+  if([...sel].some(x=>x.toLowerCase()===v.toLowerCase())){ toast(`"${v}" is already added`); return; }
+  sel.add(v);
+  // No dedicated re-render for this modal (unlike the wizard's renderWiz()),
+  // and rebuilding the whole modal here would wipe any other not-yet-saved
+  // chip edits the person has made - so just insert the new chip directly,
+  // reusing the exact same toggle handler as every other chip in this group.
+  const wrap=document.getElementById("ec-chips-"+field);
+  if(!wrap) return;
+  const btn=document.createElement("button");
+  btn.type="button"; btn.className="chip on"; btn.dataset.v=v; btn.textContent=v;
+  btn.onclick=function(){ const s=S._edit.sets[field]; s.has(this.dataset.v)?s.delete(this.dataset.v):s.add(this.dataset.v); this.classList.toggle("on"); };
+  const addBtn=wrap.querySelector(".chip-add");
+  if(addBtn) wrap.insertBefore(btn,addBtn); else wrap.appendChild(btn);
 }
 function editPriceRow(i,p){
   p=p||{type:"fixed",label:"",detail:"",amount:0};
@@ -1430,7 +1455,7 @@ function openEditListing(id){
         <div><label>Avg views</label><input type="number" id="el-views" value="${l.avgViews||0}"></div></div>
       <div class="row2"><div><label>Avg impressions</label><input type="number" id="el-imps" value="${l.impressions||0}"></div>
         <div><label>Engagement rate (%)</label><input type="number" step="0.1" id="el-er" value="${l.er||0}"></div></div>
-      <div><label>Niches</label>${editChips("niches",ALL_NICHES)}</div>
+      <div><label>Niches</label>${editChips("niches",ALL_NICHES,"niche")}</div>
       <div><label>Services offered</label>${editChips("services",ALL_SERVICES)}</div>
       <div><label>Audience countries</label>${editChips("countries",ALL_COUNTRIES)}</div>
       <div><label>Age ranges</label>${editChips("ages",ALL_AGES)}</div>
@@ -1479,7 +1504,7 @@ function openEditCampaign(id){
       <div><label>Expected deliverables</label><textarea id="ec-deliv">${esc(c.deliverables||"")}</textarea></div>
       <div><label>Campaign duration</label><select id="ec-dur">${["One-off","Video-by-video","2 weeks","4 weeks","6 weeks","3 months","Ongoing"].map(x=>`<option ${x===c.duration?"selected":""}>${x}</option>`).join("")}</select></div>
       <div><label>Platforms wanted</label>${editChips("platforms",ALL_PLATFORMS)}</div>
-      <div><label>Niches</label>${editChips("niches",ALL_NICHES)}</div>
+      <div><label>Niches</label>${editChips("niches",ALL_NICHES,"niche")}</div>
       <div><label>Services wanted</label>${editChips("services",ALL_SERVICES)}</div>
       <div><label>Target countries</label>${editChips("countries",ALL_COUNTRIES)}</div>
       <div><label>Creator sizes</label>${editChips("creatorSizes",CREATOR_SIZES)}</div>
@@ -2856,8 +2881,28 @@ function openRegisterPlatform(){
 function wchip(field){
   return `onclick="W.d['${field}'].has(this.dataset.v)?W.d['${field}'].delete(this.dataset.v):W.d['${field}'].add(this.dataset.v);this.classList.toggle('on');this.classList.remove('pop');void this.offsetWidth;this.classList.add('pop')"`;
 }
-function wchipsHtml(field,opts){
-  return `<div class="chips-lg">`+opts.map(o=>`<button class="chip ${W.d[field].has(o)?"on":""}" ${wchip(field)} data-v="${esc(o)}">${esc(o)}</button>`).join("")+`</div>`;
+function wchipsHtml(field,opts,customLabel){
+  const set=W.d[field];
+  let html=`<div class="chips-lg">`+opts.map(o=>`<button type="button" class="chip ${set.has(o)?"on":""}" ${wchip(field)} data-v="${esc(o)}">${esc(o)}</button>`).join("");
+  if(customLabel){
+    // Anything the person typed in via "+ Add ..." that isn't one of the
+    // preset options - reuses the same toggle handler as a preset chip
+    // (wchip() reads the value off data-v at click-time), so removing one
+    // just untoggles it like any other chip.
+    const customVals=[...set].filter(v=>!opts.includes(v));
+    html+=customVals.map(v=>`<button type="button" class="chip on" ${wchip(field)} data-v="${esc(v)}">${esc(v)}</button>`).join("");
+    html+=`<button type="button" class="chip chip-add" onclick="wAddCustomChip('${field}','${esc(customLabel)}')">+ Add ${esc(customLabel)}</button>`;
+  }
+  html+=`</div>`;
+  return html;
+}
+function wAddCustomChip(field,label){
+  const v=(window.prompt(`Add a custom ${label}:`,"")||"").trim();
+  if(!v) return;
+  const set=W.d[field];
+  if([...set].some(x=>x.toLowerCase()===v.toLowerCase())){ toast(`"${v}" is already added`); return; }
+  set.add(v);
+  renderWiz();
 }
 function selCardsHtml(field,items){
   return `<div class="sel-cards">`+items.map(([ico,t,sub])=>`<div class="sel-card ${W.d[field].has(t)?"on":""}" onclick="W.d['${field}'].has(this.dataset.v)?W.d['${field}'].delete(this.dataset.v):W.d['${field}'].add(this.dataset.v);this.classList.toggle('on')" data-v="${esc(t)}">
@@ -2970,7 +3015,7 @@ function wizStepHtml(step){
         <div><label>Your brand / display name</label><input type="text" id="w-pbrand" value="${esc(d.pBrand)}"></div></div>
         <div><label>Platform / page name</label><input type="text" id="w-pname" value="${esc(d.pName)}"></div>
         <div><label>Description</label><textarea id="w-pdesc">${esc(d.pDesc)}</textarea></div>
-        <div><label>Niche(s)</label>${wchipsHtml("pNiches",ALL_NICHES)}</div></div>`,
+        <div><label>Niche(s)</label>${wchipsHtml("pNiches",ALL_NICHES,"niche")}</div></div>`,
       collect:()=>{d.pType=$("w-ptype").value;d.pBrand=$("w-pbrand").value.trim();d.pName=$("w-pname").value.trim();d.pDesc=$("w-pdesc").value.trim();},
       valid:()=>d.pName&&d.pBrand?null:"Brand and platform name are required."};
     case "p-aud": return {t:"Your audience",s:"Businesses filter by these numbers — analytics evidence can be verified later for a ✔ badge.",h:
@@ -4874,10 +4919,20 @@ function PSBoot(){
   restoreSession().then(restoreRoute);
   startAttnPolling();
   // A real reset link (emailed) lands as /?reset=<token> — open the set-password step.
+  // A real verification link lands as /?verify=<token> - verifyEmailFromLink()
+  // consumes it against the API immediately (unlike the reset token, which
+  // only gets used once the form is submitted), so it's single-use from the
+  // moment this page loads. Bug: neither token was ever stripped from the URL
+  // here, so refreshing the page replayed the same (now already-used/expired)
+  // token every time - showing "That link didn't work" on every refresh for a
+  // signed-in user who'd already verified. Stripping both from the address
+  // bar immediately, before either modal opens, means a refresh can never
+  // replay them again.
   const _q=new URLSearchParams(location.search);
   const _rt=_q.get("reset");
-  if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
   const _vt=_q.get("verify");
+  if(_rt||_vt) history.replaceState({}, "", location.pathname);
+  if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
   if(_vt) setTimeout(()=>verifyEmailFromLink(_vt),300);
   loadMarket().then(()=>{renderMarketRail();renderLandingState();});  // refresh the rail with real listings/campaigns, and the returning-user opportunities strip once real data is in
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); if(e.key==="Escape") closeNavMenu(); });
@@ -5211,7 +5266,7 @@ const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggl
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
-openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,
+openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,wAddCustomChip,eAddCustomChip,
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
 renderActionCodePanel,saveActionCode,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,
