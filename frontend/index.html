@@ -12,25 +12,30 @@
 <title>PromoSlot — Brands buy traction. Platform owners monetise their reach.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=Hanken+Grotesk:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f8fafc; --card:#ffffff; --ink:#0f172a; --ink2:#334155; --mut:#64748b; --faint:#94a3b8;
-  --line:#e2e8f0; --line2:#cbd5e1;
+  --bg:#f2f4f7; --card:#ffffff; --ink:#14273f; --ink2:#3a4658; --mut:#5f6e85; --faint:#8291a6;
+  --line:#d9dfe8; --line2:#e9edf2;
   --acc:#4f46e5; --acc2:#4338ca; --acc-soft:#eef2ff; --acc-border:#c7d2fe; --acc-ink:#4338ca;
   --money:#4f46e5; --money-soft:#eef2ff; --money-border:#c7d2fe;
   --amber:#b45309; --amber-soft:#fffbeb; --amber-border:#fde68a;
   --red:#dc2626; --red-soft:#fef2f2; --red-border:#fecaca;
-  --shadow:0 1px 2px rgba(15,23,42,.05),0 6px 22px rgba(15,23,42,.06);
-  --shadow-lg:0 10px 44px rgba(15,23,42,.16);
+  /* Navy family - used for dark section backgrounds (hero, page headers, footer,
+     nav utility bar) and their on-navy text/border shades. Not used as the
+     default page/card background - --bg/--card stay light everywhere else. */
+  --navy:#14273f; --navy2:#1f3b63; --navy3:#1b3050; --navy-line:#2a4064;
+  --navy-sub:#c4cfde; --navy-mut:#8fa0ba; --navy-acc:#a5b4fc;
+  --shadow:0 1px 2px rgba(20,39,63,.05),0 6px 22px rgba(20,39,63,.06);
+  --shadow-lg:0 10px 44px rgba(20,39,63,.16);
   --r:16px;
   --ease:cubic-bezier(.22,1,.36,1);
-  --font-d:"Schibsted Grotesk",sans-serif;
-  --font-b:"Hanken Grotesk",sans-serif;
+  --font-d:"Newsreader",serif;
+  --font-b:"Archivo",sans-serif;
 }
 body[data-role="plat"]{
   --acc:#4f46e5; --acc2:#4338ca; --acc-soft:#eef2ff; --acc-border:#c7d2fe; --acc-ink:#4338ca;
-  --bg:#f8fafc;
+  --bg:#f2f4f7;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -1055,6 +1060,66 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   #tourRoot .tour-pop,#tourResume{animation:none!important}
 }
 
+/* ---------- Public site v2 (navy/indigo redesign) ---------- */
+.util-bar{background:var(--navy);color:var(--navy-sub);font-size:12.5px}
+.util-bar-in{max-width:1220px;margin:0 auto;padding:8px 20px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.util-bar a{color:var(--navy-acc);background:none;border:none;font:inherit;cursor:pointer;padding:0;text-decoration:none}
+.util-bar a:hover{color:#fff}
+.util-links{display:flex;gap:20px}
+
+.nav-dd{position:relative}
+.nav-dd>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink2);white-space:nowrap}
+.nav-dd>summary::-webkit-details-marker{display:none}
+.nav-dd-car{font-size:9px;color:var(--faint)}
+.nav-dd-panel{position:absolute;left:0;top:calc(100% + 4px);background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);min-width:230px;padding:6px 0;display:flex;flex-direction:column;z-index:60}
+.nav-dd-panel button{text-align:left;background:none;border:none;cursor:pointer;padding:11px 16px;font:600 13.5px var(--font-b);color:var(--ink2)}
+.nav-dd-panel button:hover{color:var(--acc-ink);background:var(--acc-soft)}
+
+.page-head{background:var(--navy);color:var(--navy-sub);padding:52px 20px 42px}
+.page-head-in{max-width:900px;margin:0 auto}
+.page-head .eyebrow{color:var(--navy-acc);margin-bottom:10px}
+.page-head h1{font-family:var(--font-d);color:#fff;font-size:clamp(28px,4vw,40px);margin:0 0 12px;letter-spacing:-.02em;font-weight:600}
+.page-head p{color:var(--navy-sub);font-size:16px;max-width:640px;line-height:1.65;margin:0}
+
+.two-list{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:8px}
+.two-list h4{font-size:14px;margin:0 0 12px}
+.two-list ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.two-list li{font-size:14.5px;color:var(--ink2);line-height:1.55;padding-left:22px;position:relative}
+.list-yes li::before{content:"✓";position:absolute;left:0;color:var(--acc-ink);font-weight:700}
+.list-no li::before{content:"–";position:absolute;left:0;color:var(--faint);font-weight:700}
+
+.faq-item{border-bottom:1px solid var(--line2)}
+.faq-item summary{list-style:none;cursor:pointer;padding:16px 2px;font-weight:700;font-size:15px;color:var(--ink);display:flex;justify-content:space-between;gap:12px}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary::after{content:"+";color:var(--faint);font-weight:400;font-size:19px}
+.faq-item[open] summary::after{content:"–"}
+.faq-item p{margin:0 2px 16px;color:var(--mut);font-size:14.5px;line-height:1.6;max-width:640px}
+
+.steps-list{display:flex;flex-direction:column;gap:0;margin-top:8px;padding:0;list-style:none}
+.steps-list li{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid var(--line2)}
+.steps-list li:last-child{border-bottom:none}
+.step-n{flex-shrink:0;width:30px;height:30px;border-radius:50%;background:var(--acc-soft);color:var(--acc-ink);display:grid;place-items:center;font-size:13px;font-weight:800}
+.step-body h4{margin:0 0 4px;font-size:15px}
+.step-body p{margin:0;color:var(--mut);font-size:14px;line-height:1.55}
+
+.footer-v3{background:var(--navy);color:var(--navy-sub)}
+.footer-v3-in{max-width:1220px;margin:0 auto;padding:52px 20px 26px}
+.footer-v3-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:36px;padding-bottom:32px;border-bottom:1px solid var(--navy-line)}
+.footer-v3-grid h4{font-family:var(--font-d);font-size:17px;font-weight:600;color:#fff;margin:0 0 12px}
+.footer-v3-grid p{margin:0;font-size:13.5px;line-height:1.7;max-width:320px;color:var(--navy-sub)}
+.footer-v3-links{display:flex;flex-direction:column;gap:9px;font-size:13.5px}
+.footer-v3-links button,.footer-v3-links a{background:none;border:none;padding:0;text-align:left;cursor:pointer;font:400 13.5px var(--font-b);color:var(--navy-sub);text-decoration:none}
+.footer-v3-links button:hover,.footer-v3-links a:hover{color:var(--navy-acc)}
+.footer-v3-bottom{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:20px;font-size:12.5px;color:var(--navy-mut)}
+.footer-v3-bottom a{color:var(--navy-mut);text-decoration:none}
+.footer-v3-bottom a:hover{color:var(--navy-acc)}
+.footer-v3 .footer-support{margin-top:6px;color:var(--navy-sub)}
+.footer-v3 .footer-support .fs-row span{color:var(--navy-mut)}
+
+.coming-soon-box{border:1px dashed var(--line);border-radius:16px;padding:44px 28px;text-align:center;color:var(--mut);max-width:560px;margin:28px auto 0}
+.coming-soon-box h3{color:var(--ink);margin:0 0 8px;font-size:18px}
+.coming-soon-box p{margin:0;font-size:14.5px;line-height:1.6}
+
 /* ---------- Responsive ---------- */
 @media (max-width:1020px){
   .deal-grid{grid-template-columns:1fr}
@@ -1084,6 +1149,12 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     padding:8px 16px 12px;max-height:calc(100vh - 64px);overflow-y:auto;overflow-x:visible}
   .nav-links.open{display:flex}
   .nav-links .nav-link{width:100%;text-align:left;padding:12px 10px}
+  .nav-links .nav-dd{width:100%}
+  .nav-links .nav-dd>summary{width:100%;padding:12px 10px}
+  .nav-links .nav-dd-panel{position:static;box-shadow:none;border:none;padding:0 0 4px 18px;min-width:0}
+  .util-bar-in{padding:8px 16px}
+  .two-list{grid-template-columns:1fr}
+  .footer-v3-grid{grid-template-columns:1fr;gap:26px}
 }
 @media (max-width:600px){
   .sel-cards{grid-template-columns:1fr}
@@ -1150,13 +1221,31 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <script src="promoslot-app.js"></script>
 </helmet>
 
+<div class="util-bar">
+  <div class="util-bar-in">
+    <span>For businesses and platform owners seeking clearer promotional partnerships.</span>
+    <div class="util-links">
+      <a href="mailto:support@usepromoslot.com">Support</a>
+      <a href="#" data-act="toast-fees">Fees and protection</a>
+    </div>
+  </div>
+</div>
 <nav class="nav">
   <div class="nav-in">
     <button class="logo" data-act="home"><span class="logo-mark">P</span><span class="logo-txt">PromoSlot</span></button>
     <button class="nav-menu-toggle" id="navMenuToggle" data-act="nav-menu" aria-label="Menu" aria-expanded="false" aria-controls="navLinks">☰</button>
     <div class="nav-links" id="navLinks">
       <button class="nav-link" id="nl-market" data-act="market">Marketplace</button>
-      <button class="nav-link" id="nl-how" data-act="how">How it works</button>
+      <details class="nav-dd">
+        <summary>How it works<span class="nav-dd-car">▼</span></summary>
+        <div class="nav-dd-panel">
+          <button type="button" id="nl-how" data-act="how">How PromoSlot works</button>
+          <button type="button" id="nl-protect" data-act="protect">Payment Protection</button>
+          <button type="button" id="nl-pricing" data-act="pricing">Pricing</button>
+        </div>
+      </details>
+      <button class="nav-link" id="nl-resources" data-act="resources">Resources</button>
+      <button class="nav-link" id="nl-about" data-act="about">About</button>
       <button class="nav-link" id="nl-msgs" data-act="messages">Messages<span class="attn-dot hide" id="dot-msgs"></span></button>
       <button class="nav-link hide" id="nl-dash" data-act="dash">Dashboard<span class="attn-dot hide" id="dashDot"></span></button>
       <button class="nav-link hide" id="nl-review" data-act="review-queue">Review queue<span class="attn-dot hide" id="dot-review"></span></button>
@@ -1349,11 +1438,69 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     </div>
   </section>
 
-  <section class="section" id="sec-how" style="padding-top: 20px;">
-    <div class="sec-kicker">How deals work</div>
-    <h2 class="sec-title">From agreement to payout, every step stays clear.</h2>
-    <p class="sec-sub">Set the terms, fund the deal and follow delivery, evidence and payment in one place. PromoSlot verifies deliverables and evidence — it does not guarantee sales, virality or revenue unless explicitly included in the funded terms.</p>
+  <section class="section">
+    <div class="sec-kicker">Browse by platform</div>
+    <h2 class="sec-title" style="margin-bottom:18px">Every channel that carries an audience</h2>
+    <div class="chips-row" id="platBrowseChips"></div>
+  </section>
 
+  <div class="final-cta">
+    <h2>Ready to start?</h2>
+    <p>Find promotion for your brand, or monetise the audience you've already built.</p>
+    <div class="split-cta">
+      <button class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</button>
+      <button class="btn btn-o btn-lg final-cta-o" data-act="wiz-plat">Monetise your audience</button>
+    </div>
+  </div>
+
+  <footer class="footer-v3">
+    <div class="footer-v3-in">
+      <div class="footer-v3-grid">
+        <div>
+          <h4>PromoSlot</h4>
+          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="market-platforms">Browse platform listings</button>
+            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
+            <button type="button" data-act="how">How it works</button>
+            <button type="button" data-act="protect">Payment Protection</button>
+            <button type="button" data-act="pricing">Pricing</button>
+            <button type="button" data-act="resources">Resources</button>
+          </div>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="about">About</button>
+            <a href="mailto:support@usepromoslot.com">Support</a>
+            <a href="#" data-act="toast-fees">Fees</a>
+            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
+            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+          </div>
+          <div class="footer-support"></div>
+        </div>
+      </div>
+      <div class="footer-v3-bottom">
+        <span>© 2026 PromoSlot Ltd</span>
+        <span>All amounts shown in GBP.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div class="view" id="view-how" data-screen-label="How it works">
+  <div class="page-head">
+    <div class="page-head-in">
+      <div class="eyebrow">How it works</div>
+      <h1>From agreement to payout, every step stays clear.</h1>
+      <p>Set the terms, fund the deal and follow delivery, evidence and payment in one place. PromoSlot verifies deliverables and evidence — it does not guarantee sales, virality or revenue unless explicitly included in the funded terms.</p>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top:36px">
     <div class="dj-card">
       <div class="dj-topbar">
         <div style="display:flex;align-items:center">
@@ -1391,15 +1538,99 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     </div>
 
     <div class="dj-legal">
-      <p>PromoSlot reviews and approves submitted evidence against the agreed deliverables before payment is released. Commercial results such as sales, virality or revenue are only covered when explicitly included in the funded agreement. <a href="#" onclick="event.preventDefault();toast('Full Payment Protection details — a dedicated page is coming soon.')">Read the Payment Protection terms →</a></p>
+      <p>PromoSlot reviews and approves submitted evidence against the agreed deliverables before payment is released. Commercial results such as sales, virality or revenue are only covered when explicitly included in the funded agreement. <a href="#" data-act="protect">Read the Payment Protection terms →</a></p>
     </div>
   </section>
 
-  <section class="section" id="sec-pricing" style="padding-top:10px">
-    <div class="sec-kicker">Pricing</div>
-    <h2 class="sec-title">Pricing example</h2>
-    <p class="sec-sub">No subscription. No listing fee. See exactly what you'll fund or receive before a deal begins.</p>
+  <section class="section" style="padding-top:6px">
+    <div class="two-list">
+      <div>
+        <h4>What PromoSlot verifies</h4>
+        <ul class="list-yes">
+          <li>That submitted evidence matches the deliverables both parties accepted</li>
+          <li>Platform ownership, before a listing can transact</li>
+          <li>That funds are held before delivery is expected to begin</li>
+          <li>That a human reviewer, not an automated check, makes the delivery decision</li>
+        </ul>
+      </div>
+      <div>
+        <h4>What isn't guaranteed</h4>
+        <ul class="list-no">
+          <li>Sales, sign-ups or revenue from a promotion</li>
+          <li>Views, reach or engagement beyond what the agreement specifies</li>
+          <li>The commercial judgement of either party</li>
+          <li>Outcomes affected by a third-party platform's own moderation or reach changes</li>
+        </ul>
+      </div>
+    </div>
+  </section>
 
+  <section class="section" style="padding-top:6px">
+    <div class="sec-kicker">Questions</div>
+    <h2 class="sec-title" style="margin-bottom:14px">Frequently asked</h2>
+    <details class="faq-item"><summary>Who decides whether delivery was acceptable?</summary><p>A PromoSlot reviewer checks the submitted evidence against the accepted terms. If something is missing, the platform owner is given the chance to resubmit before any decision closes the deal.</p></details>
+    <details class="faq-item"><summary>Can terms change after both sides approve?</summary><p>Only by agreeing a new version. Any counter-offer is recorded, and funding is always tied to the version both parties last approved.</p></details>
+    <details class="faq-item"><summary>What happens if the work is never published?</summary><p>The deal cannot be verified, and eligible funds are returned to the business under the accepted terms.</p></details>
+    <details class="faq-item"><summary>Does PromoSlot choose who works with whom?</summary><p>No. Businesses and platform owners find each other in the Marketplace and agree their own terms. PromoSlot records the agreement and reviews delivery.</p></details>
+  </section>
+
+  <div class="final-cta">
+    <h2>Ready to start?</h2>
+    <p>Find promotion for your brand, or monetise the audience you've already built.</p>
+    <div class="split-cta">
+      <button class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</button>
+      <button class="btn btn-o btn-lg final-cta-o" data-act="wiz-plat">Monetise your audience</button>
+    </div>
+  </div>
+
+  <footer class="footer-v3">
+    <div class="footer-v3-in">
+      <div class="footer-v3-grid">
+        <div>
+          <h4>PromoSlot</h4>
+          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="market-platforms">Browse platform listings</button>
+            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
+            <button type="button" data-act="how">How it works</button>
+            <button type="button" data-act="protect">Payment Protection</button>
+            <button type="button" data-act="pricing">Pricing</button>
+            <button type="button" data-act="resources">Resources</button>
+          </div>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="about">About</button>
+            <a href="mailto:support@usepromoslot.com">Support</a>
+            <a href="#" data-act="toast-fees">Fees</a>
+            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
+            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+          </div>
+          <div class="footer-support"></div>
+        </div>
+      </div>
+      <div class="footer-v3-bottom">
+        <span>© 2026 PromoSlot Ltd</span>
+        <span>All amounts shown in GBP.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div class="view" id="view-pricing" data-screen-label="Pricing">
+  <div class="page-head">
+    <div class="page-head-in">
+      <div class="eyebrow">Pricing</div>
+      <h1>Pricing example</h1>
+      <p>No subscription. No listing fee. See exactly what you'll fund or receive before a deal begins.</p>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top:36px">
     <div class="ps-card">
       <div class="ps-grid" id="psGrid">
         <div class="ps-left">
@@ -1447,10 +1678,12 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     </div>
   </section>
 
-  <section class="section">
-    <div class="sec-kicker">Browse by platform</div>
-    <h2 class="sec-title" style="margin-bottom:18px">Every channel that carries an audience</h2>
-    <div class="chips-row" id="platBrowseChips"></div>
+  <section class="section" style="padding-top:6px">
+    <div class="sec-kicker">Questions</div>
+    <h2 class="sec-title" style="margin-bottom:14px">Frequently asked</h2>
+    <details class="faq-item"><summary>When is a fee charged?</summary><p>Only when a deal is funded. There is no subscription, no listing fee and no charge for messaging or negotiating.</p></details>
+    <details class="faq-item"><summary>What happens to fees if a deal is returned?</summary><p>Where eligible funds are returned under the accepted terms, the buyer protection fee is treated in line with the published refund policy for that outcome.</p></details>
+    <details class="faq-item"><summary>Are the figures here the same as at checkout?</summary><p>Yes. The percentages shown are the ones applied in the product, and each side sees only the amount relevant to their position in the deal.</p></details>
   </section>
 
   <div class="final-cta">
@@ -1462,30 +1695,239 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     </div>
   </div>
 
-  <footer class="footer footer-v2">
-    <div class="footer-grid">
-      <div>
-        <h4>PromoSlot</h4>
-        <p style="font-size:13px;line-height:1.7;max-width:300px;color:#94a3b8">Brands buy traction. Platform owners monetise their reach. PromoSlot protects the deal.</p>
+  <footer class="footer-v3">
+    <div class="footer-v3-in">
+      <div class="footer-v3-grid">
+        <div>
+          <h4>PromoSlot</h4>
+          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="market-platforms">Browse platform listings</button>
+            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
+            <button type="button" data-act="how">How it works</button>
+            <button type="button" data-act="protect">Payment Protection</button>
+            <button type="button" data-act="pricing">Pricing</button>
+            <button type="button" data-act="resources">Resources</button>
+          </div>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="about">About</button>
+            <a href="mailto:support@usepromoslot.com">Support</a>
+            <a href="#" data-act="toast-fees">Fees</a>
+            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
+            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+          </div>
+          <div class="footer-support"></div>
+        </div>
       </div>
-      <div>
-        <h4>Marketplace</h4>
-        <a href="#" data-act="market-platforms">Browse platform listings</a>
-        <a href="#" data-act="market-campaigns">Browse business campaigns</a>
-        <a href="#" data-act="how">How it works</a>
-        <a href="#" onclick="event.preventDefault();showView('view-landing');smoothTo(document.getElementById('sec-pricing'))">Pricing</a>
-      </div>
-      <div>
-        <h4>Company</h4>
-        <a href="#" onclick="event.preventDefault();showView('view-landing');smoothTo(document.getElementById('sec-how'))">Payment Protection</a>
-        <div id="footerSupport"></div>
-        <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
-        <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+      <div class="footer-v3-bottom">
+        <span>© 2026 PromoSlot Ltd</span>
+        <span>All amounts shown in GBP.</span>
       </div>
     </div>
-    <div class="footer-bottom">
-      <span>© 2026 PromoSlot Ltd</span>
-      <span>All amounts shown in GBP.</span>
+  </footer>
+</div>
+
+<div class="view" id="view-protect" data-screen-label="Payment Protection">
+  <div class="page-head">
+    <div class="page-head-in">
+      <div class="eyebrow">Payment Protection</div>
+      <h1>Funds are held until delivery is verified.</h1>
+      <p>PromoSlot holds the funded amount from the moment a deal is agreed, and only releases it once a reviewer has checked the submitted evidence against the accepted terms.</p>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top:36px">
+    <div class="sec-kicker">How the protection works</div>
+    <h2 class="sec-title" style="margin-bottom:6px">Six steps, the same for every deal</h2>
+    <ol class="steps-list">
+      <li><span class="step-n">1</span><div class="step-body"><h4>Terms accepted by both sides</h4><p>Deliverables, dates, payment model and evidence requirements are fixed at the version both parties approved.</p></div></li>
+      <li><span class="step-n">2</span><div class="step-body"><h4>The business funds the deal</h4><p>The payment plus the buyer protection fee is taken and held by PromoSlot. It does not reach the platform owner yet.</p></div></li>
+      <li><span class="step-n">3</span><div class="step-body"><h4>Delivery begins</h4><p>The platform owner publishes the agreed work, knowing the payment is already funded.</p></div></li>
+      <li><span class="step-n">4</span><div class="step-body"><h4>Evidence is submitted</h4><p>Links, screenshots and analytics are uploaded against the requirements agreed at the start.</p></div></li>
+      <li><span class="step-n">5</span><div class="step-body"><h4>A reviewer checks the record</h4><p>A person compares the evidence to the accepted terms and records the decision, with a chance to resubmit if something is missing.</p></div></li>
+      <li><span class="step-n">6</span><div class="step-body"><h4>Release or return</h4><p>Verified delivery releases funds to the platform owner less the seller fee. Where conditions were not met, eligible funds are returned to the business.</p></div></li>
+    </ol>
+  </section>
+
+  <section class="section" style="padding-top:6px">
+    <div class="two-list">
+      <div>
+        <h4>Evidence PromoSlot looks for</h4>
+        <ul class="list-yes">
+          <li>A link to the published post, video or send</li>
+          <li>Screenshots showing the content live and dated</li>
+          <li>Platform analytics covering the agreed measurement window</li>
+          <li>View, impression or click figures where the payment model depends on them</li>
+          <li>Confirmation the content stayed live for the agreed period</li>
+        </ul>
+      </div>
+      <div>
+        <h4>What's excluded</h4>
+        <ul class="list-no">
+          <li>Commercial results — sales, sign-ups or revenue — unless explicitly written into the agreement</li>
+          <li>Work agreed or paid for outside PromoSlot</li>
+          <li>Changes a third-party platform makes to reach, moderation or availability</li>
+          <li>Requirements never recorded in the accepted terms</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="final-cta">
+    <h2>Ready to start?</h2>
+    <p>Find promotion for your brand, or monetise the audience you've already built.</p>
+    <div class="split-cta">
+      <button class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</button>
+      <button class="btn btn-o btn-lg final-cta-o" data-act="wiz-plat">Monetise your audience</button>
+    </div>
+  </div>
+
+  <footer class="footer-v3">
+    <div class="footer-v3-in">
+      <div class="footer-v3-grid">
+        <div>
+          <h4>PromoSlot</h4>
+          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="market-platforms">Browse platform listings</button>
+            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
+            <button type="button" data-act="how">How it works</button>
+            <button type="button" data-act="protect">Payment Protection</button>
+            <button type="button" data-act="pricing">Pricing</button>
+            <button type="button" data-act="resources">Resources</button>
+          </div>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="about">About</button>
+            <a href="mailto:support@usepromoslot.com">Support</a>
+            <a href="#" data-act="toast-fees">Fees</a>
+            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
+            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+          </div>
+          <div class="footer-support"></div>
+        </div>
+      </div>
+      <div class="footer-v3-bottom">
+        <span>© 2026 PromoSlot Ltd</span>
+        <span>All amounts shown in GBP.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div class="view" id="view-resources" data-screen-label="Resources">
+  <div class="page-head">
+    <div class="page-head-in">
+      <div class="eyebrow">Resources</div>
+      <h1>Guides on audience-led promotion.</h1>
+      <p>A growing library of practical guidance on choosing platforms, agreeing deliverables, payment models and evidence.</p>
+    </div>
+  </div>
+  <section class="section" style="padding-top:36px">
+    <div class="coming-soon-box">
+      <h3>The resource hub is coming soon</h3>
+      <p>We're writing the first guides now. In the meantime, <a href="#" data-act="how">How it works</a> and <a href="#" data-act="protect">Payment Protection</a> cover the essentials.</p>
+    </div>
+  </section>
+
+  <footer class="footer-v3">
+    <div class="footer-v3-in">
+      <div class="footer-v3-grid">
+        <div>
+          <h4>PromoSlot</h4>
+          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="market-platforms">Browse platform listings</button>
+            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
+            <button type="button" data-act="how">How it works</button>
+            <button type="button" data-act="protect">Payment Protection</button>
+            <button type="button" data-act="pricing">Pricing</button>
+            <button type="button" data-act="resources">Resources</button>
+          </div>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="about">About</button>
+            <a href="mailto:support@usepromoslot.com">Support</a>
+            <a href="#" data-act="toast-fees">Fees</a>
+            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
+            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+          </div>
+          <div class="footer-support"></div>
+        </div>
+      </div>
+      <div class="footer-v3-bottom">
+        <span>© 2026 PromoSlot Ltd</span>
+        <span>All amounts shown in GBP.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div class="view" id="view-about" data-screen-label="About">
+  <div class="page-head">
+    <div class="page-head-in">
+      <div class="eyebrow">About</div>
+      <h1>About PromoSlot.</h1>
+      <p>A marketplace connecting businesses with platform owners for accountable, evidence-based promotion.</p>
+    </div>
+  </div>
+  <section class="section" style="padding-top:36px">
+    <div class="coming-soon-box">
+      <h3>More about us is coming soon</h3>
+      <p>We're putting together the story behind PromoSlot. Meanwhile you can see <a href="#" data-act="how">how it works</a> or head to the <a href="#" data-act="market">Marketplace</a>.</p>
+    </div>
+  </section>
+
+  <footer class="footer-v3">
+    <div class="footer-v3-in">
+      <div class="footer-v3-grid">
+        <div>
+          <h4>PromoSlot</h4>
+          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="market-platforms">Browse platform listings</button>
+            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
+            <button type="button" data-act="how">How it works</button>
+            <button type="button" data-act="protect">Payment Protection</button>
+            <button type="button" data-act="pricing">Pricing</button>
+            <button type="button" data-act="resources">Resources</button>
+          </div>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="about">About</button>
+            <a href="mailto:support@usepromoslot.com">Support</a>
+            <a href="#" data-act="toast-fees">Fees</a>
+            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
+            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+          </div>
+          <div class="footer-support"></div>
+        </div>
+      </div>
+      <div class="footer-v3-bottom">
+        <span>© 2026 PromoSlot Ltd</span>
+        <span>All amounts shown in GBP.</span>
+      </div>
     </div>
   </footer>
 </div>

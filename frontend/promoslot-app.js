@@ -13,11 +13,15 @@ const SUPPORT_INFO = {
   address: "[Business Address — placeholder]",
 };
 function renderFooterSupport(){
-  const el=document.getElementById("footerSupport"); if(!el) return;
-  el.innerHTML=`
-    <div class="fs-row"><span>Business Email:</span> ${esc(SUPPORT_INFO.email)}</div>
-    <div class="fs-row"><span>Mobile Number:</span> ${esc(SUPPORT_INFO.mobile)}</div>
-    <div class="fs-row"><span>Business Address:</span> ${esc(SUPPORT_INFO.address)}</div>`;
+  // Public pages each carry their own footer (same pattern as the original
+  // single-footer landing page), so this now targets every copy by class
+  // rather than one id — querySelectorAll, not getElementById.
+  document.querySelectorAll(".footer-support").forEach(el=>{
+    el.innerHTML=`
+      <div class="fs-row"><span>Business Email:</span> ${esc(SUPPORT_INFO.email)}</div>
+      <div class="fs-row"><span>Mobile Number:</span> ${esc(SUPPORT_INFO.mobile)}</div>
+      <div class="fs-row"><span>Business Address:</span> ${esc(SUPPORT_INFO.address)}</div>`;
+  });
 }
 
 /* ==================== SEEDED DATA ==================== */
@@ -836,7 +840,11 @@ function renderReturningActionCenter(){
     nudgeEl.innerHTML = nudges.length ? nudges.join("") : `<p class="mut" style="font-size:13px">Nothing new to flag right now.</p>`;
   }
 }
-function goHow(){ showView("view-landing"); setTimeout(()=>smoothTo($("sec-how")),80); }
+function goHow(){ setRoute("how"); showView("view-how"); }
+function goPricingPage(){ setRoute("pricing"); showView("view-pricing"); }
+function goProtect(){ setRoute("protect"); showView("view-protect"); }
+function goResources(){ setRoute("resources"); showView("view-resources"); }
+function goAbout(){ setRoute("about"); showView("view-about"); }
 async function openDash(){
   if(!S.account){ authModal("login"); return; }
   if(!S.roles.includes(S.activeRole)) S.activeRole=S.roles[0];
@@ -1059,6 +1067,10 @@ function toggleNavMenu(){
 function closeNavMenu(){
   const el=$("navLinks"); if(el) el.classList.remove("open");
   const t=$("navMenuToggle"); if(t) t.setAttribute("aria-expanded","false");
+  closeNavDropdowns();
+}
+function closeNavDropdowns(except){
+  document.querySelectorAll("nav.nav details.nav-dd[open]").forEach(d=>{ if(d!==except) d.open=false; });
 }
 function chipsHtml(group,opts){
   return `<div class="f-chips">`+opts.map(o=>`<button class="chip ${S.filters[group].has(o)?"on":""}" onclick="toggleFilter('${group}',this.dataset.v,this)" data-v="${esc(o)}">${esc(o)}</button>`).join("")+`</div>`;
@@ -4691,7 +4703,7 @@ sessionStorage (not localStorage) so it is per-tab and dies with the tab.
 */
 const ROUTE_KEY="ps_route";
 // Routes anyone may land on. Everything else needs a live session to restore.
-const PUBLIC_ROUTES=new Set(["home","market"]);
+const PUBLIC_ROUTES=new Set(["home","market","how","pricing","protect","resources","about"]);
 let _routeReady=false;                 // don't record routes during restore
 
 function setRoute(name, arg){
@@ -4743,6 +4755,11 @@ async function applyRoute(r){
       if(!can("admin.view")) return false;
       await openAdmin(); return true;
     case "home":        goHome(); return true;
+    case "how":         goHow(); return true;
+    case "pricing":     goPricingPage(); return true;
+    case "protect":     goProtect(); return true;
+    case "resources":   goResources(); return true;
+    case "about":       goAbout(); return true;
   }
   return false;
 }
@@ -4758,6 +4775,10 @@ const NAV_ACTIONS={
   "market-platforms":()=>openMarket("platforms"),
   "market-campaigns":()=>openMarket("campaigns"),
   "how":()=>goHow(),
+  "pricing":()=>goPricingPage(),
+  "protect":()=>goProtect(),
+  "resources":()=>goResources(),
+  "about":()=>goAbout(),
   "messages":()=>openMessages(),
   "notifs":()=>toggleNotifs(),
   "dash":()=>openDash(),
@@ -4806,17 +4827,18 @@ function PSBoot(){
       // A link inside the open mobile menu (not the toggle button itself) should
       // close it — showView() already does this for full page/view switches, but
       // this covers anything routed through NAV_ACTIONS that doesn't call it.
-      if(el.closest("#navLinks")) closeNavMenu();
+      if(el.closest("#navLinks")) closeNavMenu(); else closeNavDropdowns();
       return;
     }
     if(notifOpen && !e.target.closest("#notifPop") && !e.target.closest("#navBell")) toggleNotifs(false);
     if($("navLinks").classList.contains("open") && !e.target.closest("#navLinks") && !e.target.closest("#navMenuToggle")) closeNavMenu();
+    if(!e.target.closest("details.nav-dd")) closeNavDropdowns();
   });
   bellSync();
 }
 window.PSBoot=PSBoot;
 
-// --- "How deals work" interactive Deal Journey component (homepage, #sec-how) ---
+// --- "How deals work" interactive Deal Journey component (view-how page) ---
 // Illustrative walkthrough only - not a real deal. Ported from the approved
 // Claude Design mockup, wording aligned with real deal-state copy elsewhere in the app.
 const DJ_STAGES=[
@@ -4973,7 +4995,7 @@ function djBindControls(){
   document.getElementById("djNextBtn")?.addEventListener("click",djNext);
 }
 
-// --- Pricing calculator (homepage, #sec-pricing) ---
+// --- Pricing calculator (view-pricing page) ---
 // Illustrative fee calculator - not wired to real deal creation. Ported from
 // the approved Claude Design mockup. Percentages (5% business Payment
 // Protection fee, 10% platform-owner service fee) match the real fee
