@@ -5095,13 +5095,25 @@ window.addEventListener("resize",()=>{ if(psState.expanded) psSyncPanelHeight();
 // psAmountInput previously shared its id ("psAmount") with the psAmount() function
 // it called from an inline oninput attribute, which is the same shadowing hazard.
 function psBindControls(){
+  console.log("[PS DEBUG] psBindControls running");
   document.getElementById("psRoleBiz")?.addEventListener("click",()=>psPickRole("business"));
   document.getElementById("psRoleOwn")?.addEventListener("click",()=>psPickRole("owner"));
   document.getElementById("psDiscBtn")?.addEventListener("click",psToggleDisclosure);
   const amt=document.getElementById("psAmountInput");
+  console.log("[PS DEBUG] amount input found:", !!amt, amt);
   if(amt){
-    amt.addEventListener("input",e=>psAmount(e.target.value));
+    // TEMPORARY debug instrumentation - remove once the real-browser typing
+    // issue is pinned down. Logs at every stage of the chain so we can see
+    // exactly where it breaks: does the browser even fire the event, does our
+    // handler run, does the value make it into state.
+    amt.addEventListener("keydown",e=>console.log("[PS DEBUG] keydown:",e.key,"defaultPrevented before handler:",e.defaultPrevented));
+    amt.addEventListener("input",e=>{
+      console.log("[PS DEBUG] input event fired, e.target.value =",JSON.stringify(e.target.value));
+      psAmount(e.target.value);
+      console.log("[PS DEBUG] after psAmount, psState.raw =",JSON.stringify(psState.raw),"| field now shows:",JSON.stringify(amt.value));
+    });
     amt.addEventListener("blur",e=>psAmountBlur(e.target.value));
+    amt.addEventListener("focus",()=>console.log("[PS DEBUG] amount input FOCUSED"));
   }
 }
 
