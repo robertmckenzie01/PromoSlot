@@ -4934,10 +4934,6 @@ function djStagePanel(i){
       <div class="dj-trow"><div class="dj-tk">Evidence</div><div class="dj-tv acc">Approved by PromoSlot</div></div>
       <div class="dj-trow"><div class="dj-tk">Payment status</div><div class="dj-tv">£500 released</div></div>
       <div class="dj-trow"><div class="dj-tk">Deal record</div><div class="dj-tv">Complete</div></div>
-    </div>
-    <div class="dj-final-cta dj-anim">
-      <a href="#" class="dj-btn dj-btn-p" onclick="event.preventDefault();goHow?goHow():showView('view-landing')">Explore the Marketplace</a>
-      <a href="#" class="dj-btn dj-btn-o" onclick="event.preventDefault();toast('Full Payment Protection details — a dedicated page is coming soon.')">Learn about Payment Protection</a>
     </div>`;
 }
 function djRender(){
