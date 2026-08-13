@@ -1078,6 +1078,18 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 .page-head{background:var(--navy);color:var(--navy-sub);padding:52px 20px 42px}
 .page-head-in{max-width:900px;margin:0 auto}
 .page-head .eyebrow{color:var(--navy-acc);margin-bottom:10px}
+.page-crumb{font-size:12.5px;color:var(--navy-mut);margin-bottom:22px}
+.page-crumb button{background:none;border:none;padding:0;cursor:pointer;font:inherit;color:var(--navy-acc)}
+.page-crumb button:hover{color:#c7d2fe}
+.page-crumb span{color:var(--navy-line)}
+.key-terms-box{background:var(--navy);border-radius:10px;padding:28px;color:#fff}
+.key-terms-box .kt-kicker{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--navy-acc);margin-bottom:12px}
+.key-terms-box .kt-row{display:flex;justify-content:space-between;gap:14px;font-size:14px;line-height:1.65;color:var(--navy-sub);border-bottom:1px solid var(--navy-line);padding-bottom:12px;margin-bottom:12px}
+.key-terms-box .kt-row:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
+.key-terms-box .kt-row b{color:#fff;font-weight:600}
+.pricing-layout{display:grid;grid-template-columns:1fr 340px;gap:28px;align-items:start;margin-top:28px}
+.pricing-side{display:flex;flex-direction:column;gap:20px}
+.pricing-side .tile-light{padding:26px}
 .page-head h1{font-family:var(--font-d);color:#fff;font-size:clamp(28px,4vw,40px);margin:0 0 12px;letter-spacing:-.02em;font-weight:600}
 .page-head p{color:var(--navy-sub);font-size:16px;max-width:640px;line-height:1.65;margin:0}
 
@@ -1203,6 +1215,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   .footer-v3-grid{grid-template-columns:1fr;gap:26px}
   .hero-v3-in{padding:56px 16px 44px}
   .tile-row{grid-template-columns:1fr}
+  .pricing-layout{grid-template-columns:1fr}
 }
 @media (max-width:600px){
   .sel-cards{grid-template-columns:1fr}
@@ -1560,6 +1573,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-how" data-screen-label="How it works">
   <div class="page-head">
     <div class="page-head-in">
+      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> How it works</div>
       <div class="eyebrow">How it works</div>
       <h1>From agreement to payout, every step stays clear.</h1>
       <p>Set the terms, fund the deal and follow delivery, evidence and payment in one place. PromoSlot verifies deliverables and evidence — it does not guarantee sales, virality or revenue unless explicitly included in the funded terms.</p>
@@ -1690,6 +1704,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-pricing" data-screen-label="Pricing">
   <div class="page-head">
     <div class="page-head-in">
+      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Pricing</div>
       <div class="eyebrow">Pricing</div>
       <h1>Pricing example</h1>
       <p>No subscription. No listing fee. See exactly what you'll fund or receive before a deal begins.</p>
@@ -1697,6 +1712,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   </div>
 
   <section class="section" style="padding-top:36px">
+    <div class="pricing-layout">
     <div class="ps-card">
       <div class="ps-grid" id="psGrid">
         <div class="ps-left">
@@ -1741,6 +1757,21 @@ body[data-role="plat"] .role-biz-only{display:none!important}
           <div class="ps-panel-inner" id="psPanelInner"></div>
         </div>
       </div>
+    </div>
+    <div class="pricing-side">
+      <div class="key-terms-box">
+        <div class="kt-kicker">Key terms</div>
+        <div class="kt-row"><span>Subscription</span><b>None</b></div>
+        <div class="kt-row"><span>Listing fee</span><b>None</b></div>
+        <div class="kt-row"><span>Buyer protection fee</span><b>5%</b></div>
+        <div class="kt-row"><span>Seller fee</span><b>10%</b></div>
+      </div>
+      <div class="tile-light" style="cursor:default">
+        <span class="tile-kicker" style="margin-bottom:0">When is a fee charged?</span>
+        <span class="tile-body">Fees apply only when a deal is funded. Browsing, listing, messaging and negotiating are free on both sides.</span>
+        <button type="button" data-act="protect" style="background:none;border:none;padding:0;cursor:pointer;font:600 14px var(--font-b);color:var(--acc-ink);text-align:left">Read the full terms →</button>
+      </div>
+    </div>
     </div>
   </section>
 
@@ -1802,6 +1833,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-protect" data-screen-label="Payment Protection">
   <div class="page-head">
     <div class="page-head-in">
+      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Payment Protection</div>
       <div class="eyebrow">Payment Protection</div>
       <h1>Funds are held until delivery is verified.</h1>
       <p>PromoSlot holds the funded amount from the moment a deal is agreed, and only releases it once a reviewer has checked the submitted evidence against the accepted terms.</p>
@@ -1895,6 +1927,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-resources" data-screen-label="Resources">
   <div class="page-head">
     <div class="page-head-in">
+      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Resources</div>
       <div class="eyebrow">Resources</div>
       <h1>Guides on audience-led promotion.</h1>
       <p>A growing library of practical guidance on choosing platforms, agreeing deliverables, payment models and evidence.</p>
@@ -1948,6 +1981,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-about" data-screen-label="About">
   <div class="page-head">
     <div class="page-head-in">
+      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> About</div>
       <div class="eyebrow">About</div>
       <h1>About PromoSlot.</h1>
       <p>A marketplace connecting businesses with platform owners for accountable, evidence-based promotion.</p>
