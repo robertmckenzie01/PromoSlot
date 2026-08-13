@@ -359,6 +359,14 @@ b,strong{font-weight:700}
 .footer-v2 .footer-bottom{max-width:1220px;margin:0 auto;padding:16px 20px;display:flex;justify-content:space-between;font-size:12.5px;flex-wrap:wrap;gap:10px}
 .hero-v2{background:none;text-align:left;padding:64px 20px 40px}
 .hero-v2 h1{margin:20px 0 0;max-width:680px;font-size:clamp(32px,4.6vw,52px)}
+/* Returning-user greeting only (heroReturning) - centred per the approved
+   mockup. Scoped to this modifier so heroSignupChecklist/heroNoRole, which
+   share the base .hero-v2 class, are unaffected. */
+.hero-centered{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:720px;margin:0 auto}
+.hero-centered .eyebrow{margin-bottom:0}
+.hero-centered h1{margin:18px 0 0;max-width:none}
+.hero-centered .sub{margin:16px 0 0}
+.hero-centered .hero-ctas{justify-content:center}
 .hero-v2 p.sub{margin:14px 0 26px 0;max-width:540px;text-align:left}
 .hero-search-bar{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:8px;display:flex;align-items:center;gap:8px;max-width:640px}
 .hero-search-bar input{flex:1;border:none;outline:none;font-size:14.5px;padding:10px;font-family:inherit;color:var(--ink);background:none}
@@ -1400,10 +1408,10 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   </div>
 
   <div id="heroReturning" class="hide">
-  <section class="hero hero-v2" style="padding-bottom:16px">
+  <section class="hero hero-v2 hero-centered" style="padding-bottom:16px">
     <div class="eyebrow role-biz-only">Business account</div>
     <div class="eyebrow role-plat-only">Platform owner account</div>
-    <h1 style="font-size:29px" id="returningGreeting">Welcome back.</h1>
+    <h1 id="returningGreeting">Welcome back.</h1>
     <p class="sub" id="returningSub"></p>
     <div class="hero-ctas role-biz-only">
       <button class="btn btn-p btn-lg" data-act="wiz-biz">Post a campaign</button>
