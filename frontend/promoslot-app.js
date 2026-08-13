@@ -1072,6 +1072,44 @@ function closeNavMenu(){
 function closeNavDropdowns(except){
   document.querySelectorAll("nav.nav details.nav-dd[open]").forEach(d=>{ if(d!==except) d.open=false; });
 }
+/* .nav-links has overflow-x:auto so accounts with a lot of nav items (admin,
+   reviewer, ...) scroll instead of wrapping - but per the CSS overflow spec,
+   setting overflow-x to anything but visible forces overflow-y to compute as
+   auto too, which silently clips any absolutely-positioned child that pokes
+   out of it. That child is the "How it works" dropdown panel, so on desktop
+   it was opening (details.open really did flip to true) but rendering
+   clipped to nothing - looked completely dead. Escaping to position:fixed,
+   placed from the real click position, sidesteps the clipping instead of
+   fighting the scroll container (which genuinely needs to stay auto for the
+   long authenticated nav). Below the mobile breakpoint the panel lives
+   inside the open mobile menu in normal flow (see the .nav-links
+   .nav-dd-panel CSS override) and is never clipped, so this is skipped there. */
+function positionNavDropdown(dd){
+  const panel=dd.querySelector(".nav-dd-panel");
+  if(!panel) return;
+  if(window.innerWidth<=900){ panel.style.cssText=""; return; }
+  const r=dd.getBoundingClientRect();
+  panel.style.position="fixed";
+  panel.style.left=r.left+"px";
+  panel.style.top=(r.bottom+4)+"px";
+  panel.style.right="auto";
+}
+function resetNavDropdownPosition(dd){
+  const panel=dd.querySelector(".nav-dd-panel");
+  if(panel) panel.style.cssText="";
+}
+function wireNavDropdowns(){
+  document.querySelectorAll("details.nav-dd").forEach(dd=>{
+    dd.addEventListener("toggle",()=>{
+      if(dd.open) positionNavDropdown(dd); else resetNavDropdownPosition(dd);
+    });
+  });
+  // A stale fixed-position panel left floating mid-scroll/resize would be
+  // worse than just closing it - dropdowns closing on scroll is standard
+  // behaviour anyway.
+  window.addEventListener("scroll",()=>closeNavDropdowns(),{passive:true});
+  window.addEventListener("resize",()=>closeNavDropdowns());
+}
 function chipsHtml(group,opts){
   return `<div class="f-chips">`+opts.map(o=>`<button class="chip ${S.filters[group].has(o)?"on":""}" onclick="toggleFilter('${group}',this.dataset.v,this)" data-v="${esc(o)}">${esc(o)}</button>`).join("")+`</div>`;
 }
@@ -4827,6 +4865,7 @@ function PSBoot(){
   renderHeroPreview();
   renderPlatBrowseChips();
   renderFooterSupport();
+  wireNavDropdowns();
   djRender();
   djBindControls();
   psRender(true);
