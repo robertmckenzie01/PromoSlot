@@ -591,6 +591,11 @@ function tourKey(e){
   }
   // Enter/Space on a tour button is the browser's own default — leave it be.
   if(e.key==="Enter"||e.key===" "){ if(root.contains(document.activeElement)) return; }
+  // The Deal Journey and pricing-calculator cards are illustrative, self-contained
+  // homepage widgets with no real side effects (nothing saved, nothing sent) - they
+  // aren't the kind of "background form" this trap exists to protect against, so
+  // typing/clicking inside them should work normally even mid-tour.
+  if(e.target.closest(".dj-card,.ps-card")) return;
   // Everything else (app shortcuts, typing into a background form) is swallowed.
   if(!root.contains(e.target)){ e.preventDefault(); e.stopPropagation(); }
 }
