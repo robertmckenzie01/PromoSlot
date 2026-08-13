@@ -1211,17 +1211,38 @@ function renderMarketNow(){
         <button class="btn btn-o btn-sm" onclick="resetFilters();buildFilters();renderMarket()">Clear all filters</button>
       </div>`;
 }
-function renderMiniMarket(){
-  const el=$("miniMarket"); if(!el) return;
-  const reals=(S.marketPlatforms||[]).slice(0,3);
-  const picks = reals.length ? reals : [LISTINGS[0]];
-  el.innerHTML=picks.map((l,i)=>listingCard(l,i)).join("");
-}
-function renderMiniCampaigns(){
-  const el=$("miniCampaigns"); if(!el) return;
-  const reals=(S.marketCampaigns||[]).slice(0,3);
-  const picks = reals.length ? reals : [CAMPAIGNS[0]];
-  el.innerHTML=picks.map((c,i)=>campaignCard(c,i)).join("");
+/* ---------- Guest homepage marketplace rail ----------
+   Real data only (S.marketPlatforms / S.marketCampaigns, loaded by loadMarket()),
+   never a manually maintained duplicate list. Below RAIL_AUTOSCROLL_THRESHOLD
+   real items it's a plain scrollable strip (same pattern used elsewhere on the
+   site); at/above that count it switches itself on to the looping marquee -
+   nothing to flip by hand as the marketplace fills up. */
+const RAIL_AUTOSCROLL_THRESHOLD=6;
+let railRole="plat";
+function railSetRole(r){ railRole=r; renderMarketRail(); }
+function renderMarketRail(){
+  const el=$("marketRail"); if(!el) return;
+  const isPlat = railRole==="plat";
+  $("railTabPlat")?.classList.toggle("on",isPlat);
+  $("railTabBiz")?.classList.toggle("on",!isPlat);
+  $("railHeading") && ($("railHeading").textContent = isPlat ? "See how platform listings appear" : "See how business campaigns appear");
+  const reals = isPlat ? (S.marketPlatforms||[]) : (S.marketCampaigns||[]);
+  const items = reals.length ? reals : [isPlat ? LISTINGS[0] : CAMPAIGNS[0]];
+  const cardsHtml = items.map((x,i)=> isPlat ? listingCard(x,i) : campaignCard(x,i)).join("");
+  const auto = reals.length >= RAIL_AUTOSCROLL_THRESHOLD;
+  el.classList.toggle("rail-auto",auto);
+  el.classList.toggle("rail-static",!auto);
+  // Auto mode loops a doubled list via translateX(-50%); static mode is a
+  // normal scrollable strip, so it only ever needs the one real copy.
+  el.innerHTML = auto ? (cardsHtml+cardsHtml) : cardsHtml;
+  const cap=$("railCaption");
+  if(cap){
+    // Only ever call this "live" when it actually is - the LISTINGS[0]/CAMPAIGNS[0]
+    // fallback above is the same labelled .example-card used in the real
+    // Marketplace, never presented as real activity.
+    const label = reals.length ? "live marketplace activity" : "an illustrative example, not a live listing";
+    cap.textContent = auto ? `Hover or focus to pause · ${label}` : (reals.length ? "Live marketplace activity" : "Illustrative example, not a live listing");
+  }
 }
 
 /* ==================== LISTING DETAIL ==================== */
@@ -4794,13 +4815,14 @@ const NAV_ACTIONS={
   "role-biz":()=>switchRole("biz"),
   "role-plat":()=>switchRole("plat"),
   "market-cta":()=>marketCtaClick(),
+  "rail-plat":()=>railSetRole("plat"),
+  "rail-biz":()=>railSetRole("biz"),
   "toast-terms":()=>toast("Terms of Service — demo link"),
   "toast-privacy":()=>toast("Privacy Policy — demo link"),
   "toast-fees":()=>toast("Fees: 10% seller fee + 5% buyer protection fee, on the agreed price. No listing fees.")
 };
 function PSBoot(){
-  renderMiniMarket();
-  renderMiniCampaigns();
+  renderMarketRail();
   renderHeroChips();
   renderHeroPreview();
   renderPlatBrowseChips();
@@ -4818,7 +4840,7 @@ function PSBoot(){
   if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
   const _vt=_q.get("verify");
   if(_vt) setTimeout(()=>verifyEmailFromLink(_vt),300);
-  loadMarket().then(()=>{renderMiniMarket();renderMiniCampaigns();renderLandingState();});  // refresh peek with real listings/campaigns, and the returning-user opportunities strip once real data is in
+  loadMarket().then(()=>{renderMarketRail();renderLandingState();});  // refresh the rail with real listings/campaigns, and the returning-user opportunities strip once real data is in
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); if(e.key==="Escape") closeNavMenu(); });
   document.addEventListener("click",e=>{
     const el=e.target.closest("[data-act]");
@@ -5161,7 +5183,7 @@ tourResumeClick,tourHideResume,tourRestart,syncTourResume,maybeOfferTour,tourSta
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
-renderMiniCampaigns,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
+renderMarketRail,railSetRole,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
 djSetRole,djGo,djNext,djBack,djNavKey,
 psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure};
 Object.assign(window,EXPORTS);
