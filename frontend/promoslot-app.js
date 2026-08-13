@@ -4997,6 +4997,14 @@ let psState={role:"business", raw:"500", expanded:false};
 
 function psFmt(n){ return "£"+n.toLocaleString("en-GB",{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2}); }
 function psParsed(){ const n=parseFloat(String(psState.raw).replace(/[^0-9.]/g,"")); return isNaN(n)?null:Math.round(n*100)/100; }
+// Digits and at most one decimal point - letters/symbols never make it into
+// the field at all, rather than just being ignored by the fee math.
+function psSanitizeAmount(v){
+  let s=String(v).replace(/[^0-9.]/g,"");
+  const dot=s.indexOf(".");
+  if(dot!==-1) s=s.slice(0,dot+1)+s.slice(dot+1).replace(/\./g,"");
+  return s;
+}
 function psPickRole(r){ psState.role=r; psRender(true); }
 // psAmount fires on every keystroke (see psBindControls' "input" listener). The
 // browser has already put the typed character in the field by the time this
@@ -5100,7 +5108,18 @@ function psBindControls(){
   document.getElementById("psDiscBtn")?.addEventListener("click",psToggleDisclosure);
   const amt=document.getElementById("psAmountInput");
   if(amt){
-    amt.addEventListener("input",e=>psAmount(e.target.value));
+    amt.addEventListener("input",e=>{
+      const el=e.target, before=el.value, clean=psSanitizeAmount(before);
+      if(clean!==before){
+        // A disallowed character (letter, symbol, second decimal point) was
+        // typed/pasted - strip it and put the cursor back where it would have
+        // ended up, rather than letting it jump to the end.
+        const pos=Math.max(0,(el.selectionStart||before.length)-(before.length-clean.length));
+        el.value=clean;
+        el.setSelectionRange(pos,pos);
+      }
+      psAmount(el.value);
+    });
     amt.addEventListener("blur",e=>psAmountBlur(e.target.value));
   }
 }
