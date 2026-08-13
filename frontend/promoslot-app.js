@@ -4786,7 +4786,7 @@ function PSBoot(){
   renderFooterSupport();
   djRender();
   djBindControls();
-  psRender();
+  psRender(true);
   psBindControls();
   syncNav();
   restoreSession().then(restoreRoute);
@@ -4997,20 +4997,29 @@ let psState={role:"business", raw:"500", expanded:false};
 
 function psFmt(n){ return "£"+n.toLocaleString("en-GB",{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2}); }
 function psParsed(){ const n=parseFloat(String(psState.raw).replace(/[^0-9.]/g,"")); return isNaN(n)?null:Math.round(n*100)/100; }
-function psPickRole(r){ psState.role=r; psRender(); }
-function psAmount(v){ psState.raw=v; psRender(); }
+function psPickRole(r){ psState.role=r; psRender(true); }
+// psAmount fires on every keystroke (see psBindControls' "input" listener). The
+// browser has already put the typed character in the field by the time this
+// runs, so re-render everything EXCEPT the input's own value - previously this
+// re-set amountInput.value=psState.raw whenever document.activeElement wasn't
+// strictly === the input, and any mismatch there (however it happens) turns
+// every keystroke into "type a character, then have it immediately overwritten
+// before the next paint", which looks exactly like the field rejecting all
+// manual input while presets (a separate, JS-only code path) keep working.
+// Simplest fix: typing never needs its own value corrected, so stop trying to.
+function psAmount(v){ psState.raw=v; psRender(false); }
 function psAmountBlur(v){
   const n=parseFloat(String(v).replace(/[^0-9.]/g,""));
-  if(!isNaN(n)&&n>=PS_MIN&&n<=PS_MAX){ psState.raw=String(Math.round(n*100)/100); psRender(); }
+  if(!isNaN(n)&&n>=PS_MIN&&n<=PS_MAX){ psState.raw=String(Math.round(n*100)/100); psRender(true); }
 }
-function psPresetPick(v){ psState.raw=String(v); psRender(); }
-function psToggleDisclosure(){ psState.expanded=!psState.expanded; psRender(); }
+function psPresetPick(v){ psState.raw=String(v); psRender(true); }
+function psToggleDisclosure(){ psState.expanded=!psState.expanded; psRender(true); }
 function psSyncPanelHeight(){
   const panel=document.getElementById("psPanel"), inner=document.getElementById("psPanelInner");
   if(!panel||!inner) return;
   panel.style.maxHeight=psState.expanded?(inner.scrollHeight+"px"):"0px";
 }
-function psRender(){
+function psRender(syncInputValue){
   const badge=document.getElementById("psBadge");
   if(!badge) return; // component not present on this view
   const isBusiness=psState.role==="business";
@@ -5026,7 +5035,7 @@ function psRender(){
   document.getElementById("psRoleOwn").setAttribute("aria-pressed",String(!isBusiness));
 
   const amountInput=document.getElementById("psAmountInput");
-  if(document.activeElement!==amountInput) amountInput.value=psState.raw;
+  if(syncInputValue) amountInput.value=psState.raw;
   document.getElementById("psAmountWrap").classList.toggle("invalid",!valid);
 
   const help=document.getElementById("psAmountHelp");
