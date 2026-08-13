@@ -710,6 +710,7 @@ function landingIsNew(role){
   return false;
 }
 function renderLandingState(){
+  const sk=$("heroSkeleton"); if(sk) sk.classList.add("hide");
   const def=$("heroDefault"), chk=$("heroSignupChecklist"), ret=$("heroReturning"), nr=$("heroNoRole");
   const loggedIn = !!S.account;
   // A logged-in account with zero roles (S.roles empty) can't be "new" or

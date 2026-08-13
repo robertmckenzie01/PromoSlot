@@ -1341,6 +1341,26 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 </nav>
 
 <div class="view active view-anim" id="view-landing" data-screen-label="Landing">
+  <!-- Shown the instant the page paints, before we know whether you're signed
+       in - visible by default (not "hide" like the four real states below).
+       Neutral on purpose: it can't accidentally show guest content to a
+       signed-in account or vice versa while /auth/me is still in flight.
+       renderLandingState() hides this the moment it resolves which of the
+       four real states applies. Without this the hero area was just blank
+       on every load/refresh until that request came back - this replaces
+       that blank gap with a loading state instead of removing the wait
+       itself (the wait is a real network round trip either way). -->
+  <div id="heroSkeleton" role="status" aria-label="Loading">
+    <section class="hero hero-v2">
+      <div class="sk sk-line" style="width:170px;height:13px"></div>
+      <div class="sk sk-line" style="width:64%;height:36px;margin-top:18px"></div>
+      <div class="sk sk-line" style="width:46%;height:18px;margin-top:14px"></div>
+      <div style="display:flex;gap:10px;margin-top:26px">
+        <div class="sk sk-chip" style="width:170px;height:46px;border-radius:14px"></div>
+        <div class="sk sk-chip" style="width:170px;height:46px;border-radius:14px"></div>
+      </div>
+    </section>
+  </div>
   <div id="heroDefault" class="hide">
   <section class="hero-v3">
     <div class="hero-v3-in">
