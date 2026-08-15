@@ -1117,35 +1117,6 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 .faq-item[open] summary::after{content:"–"}
 .faq-item p{margin:0 2px 16px;color:var(--mut);font-size:14.5px;line-height:1.6;max-width:640px}
 
-.pb-list{margin-top:22px}
-.pb-plat{border:1px solid var(--line2);border-radius:12px;margin-bottom:10px;overflow:hidden}
-.pb-plat summary{list-style:none;cursor:pointer;padding:16px 18px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:14.5px;color:var(--ink);background:var(--card)}
-.pb-plat summary::-webkit-details-marker{display:none}
-.pb-plat summary::after{content:"+";margin-left:auto;color:var(--faint);font-weight:400;font-size:18px}
-.pb-plat[open] summary::after{content:"–"}
-.pb-plat-ico{display:inline-flex;width:22px;height:22px;border-radius:6px;align-items:center;justify-content:center;flex-shrink:0}
-.pb-items{padding:2px 18px 6px;display:flex;flex-direction:column;border-top:1px solid var(--line2)}
-.pb-item{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid var(--line2)}
-.pb-item:last-child{border-bottom:none}
-.pb-item-main{display:flex;gap:10px;align-items:flex-start}
-.pb-check{color:var(--acc-ink);font-weight:700;flex-shrink:0;margin-top:1px}
-.pb-item-title{font-size:14px;font-weight:600;color:var(--ink);line-height:1.4}
-.pb-item-desc{font-size:13px;color:var(--mut);line-height:1.5;margin-top:2px}
-.pb-visual-btn{flex-shrink:0;background:var(--acc-soft);color:var(--acc-ink);border:none;border-radius:7px;padding:6px 12px;font:600 12.5px var(--font-b);cursor:pointer;white-space:nowrap}
-.pb-visual-btn:hover{background:var(--acc);color:#fff}
-
-.pb-modal-media{width:100%;max-width:320px;margin:0 auto;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center;position:relative}
-.pb-modal-media img{width:100%;height:100%;object-fit:cover;display:block}
-.pb-modal-placeholder{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--faint);border:1px dashed var(--line);border-radius:12px;width:100%;height:100%;justify-content:center;background:repeating-linear-gradient(135deg,var(--bg),var(--bg) 10px,var(--card) 10px,var(--card) 20px)}
-.pb-modal-placeholder span{font-size:12.5px;font-weight:600;padding:0 16px;text-align:center}
-.pb-modal-info{padding:16px 4px 4px;text-align:center}
-.pb-modal-plat{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--acc-ink);margin-bottom:4px}
-.pb-modal-title{font-size:15.5px;font-weight:700;color:var(--ink);line-height:1.4}
-.pb-modal-nav{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;border:none;background:rgba(20,39,63,.55);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
-.pb-modal-nav:hover{background:rgba(20,39,63,.8)}
-.pb-modal-prev{left:10px}
-.pb-modal-next{right:10px}
-
 .steps-list{display:flex;flex-direction:column;gap:0;margin-top:8px;padding:0;list-style:none}
 .steps-list li{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid var(--line2)}
 .steps-list li:last-child{border-bottom:none}
@@ -1167,6 +1138,109 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 .footer-v3 .footer-support{margin-top:6px;color:var(--navy-sub)}
 .footer-v3 .footer-support .fs-row span{color:var(--navy-mut)}
 
+/* ---------- Resources page ----------
+   Everything here leans on tokens and components already defined above:
+   .faq-item for every collapsible (top level and the nested per-platform
+   toggles), .two-list / .list-yes for paired lists, .dj-table for the
+   figure-by-platform rows, .dj-chip for the payment-model scenario chips,
+   .tile-dark/.tile-light for the brief before/after, .key-terms-box for the
+   escrow summary. Only genuinely new layout lives in these rules. */
+.res-lib{max-width:900px;margin:0 auto}
+.res-item summary{padding:20px 2px;font-weight:400}
+.res-sum{display:flex;gap:16px;align-items:flex-start;min-width:0}
+.res-n{flex-shrink:0;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--faint);padding-top:5px;font-variant-numeric:tabular-nums}
+.res-st b{display:block;font-family:var(--font-d);font-size:19px;font-weight:600;letter-spacing:-.015em;color:var(--ink);line-height:1.25}
+.res-st small{display:block;margin-top:5px;font-size:13.5px;font-weight:500;color:var(--mut);line-height:1.5}
+.res-item[open] summary .res-st b{color:var(--acc-ink)}
+.res-body{padding:2px 2px 34px 2px}
+.res-body p{color:var(--mut);font-size:15px;line-height:1.7;margin:0 0 14px;max-width:68ch;text-wrap:pretty}
+.res-body p.res-lead{color:var(--ink2);font-size:16px}
+.res-body h4{font-size:14.5px;margin:26px 0 10px;color:var(--ink)}
+.res-body .two-list h4{margin:0 0 12px}
+.list-ask li::before{content:"→";position:absolute;left:0;color:var(--acc);font-weight:700}
+.res-plat{border-bottom:1px solid var(--line2)}
+.res-plat summary{padding:13px 2px;font-size:14.5px}
+.res-plat-sum{display:flex;align-items:center;gap:11px;min-width:0}
+.res-plat-ico{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex-shrink:0}
+.res-plat-body{padding:2px 0 20px 37px}
+.res-ex{margin-top:20px;border:1px solid var(--line);border-radius:14px;overflow:hidden;max-width:720px}
+.res-ex-h{padding:10px 15px;background:var(--bg);border-bottom:1px solid var(--line);font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.res-ex-r{padding:13px 15px;font-size:14px;color:var(--ink2);line-height:1.6;border-top:1px solid var(--line2)}
+.res-ex-h+.res-ex-r{border-top:none}
+.rm-q{font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:10px}
+.rm-chips{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:20px}
+.rm-chip{font-family:inherit;min-height:38px}
+.rm-cols{display:grid;grid-template-columns:212px 1fr;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+.rm-nav{display:flex;flex-direction:column;background:var(--bg);border-right:1px solid var(--line)}
+.rm-nav-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;padding:13px 15px;min-height:46px;border:0;border-bottom:1px solid var(--line2);background:none;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--mut);transition:color .15s,background-color .15s}
+.rm-nav-btn:last-child{border-bottom:none}
+.rm-nav-btn:hover{color:var(--ink)}
+.rm-nav-btn.on{background:var(--card);color:var(--acc-ink)}
+.rm-rec{font-size:10px;font-weight:800;letter-spacing:.07em;color:var(--acc);opacity:0;transition:opacity .2s}
+.rm-nav-btn.rec .rm-rec{opacity:1}
+.rm-detail{padding:24px}
+.rm-detail h4{font-family:var(--font-d);font-size:21px;font-weight:600;margin:0 0 8px;letter-spacing:-.015em}
+.rm-what{font-size:15px;color:var(--ink2);line-height:1.65;margin:0}
+.rm-why{margin-top:14px;padding:12px 14px;border-radius:10px;background:var(--acc-soft);border:1px solid var(--acc-border);color:var(--acc-ink);font-size:13.5px;font-weight:600;line-height:1.55}
+.rm-row{margin-top:18px}
+.rm-l{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+.rm-row p{font-size:14.5px;color:var(--ink2);line-height:1.65;margin:0;max-width:62ch}
+.rm-fields{display:flex;flex-wrap:wrap;gap:7px}
+.rm-fields span{font-size:12.5px;font-weight:600;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:5px 11px;color:var(--ink2)}
+.res-vis{margin-left:9px;padding:2px 8px;border:1px solid var(--line);border-radius:7px;background:var(--card);font-family:inherit;font-size:11.5px;font-weight:700;color:var(--acc-ink);transition:background-color .15s var(--ease),border-color .15s var(--ease)}
+.res-vis:hover{background:var(--acc-soft);border-color:var(--acc-border)}
+.res-vis:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+/* Visual viewer — lightbox on desktop, bottom sheet on mobile. The element is
+   built on first use by resVisOpen(), so it costs the initial load nothing. */
+.vw{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(20,39,63,.55);opacity:0;transition:opacity .22s var(--ease)}
+.vw.open{display:flex}
+.vw.in{opacity:1}
+.vw-panel{position:relative;width:100%;max-width:720px;max-height:calc(100vh - 48px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-lg);opacity:0;transform:translateY(16px) scale(.985);transition:opacity .26s var(--ease),transform .26s var(--ease)}
+.vw.in .vw-panel{opacity:1;transform:none}
+.vw-grab{display:none}
+.vw-head{display:flex;gap:13px;align-items:flex-start;padding:22px 58px 16px 22px;border-bottom:1px solid var(--line2)}
+.vw-eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin-bottom:4px}
+.vw-title{font-family:var(--font-d);font-size:22px;font-weight:600;letter-spacing:-.015em;line-height:1.25;color:var(--ink)}
+.vw-body{padding:22px}
+.vw-frame{display:grid;place-items:center;gap:12px;padding:24px;aspect-ratio:16/10;border:1px dashed var(--line);border-radius:14px;background:repeating-linear-gradient(135deg,var(--card),var(--card) 7px,var(--bg) 7px,var(--bg) 14px);transition:opacity .16s var(--ease)}
+.vw-frame.port{aspect-ratio:9/14;max-width:320px;margin:0 auto}
+.vw-frame.swap{opacity:0}
+.vw-frame-ico{display:grid;place-items:center;width:46px;height:46px;border-radius:13px;background:var(--card);border:1px solid var(--line)}
+.vw-frame-ico svg{width:22px;height:22px;vertical-align:0}
+.vw-frame-lbl{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);text-align:center;line-height:1.7;max-width:34ch}
+.vw-frame.has-img{padding:0;border-style:solid;background:var(--bg);overflow:hidden}
+.vw-frame.has-img img{width:100%;height:100%;object-fit:cover;border-radius:12px;display:block}
+.vw-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 22px 22px}
+.vw-count{font-size:12.5px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
+.vw-nav{display:flex;gap:8px}
+.res-gloss{display:grid;grid-template-columns:1fr 1fr;gap:0 36px}
+.res-gloss div{padding:14px 0;border-bottom:1px solid var(--line2)}
+.res-gloss dt{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.res-gloss dd{margin:0;font-size:14px;color:var(--mut);line-height:1.6}
+.res-brief{font-size:14.5px;line-height:1.65}
+.res-brief-q{font-style:italic}
+@media (max-width:760px){
+  .rm-cols{grid-template-columns:1fr}
+  .rm-nav{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);scrollbar-width:none}
+  .rm-nav-btn{min-width:158px;border-bottom:none;border-right:1px solid var(--line2);flex-shrink:0}
+  .rm-detail{padding:20px 18px}
+  .res-gloss{grid-template-columns:1fr}
+  .res-plat-body{padding-left:0}
+  .res-st b{font-size:17.5px}
+  .vw{align-items:flex-end;padding:0}
+  .vw-panel{max-width:none;max-height:88vh;border-radius:20px 20px 0 0;border-bottom:none;transform:translateY(100%) scale(1)}
+  .vw-grab{display:block;width:38px;height:4px;border-radius:99px;background:var(--line);margin:10px auto 0}
+  .vw-head{padding:16px 52px 14px 18px}
+  .vw-body,.vw-foot{padding-left:18px;padding-right:18px}
+  .vw-frame.port{max-width:210px}
+  .vw-title{font-size:19px}
+  .vw-nav .btn{min-height:44px;padding:11px 16px}
+  .vw .modal-x{width:38px;height:38px}
+  .res-vis{padding:5px 10px}
+}
+@media (prefers-reduced-motion:reduce){
+  .vw,.vw-panel,.vw-frame,.res-vis{transition:none!important}
+}
 .coming-soon-box{border:1px dashed var(--line);border-radius:16px;padding:44px 28px;text-align:center;color:var(--mut);max-width:560px;margin:28px auto 0}
 .coming-soon-box h3{color:var(--ink);margin:0 0 8px;font-size:18px}
 .coming-soon-box p{margin:0;font-size:14.5px;line-height:1.6}
@@ -1992,15 +2066,201 @@ body[data-role="plat"] .role-biz-only{display:none!important}
       <p>A growing library of practical guidance on choosing platforms, agreeing deliverables, payment models and evidence.</p>
     </div>
   </div>
-  <section class="section" style="padding-top:36px">
-    <div class="sec-kicker">Guides</div>
-    <h2 class="sec-title" style="margin-bottom:6px">Platform playbooks</h2>
-    <p style="color:var(--mut);font-size:14.5px;line-height:1.6;max-width:640px;margin:0 0 4px">What you can actually ask a platform owner to do for you, broken down by platform. Click "Visual" on any format to see an example of what it looks like.</p>
-    <div class="pb-list" id="pbList"></div>
+  <section class="section" style="padding-top:40px;padding-bottom:20px">
+    <div class="res-lib">
+      <div class="sec-kicker">The library</div>
+      <h2 class="sec-title" style="margin-bottom:10px">Six things worth knowing before you buy a slot.</h2>
+      <p class="sec-sub" style="margin-bottom:18px">Open only what you need. Each section stands on its own and nothing here assumes you have read the others.</p>
 
-    <div class="coming-soon-box">
-      <h3>More guides on the way</h3>
-      <p>Payment models, writing a brief, reading a listing and a glossary of terms are next. In the meantime, <a href="#" data-act="how">How it works</a> and <a href="#" data-act="protect">Payment Protection</a> cover the essentials.</p>
+      <details class="faq-item res-item" id="res-s1">
+        <summary><span class="res-sum"><span class="res-n">01</span><span class="res-st"><b>Platform playbooks</b><small>What you can actually buy on each of the fourteen platforms, and what to pin down first</small></span></span></summary>
+        <div class="res-body">
+          <p class="res-lead">Every platform sells a slightly different thing. A newsletter sells a send; Discord sells a position in a room; TikTok sells a piece of content that may or may not travel. The formats below are the ones platform owners list on PromoSlot, so they map onto the deliverables and payment models you will see in the Marketplace.</p>
+          <p>Use the left column to decide what you want published. Use the right column to turn that format into terms a reviewer can check: a format, a place, a duration, and a named piece of evidence.</p>
+          <div id="resPlaybooks" style="margin-top:22px"></div>
+          <p style="margin-top:22px">If a platform owner offers a format that is not on this list, that is fine — write it into the terms the same way. What matters is that both sides could point at the finished thing and agree it is what was bought.</p>
+        </div>
+      </details>
+
+      <details class="faq-item res-item" id="res-s2">
+        <summary><span class="res-sum"><span class="res-n">02</span><span class="res-st"><b>Which payment model fits your campaign</b><small>Seven models, one clickable way to work out which one you are actually describing</small></span></span></summary>
+        <div class="res-body">
+          <p class="res-lead">PromoSlot supports seven payment models, and picking the wrong one is how a reasonable deal turns into an argument. Start from what you are buying rather than from what you would prefer to pay.</p>
+          <div id="resModels"></div>
+          <h4>What is held when the deal is funded</h4>
+          <p>Funding always holds a real amount up front. Which amount depends on the model, so a model with nothing guaranteed also has nothing escrowed.</p>
+          <div class="key-terms-box" style="margin-top:14px">
+            <div class="kt-kicker">Escrowed portion by model</div>
+            <div class="kt-row"><span>Fixed price</span><b>The full amount</b></div>
+            <div class="kt-row"><span>Per view</span><b>The guaranteed minimum</b></div>
+            <div class="kt-row"><span>Per impression</span><b>The agreed rate</b></div>
+            <div class="kt-row"><span>Time-based</span><b>The period price</b></div>
+            <div class="kt-row"><span>Affiliate</span><b>The minimum payout, if any</b></div>
+            <div class="kt-row"><span>Hybrid</span><b>The guaranteed portion</b></div>
+            <div class="kt-row"><span>Custom</span><b>Whatever is stated up front</b></div>
+          </div>
+          <p style="margin-top:18px">A deal can carry more than one model — a guaranteed fee for the post plus an affiliate rate on sales it drives, for example. Each one still needs its own numbers and its own evidence.</p>
+        </div>
+      </details>
+
+      <details class="faq-item res-item" id="res-s3">
+        <summary><span class="res-sum"><span class="res-n">03</span><span class="res-st"><b>Reading a listing like a buyer, not a fan</b><small>Which figures mean something, which mean nothing, and the order to read them in</small></span></span></summary>
+        <div class="res-body">
+          <p class="res-lead">A listing is a sales page, and the most flattering number on it is usually the least useful one. Fan metrics describe how big an audience is. Buyer metrics describe how likely that audience is to act on a recommendation. They often move in opposite directions.</p>
+          <h4>Read it in this order</h4>
+          <ol class="steps-list">
+            <li><span class="step-n">1</span><div class="step-body"><h4>The deliverable</h4><p>What gets published, where, and for how long. If you cannot picture the finished thing, nothing else on the page is worth reading yet.</p></div></li>
+            <li><span class="step-n">2</span><div class="step-body"><h4>The audience</h4><p>Who they are, not how many. Country, age band and niche decide whether your offer makes any sense to them.</p></div></li>
+            <li><span class="step-n">3</span><div class="step-body"><h4>The evidence on offer</h4><p>Which figures they can show afterwards, from which screen. Anything they cannot evidence should not be priced.</p></div></li>
+            <li><span class="step-n">4</span><div class="step-body"><h4>The price and model</h4><p>Only now. A price is meaningless until you know what is being delivered and what can be proven about it.</p></div></li>
+          </ol>
+          <h4>Signals, and non-signals</h4>
+          <div class="two-list">
+            <div>
+              <h4>Tells you something</h4>
+              <ul class="list-yes">
+                <li>Recent, comparable posts rather than a best-ever one</li>
+                <li>The share of the audience in the country you sell to</li>
+                <li>Comments that respond to the content, not just to the creator</li>
+                <li>Repeat sponsors in a category near yours</li>
+                <li>A named analytics screen they are willing to screenshot</li>
+                <li>Whether previous deliverables stayed live</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Tells you almost nothing</h4>
+              <ul class="list-no">
+                <li>Follower or subscriber count on its own</li>
+                <li>One outlier post presented as the typical case</li>
+                <li>Growth figures with no engagement to match</li>
+                <li>"Reach" quoted without saying reach of what</li>
+                <li>Likes on a post whose comments are all emoji</li>
+                <li>Screenshots cropped so the date range is missing</li>
+              </ul>
+            </div>
+          </div>
+          <h4>The figure that matters, by platform type</h4>
+          <div class="dj-table" style="max-width:720px">
+            <div class="dj-trow"><div class="dj-tk">Short-form video</div><div class="dj-tv">Typical views across recent posts</div></div>
+            <div class="dj-trow"><div class="dj-tk">Long-form video</div><div class="dj-tv">Average view duration, then views</div></div>
+            <div class="dj-trow"><div class="dj-tk">Newsletter</div><div class="dj-tv">Open rate for the segment being sold</div></div>
+            <div class="dj-trow"><div class="dj-tk">Community and forums</div><div class="dj-tv">Active posters, not member count</div></div>
+            <div class="dj-trow"><div class="dj-tk">Live streaming</div><div class="dj-tv">Concurrent viewers at your slot's hour</div></div>
+            <div class="dj-trow"><div class="dj-tk">Written and search</div><div class="dj-tv">Traffic to the specific page</div></div>
+            <div class="dj-trow"><div class="dj-tk">Audio</div><div class="dj-tv">Downloads per episode, first 30 days</div></div>
+            <div class="dj-trow"><div class="dj-tk">Feed and social</div><div class="dj-tv">Impressions and clicks from their analytics</div></div>
+          </div>
+          <p style="margin-top:18px">Ask for the screenshot before you agree the price, not after. A platform owner who is comfortable with their numbers will send them; one who is not has told you something useful either way.</p>
+        </div>
+      </details>
+
+      <details class="faq-item res-item" id="res-s4">
+        <summary><span class="res-sum"><span class="res-n">04</span><span class="res-st"><b>The brief that doesn't cause disputes</b><small>The same campaign written twice: once so it can be argued about, once so it cannot</small></span></span></summary>
+        <div class="res-body">
+          <p class="res-lead">Almost every dispute traces back to a single sentence that two people read differently. Terms are fixed at the version both sides accept, and a reviewer can only check what those terms actually named — so the brief is not paperwork, it is the thing being bought.</p>
+          <div class="tile-row" style="margin-top:20px">
+            <div class="tile-dark" style="cursor:default">
+              <span class="tile-kicker">Leaves room to argue</span>
+              <span class="res-brief res-brief-q" style="color:#fff">"Post about our new protein bar on your channel in September. Should get good engagement. Please share to stories too."</span>
+              <span class="res-brief" style="color:var(--navy-sub)">Which format, which account, which day? How long does it stay up? How many story frames? And "good engagement" cannot release or withhold a payment, because nobody wrote down what it means or where it would be read from.</span>
+            </div>
+            <div class="tile-light" style="cursor:default">
+              <span class="tile-kicker">Settles itself</span>
+              <span class="res-brief res-brief-q" style="color:var(--ink)">"One dedicated TikTok video, 30 to 45 seconds, published between 8 and 12 September, 18:00 to 21:00 UK time. Product visible in the first five seconds, code SPRING in the caption. Stays live at least 30 days. Plus three Instagram story frames on publication day with a link sticker."</span>
+              <span class="res-brief" style="color:var(--mut)">Evidence: the post links, a screenshot of the video's own analytics on day 7 and day 30, and the story frames screenshotted on the day they run.</span>
+            </div>
+          </div>
+          <h4>Six things every brief should name</h4>
+          <ol class="steps-list">
+            <li><span class="step-n">1</span><div class="step-body"><h4>The deliverable, one line each</h4><p>A format plus a length or size. Two deliverables are two lines, never one sentence with an "and" in it.</p></div></li>
+            <li><span class="step-n">2</span><div class="step-body"><h4>Where it is published</h4><p>The exact account, channel or send — not just the platform. A pinned message in one channel is not the same product as an announcement to the whole server.</p></div></li>
+            <li><span class="step-n">3</span><div class="step-body"><h4>When</h4><p>A date window and a time band, in one named timezone.</p></div></li>
+            <li><span class="step-n">4</span><div class="step-body"><h4>How long it stays live</h4><p>The measurement window runs from publication, so say when it ends. "Permanently" is also an answer, and worth paying more for.</p></div></li>
+            <li><span class="step-n">5</span><div class="step-body"><h4>What may not be changed</h4><p>Caption, code, link, claims. Name what is fixed, and say plainly that everything else is the partner's own voice — that sentence prevents more arguments than any other.</p></div></li>
+            <li><span class="step-n">6</span><div class="step-body"><h4>What evidence settles it</h4><p>Which screens, on which days. If a figure decides the payment, name the screen the figure is read from.</p></div></li>
+          </ol>
+          <p style="margin-top:20px">If the partner disagrees with any of it, they counter-offer and you accept a new version. Recording the disagreement before publication costs one message; discovering it afterwards costs the campaign.</p>
+        </div>
+      </details>
+
+      <details class="faq-item res-item" id="res-s5">
+        <summary><span class="res-sum"><span class="res-n">05</span><span class="res-st"><b>Why niche beats reach</b><small>An opinionated case for audience fit over follower count — and when reach genuinely wins</small></span></span></summary>
+        <div class="res-body">
+          <p class="res-lead">Reach is something you can buy. Fit is not, which is exactly why it is underpriced.</p>
+          <p>A general lifestyle account with a very large following and a small forum devoted to one hobby can cost about the same for one placement. The lifestyle account will show your product to more people. The forum will show it to more people who already have the problem your product solves, and who are already in the habit of comparing solutions to it.</p>
+          <p>There is nothing mystical about why the second one converts better. A recommendation in a niche space arrives with context: from someone the audience treats as knowledgeable about this specific thing, next to other conversations about the same specific thing, at a moment when the reader is already thinking about it. The same words in a general feed arrive as an interruption.</p>
+          <p>Niche audiences also let you be more honest, which is a commercial advantage rather than a moral one. You can say who your product is not for, name the trade-off against the obvious alternative, and quote a real price — because the audience is knowledgeable enough to be reassured by specifics rather than bored by them. That kind of copy does not survive contact with a general audience, and it is usually the copy that sells.</p>
+          <p>Reach does win in some cases: a genuinely mass-market product, a category most people do not know exists yet, or a launch built around one creative asset you want as many people as possible to see once. If that is your situation, buy reach deliberately and measure it as awareness. What does not work is buying reach because the number looked impressive, and then judging it on sales.</p>
+          <h4>Ask this instead</h4>
+          <div class="two-list">
+            <div>
+              <h4>Questions that predict a result</h4>
+              <ul class="list-yes">
+                <li>What does your audience mostly come to you for?</li>
+                <li>What did your last few posts on this topic do?</li>
+                <li>Which of my competitors have they already seen here?</li>
+                <li>What share of them are in the country I sell to?</li>
+                <li>What have you turned down, and why?</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Questions that only feel rigorous</h4>
+              <ul class="list-no">
+                <li>How many followers do you have?</li>
+                <li>What is your best-performing post ever?</li>
+                <li>What is your total monthly reach?</li>
+                <li>How fast are you growing?</li>
+                <li>Can you guarantee it goes viral?</li>
+              </ul>
+            </div>
+          </div>
+          <p style="margin-top:20px">One more practical note: fit compounds and reach does not. A niche audience that sees you three times over a quarter starts treating you as part of the furniture of their interest. The same spend split across three unrelated large accounts buys three first impressions.</p>
+        </div>
+      </details>
+
+      <details class="faq-item res-item" id="res-s6">
+        <summary><span class="res-sum"><span class="res-n">06</span><span class="res-st"><b>Glossary</b><small>The PromoSlot-specific words that appear in terms, deal rooms and evidence requests</small></span></span></summary>
+        <div class="res-body">
+          <p class="res-lead">Reference rather than reading. These are the terms that carry a precise meaning inside the product.</p>
+          <dl class="res-gloss" style="margin-top:18px">
+            <div><dt>Accepted terms</dt><dd>The version of the deliverables, dates, payment model and evidence requirements both sides approved. Funding and review are always tied to this version.</dd></div>
+            <div><dt>Buyer protection fee</dt><dd>5%, paid by the business and held together with the payment from the moment a deal is funded.</dd></div>
+            <div><dt>Campaign</dt><dd>A business's public brief in the Marketplace. Platform owners apply to it.</dd></div>
+            <div><dt>Counter-offer</dt><dd>A recorded change to proposed terms. It creates a new version to accept rather than editing the previous one.</dd></div>
+            <div><dt>Deal</dt><dd>One agreement between a business and a platform owner, from accepted terms through to release or return.</dd></div>
+            <div><dt>Deliverable</dt><dd>One named piece of work: a format, a place, a duration. Everything a reviewer checks maps back to a deliverable.</dd></div>
+            <div><dt>Evidence</dt><dd>The links, screenshots and analytics submitted to show the agreed work was published as described.</dd></div>
+            <div><dt>Funding</dt><dd>Taking and holding the payment before delivery is expected to begin. Held funds do not reach the platform owner until delivery is verified.</dd></div>
+            <div><dt>Listing</dt><dd>A platform owner's public offer in the Marketplace: what they will publish, for whom, at what price.</dd></div>
+            <div><dt>Measurement window</dt><dd>The period an agreed figure is counted over, running from publication. It is named in the terms rather than assumed.</dd></div>
+            <div><dt>Payment model</dt><dd>How the amount is calculated: fixed, per view, per impression, time-based, affiliate, hybrid or custom.</dd></div>
+            <div><dt>Payout</dt><dd>The released amount reaching the platform owner, less the seller fee.</dd></div>
+            <div><dt>Release or return</dt><dd>The two outcomes of review. Verified delivery releases funds; where conditions were not met, eligible funds return to the business under the accepted terms.</dd></div>
+            <div><dt>Reviewer</dt><dd>The person at PromoSlot who compares submitted evidence against the accepted terms and records the decision.</dd></div>
+            <div><dt>Seller fee</dt><dd>10%, deducted from the platform owner's payout when a completed deal is released.</dd></div>
+            <div><dt>Verification</dt><dd>The check that a platform owner controls the account they have listed. Required before a listing can transact.</dd></div>
+          </dl>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:10px;padding-bottom:56px">
+    <div class="res-lib">
+      <div class="tile-row">
+        <button type="button" class="tile-dark" data-act="how">
+          <span class="tile-kicker">How PromoSlot works</span>
+          <span class="tile-title">See a deal run end to end</span>
+          <span class="tile-body">Follow one partnership from accepted terms through evidence, review and payout.</span>
+          <span class="tile-cta">Open the deal journey →</span>
+        </button>
+        <a href="#" class="tile-light" data-act="market">
+          <span class="tile-kicker">Marketplace</span>
+          <span class="tile-title">Read a few real listings</span>
+          <span class="tile-body">The fastest way to calibrate the guidance above is to open three listings in the same niche and compare what each one will actually evidence.</span>
+          <span class="tile-cta">Browse listings →</span>
+        </a>
+      </div>
     </div>
   </section>
 

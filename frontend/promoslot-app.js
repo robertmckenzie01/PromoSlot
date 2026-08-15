@@ -54,147 +54,6 @@ const PLATFORM_META = {
   Other:{color:"#6b7280",ico:_lic('<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>')}
 };
 const ALL_PLATFORMS = Object.keys(PLATFORM_META);
-
-/* ==================== RESOURCES — PLATFORM PLAYBOOKS ====================
-   Real, non-fabricated format options per platform (no stats/testimonials —
-   just what a business can actually ask a platform owner to do). Each item
-   can carry a real `img` (relative path under frontend/) once one exists;
-   items without one render as a clearly-labelled placeholder in the viewer. */
-const PLAYBOOK_DATA = {
-  TikTok:[
-    {t:"A dedicated video built around your product",d:"The whole video is built around what you sell, filmed and posted by the creator.",img:"img/playbooks/tiktok-dedicated-video.jpg"},
-    {t:"A product mention inside an existing format",d:"Your product is worked into a video style the creator already posts regularly."},
-    {t:"A duet, stitch or reaction",d:"The creator responds to or remixes existing content, reintroducing your product to their audience."}
-  ],
-  Instagram:[
-    {t:"A feed post or carousel",d:"A dedicated post or multi-image carousel featuring your product."},
-    {t:"A Story sequence",d:"A short run of Stories, often with a link sticker back to you."},
-    {t:"A Reel built around your product",d:"A short-form video placed in Reels, the platform's highest-reach format."}
-  ],
-  Discord:[
-    {t:"A pinned announcement",d:"Your campaign is pinned in a high-traffic channel for the agreed window."},
-    {t:"A scheduled community event or AMA",d:"A live event inside the server built around your product."},
-    {t:"A dedicated role or channel mention",d:"A custom role, channel or recurring mention tied to your campaign."}
-  ],
-  Newsletter:[
-    {t:"A dedicated send",d:"An entire issue built around your product, sent to the full list."},
-    {t:"A sponsored slot",d:"A defined section inside a regular issue, alongside the owner's usual content."},
-    {t:"A recurring mention",d:"Your product referenced across several issues rather than a single send."}
-  ],
-  YouTube:[
-    {t:"A dedicated video",d:"A standalone video reviewing or demonstrating your product."},
-    {t:"A mid-roll integration",d:"A segment inside an existing video format, not a standalone upload."},
-    {t:"Description and end-card placement",d:"A link and mention placed across a video or short series, without a dedicated segment."}
-  ],
-  Twitch:[
-    {t:"A live on-stream mention or demo",d:"The streamer mentions or demonstrates your product live during a broadcast."},
-    {t:"A dedicated segment",d:"A defined portion of a stream set aside for your product."},
-    {t:"A panel or overlay placement",d:"A visible mention on the stream layout for the length of the broadcast."}
-  ],
-  Reddit:[
-    {t:"A post in a relevant subreddit",d:"A dedicated post inside a community the owner has real standing in."},
-    {t:"A comment-level mention",d:"Your product referenced inside an existing high-traffic thread."},
-    {t:"An AMA or discussion post",d:"A post built around your product that invites community discussion."}
-  ],
-  Quora:[
-    {t:"An answer referencing your product",d:"Your product worked into a genuine answer on a relevant question."},
-    {t:"A dedicated Space post",d:"A post inside a Quora Space the owner runs or contributes to."},
-    {t:"A profile-level mention",d:"A reference on the owner's profile linking back to your product."}
-  ],
-  X:[
-    {t:"A dedicated post or thread",d:"A standalone post or thread built around your product."},
-    {t:"A reply or quote-post placement",d:"Your product surfaced inside a relevant, already-active conversation."},
-    {t:"A pinned post for the campaign window",d:"Your post held at the top of the owner's profile for an agreed period."}
-  ],
-  LinkedIn:[
-    {t:"A dedicated post",d:"A standalone post introducing your product to a professional audience."},
-    {t:"A newsletter-style article mention",d:"Your product referenced inside a longer-form LinkedIn article or newsletter."},
-    {t:"An engagement-style placement",d:"A comment or discussion-level mention inside a relevant post."}
-  ],
-  Pinterest:[
-    {t:"A dedicated pin or board",d:"A pin, or a themed board, built specifically around your product."},
-    {t:"Inclusion in an existing board",d:"Your product added into a themed board the owner already runs."},
-    {t:"A carousel pin",d:"A multi-image pin walking through your product."}
-  ],
-  "Blog/Website":[
-    {t:"A dedicated review or feature article",d:"A standalone article written specifically about your product."},
-    {t:"A banner or sidebar placement",d:"A persistent placement across the site for the agreed window."},
-    {t:"A mention inside an existing post",d:"Your product referenced inside content the owner already publishes."}
-  ],
-  Podcast:[
-    {t:"A host-read ad",d:"The host reads your ad live inside an episode, in their own voice."},
-    {t:"A dedicated interview or feature segment",d:"A standalone segment built around your product."},
-    {t:"Show notes placement",d:"A link and description in the episode notes, without a dedicated read."}
-  ],
-  Facebook:[
-    {t:"A dedicated feed post",d:"A standalone post featuring your product."},
-    {t:"A Story placement",d:"A short-lived Story mention."},
-    {t:"A group post",d:"A post inside a relevant Facebook Group the owner manages."}
-  ],
-  Telegram:[
-    {t:"A pinned message",d:"Your campaign pinned at the top of a channel for the agreed window."},
-    {t:"A dedicated post to subscribers",d:"A standalone message sent to the full channel."},
-    {t:"A group mention",d:"Your product referenced inside an active group discussion."}
-  ],
-  Threads:[
-    {t:"A dedicated post",d:"A standalone post introducing your product."},
-    {t:"A reply-thread placement",d:"Your product surfaced inside an already-active conversation."},
-    {t:"A short recurring series",d:"Your product referenced across a small run of posts."}
-  ],
-  "Forum/Community":[
-    {t:"A dedicated thread or post",d:"A standalone thread built around your product."},
-    {t:"A signature or profile placement",d:"A persistent mention attached to the owner's posts across the forum."},
-    {t:"A sticky or pinned post",d:"Your post held at the top of a relevant board for the agreed window."}
-  ]
-};
-const PB_PLATFORMS = Object.keys(PLAYBOOK_DATA);
-// Flat, ordered list across every platform — drives the viewer's prev/next.
-const PB_FLAT = PB_PLATFORMS.flatMap(p=>PLAYBOOK_DATA[p].map((it,i)=>({plat:p,idx:i,...it})));
-function pbFlatIndex(plat,idx){ return PB_FLAT.findIndex(x=>x.plat===plat&&x.idx===idx); }
-
-function renderPlaybooks(){
-  const host=$("pbList"); if(!host) return;
-  host.innerHTML=PB_PLATFORMS.map(p=>{
-    const m=PLATFORM_META[p];
-    const items=PLAYBOOK_DATA[p].map((it,i)=>`
-      <div class="pb-item">
-        <div class="pb-item-main">
-          <span class="pb-check">✓</span>
-          <div>
-            <div class="pb-item-title">${esc(it.t)}</div>
-            <div class="pb-item-desc">${esc(it.d)}</div>
-          </div>
-        </div>
-        <button type="button" class="pb-visual-btn" onclick="pbOpenVisual('${p.replace(/'/g,"\\'")}',${i})">Visual</button>
-      </div>`).join("");
-    return `<details class="pb-plat">
-      <summary><span class="pb-plat-ico" style="background:${m.color}14;color:${m.color}">${m.ico}</span>${esc(p)}</summary>
-      <div class="pb-items">${items}</div>
-    </details>`;
-  }).join("");
-}
-
-function pbRenderModal(flatIdx){
-  const n=PB_FLAT.length;
-  const i=((flatIdx%n)+n)%n; // wrap both directions
-  const it=PB_FLAT[i];
-  const media=it.img
-    ? `<img src="${esc(it.img)}" alt="${esc(it.t)} — example">`
-    : `<div class="pb-modal-placeholder"><span>Visual coming soon</span></div>`;
-  const html=`
-    <div class="m-pad">
-      <button type="button" class="pb-modal-nav pb-modal-prev" onclick="pbOpenVisualFlat(${i-1})" aria-label="Previous visual">‹</button>
-      <button type="button" class="pb-modal-nav pb-modal-next" onclick="pbOpenVisualFlat(${i+1})" aria-label="Next visual">›</button>
-      <div class="pb-modal-media">${media}</div>
-      <div class="pb-modal-info">
-        <div class="pb-modal-plat">${esc(it.plat)}</div>
-        <div class="pb-modal-title">${esc(it.t)}</div>
-      </div>
-    </div>`;
-  openModal(html,"narrow");
-}
-function pbOpenVisual(plat,idx){ pbRenderModal(pbFlatIndex(plat,idx)); }
-function pbOpenVisualFlat(flatIdx){ pbRenderModal(flatIdx); }
 const ALL_NICHES = ["Fitness","Beauty","Gaming","Finance","Food","Tech","Parenting","Fashion","Education","Travel"];
 const ALL_SERVICES = ["Sponsored social post","Short-form promo video","Instagram Story","TikTok Live promotion","YouTube integration","Community announcement","Pinned community post","Newsletter advertisement","Sponsored blog post","Product review","UGC content","Affiliate promotion","Giveaway","Product feedback","Brand AMA","Link-in-bio placement","Custom service"];
 const ALL_COUNTRIES = ["UK","US","Canada","Australia","Germany","France","Spain","Netherlands","Ireland","India","Brazil"];
@@ -5051,11 +4910,11 @@ function PSBoot(){
   renderHeroChips();
   renderHeroPreview();
   renderPlatBrowseChips();
-  renderPlaybooks();
   renderFooterSupport();
   wireNavDropdowns();
   djRender();
   djBindControls();
+  resRender();
   psRender(true);
   psBindControls();
   syncNav();
@@ -5405,6 +5264,301 @@ function psBindControls(){
   }
 }
 
+/* ---------- Resources page ----------
+   Two pieces are generated rather than written into index.html: the 14 platform
+   playbooks (so the icon and brand colour come straight from PLATFORM_META and
+   can never drift from the Marketplace) and the payment-model picker (so the
+   model labels and field names come straight from PM_MODELS/PM_ORDER — the same
+   definitions the pricing builder and the application form use). Both render
+   once at boot; the accordions themselves are native <details>, so opening and
+   closing needs no JS at all. */
+const RES_PB_ORDER=["TikTok","Instagram","Discord","Newsletter","YouTube","Twitch","Reddit","Quora","X","LinkedIn","Pinterest","Blog/Website","Podcast","Facebook"];
+const RES_PLAYBOOKS={
+  TikTok:{
+    formats:["A dedicated video built around your product","A segment inside a video on the creator's own topic","A Live mention or on-stream demo","Participation in a sound or format you are running","Link-in-bio placement for a campaign window"],
+    ask:["Dedicated video or a segment — and if a segment, roughly where it falls","Where the product appears in the first few seconds","How long the video stays up","Whether you get the file to reuse in paid ads, and for how long","Which countries most of the views come from"],
+    ex:["A skincare brand buys one dedicated 30-second routine video plus 14 days of link-in-bio placement.","A B2B tool buys a 15-second segment inside a 'day in the job' video, and licences the clip for six months of paid ads."]},
+  Instagram:{
+    formats:["Sponsored in-feed post or carousel","Reel","A sequence of story frames with a link sticker","Collab post, co-authored so it appears on both accounts","Product tagging on existing content"],
+    ask:["Collab post or single-author — the reach is very different","How many story frames, and whether they are saved to a highlight","Whether the link sticker is included","Whether the feed post stays up permanently or is removed after the window","Who supplies the images, and at what crop"],
+    ex:["A coffee roaster buys three story frames with a link sticker plus one collab Reel.","A gymwear brand buys a carousel where the first slide is theirs and the rest is the creator's own styling."]},
+  Discord:{
+    formats:["Announcement post in the server's announcements channel","Pinned message in a topical channel","A dedicated channel or category for your product","Role or emoji giveaway","AMA or voice event","Sponsorship of a recurring server event"],
+    ask:["Which channels, and how many members can actually see them","Whether an @everyone or @here ping is included — it changes reach more than anything else here","How long a pin stays before it is rotated out","Whether the mod team answers questions on your behalf or routes them to you","A screenshot of the pin plus the ping timestamp as evidence"],
+    ex:["An indie studio buys an announcement with @here plus a pinned playtest signup held for 14 days.","A developer-tools company sponsors a 45-minute voice AMA with a pinned written recap afterwards."]},
+  Newsletter:{
+    formats:["Dedicated send, your message only","Primary sponsor slot in a regular issue","Short classified or text ad","A sponsored section inside an editorial piece","Footer or 'what I'm using' placement"],
+    ask:["List size and recent open rate for the exact segment being sold","How many sponsor slots share the issue","Whether you write the copy or the author writes it in their voice","A tracked link you control","A screenshot of the sent email plus the send report as evidence"],
+    ex:["A SaaS buys the primary slot across three consecutive issues so the same readers see it more than once.","A publisher buys one dedicated send timed to pre-order week."]},
+  YouTube:{
+    formats:["Host-read pre-roll mention","Mid-roll integration","A dedicated review, tutorial or teardown","Unscripted product placement","Description and end-screen placement only","Shorts"],
+    ask:["Which slot, and how long the read is","Where the description link sits relative to the fold","Whether the video stays public indefinitely","Whether talking points are approved before filming","Re-use rights if you want to cut the segment into an ad"],
+    ex:["A keyboard brand buys a 60-second mid-roll in a productivity channel plus a pinned comment.","A language app buys a dedicated tutorial where the product is the subject rather than a mention."]},
+  Twitch:{
+    formats:["A sponsored segment inside a stream","A full sponsored session","Overlay or panel placement for a period","A chat command for the duration","On-stream giveaway","Clip or VOD retention rights"],
+    ask:["Which stream slots, by day and hour — the audience at 15:00 is not the audience at 21:00","How long the overlay or panel stays up","Whether the VOD stays available, and for how long","Whether the chat command runs for the whole window","Which clips you may reuse"],
+    ex:["A drinks brand sponsors four streams in a month with an overlay logo, a chat command and one on-stream taste test.","A publisher buys a two-hour first-playthrough session with the VOD kept up for 60 days."]},
+  Reddit:{
+    formats:["A sponsored post where the subreddit's rules allow it","An AMA","A mod-approved announcement or sticky","Inclusion in a sidebar or wiki resources list","Sponsorship of a community event or contest"],
+    ask:["Whether the moderators have approved it in writing — on Reddit this is the whole risk","How long a sticky holds","The exact disclosure wording","Whether comments stay open, and who replies","What happens if the post is removed after publication"],
+    ex:["A hardware startup runs a founder AMA in a niche subreddit, stickied for 24 hours.","A price-tracking tool is added to a subreddit's sidebar resources list for a quarter."]},
+  Quora:{
+    formats:["A sponsored answer from a writer with standing in the topic","A post inside a Space","A pinned Space announcement","A long-form Quora blog post"],
+    ask:["Which specific questions the answer targets, and whether those questions already get traffic","How the sponsorship is disclosed","Whether the answer stays up indefinitely — search longevity is most of the value","Whether it can be edited later if your product changes"],
+    ex:["An accounting tool sponsors an answer on a tax-registration question that already ranks in search.","A training provider sponsors a pinned post in a careers Space for a month."]},
+  X:{
+    formats:["A single sponsored post","A thread using your product as the worked example","A quote-post amplifying your own announcement","Pinned post for a period","An appearance in an audio Space"],
+    ask:["Whether the post is pinned, and for how long","Whether it stays up permanently","If it is a thread, which position your mention occupies","That it will not be quietly deleted after payout","Post analytics as evidence rather than follower count"],
+    ex:["A launch announcement quote-posted by three accounts in the same niche within the same hour.","A developer tool sponsors a technical thread where the product solves the problem at step four."]},
+  LinkedIn:{
+    formats:["A sponsored post from a personal profile","A company-page post","One edition of their newsletter","A document or carousel post","A named appearance at a live event"],
+    ask:["Personal profile or company page — the reach is not comparable","How the disclosure is worded for a professional audience","Whether they reply in comments for the first day","Who supplies the document, and in which format","Whether the post will be boosted with paid spend, and who pays for it"],
+    ex:["An HR platform sponsors a personal-profile post about redesigning a hiring process, with the product named as the tool used.","A recruitment firm sponsors one edition of a niche industry newsletter."]},
+  Pinterest:{
+    formats:["Standard pins","A multi-page idea pin","A dedicated board or board section","Pins added to an established board","A seasonal collection"],
+    ask:["Which board — you are usually buying that board's own traffic, not the account's","Whether the pins stay live indefinitely","Who supplies the imagery, and at what aspect ratio","Whether the destination domain is claimed and verified"],
+    ex:["An interiors retailer buys five pins added to an established small-kitchens board for twelve months.","A stationer buys one idea pin plus a dedicated section for a wedding range."]},
+  "Blog/Website":{
+    formats:["A sponsored article","Inclusion in an existing comparison or roundup","Banner or sidebar placement for a period","A resource-page listing","A review or teardown","A post plus newsletter bundle"],
+    ask:["How the link is marked, and stay inside the site's own policy on that","Where on the page your mention sits","How long it stays up, and whether the post gets updated later","Traffic for that specific URL, not for the whole site","Whether the piece is labelled as sponsored, and how"],
+    ex:["A payments provider buys a place in an existing invoicing-tools comparison for twelve months.","A B2B brand commissions a sponsored teardown on a niche industry blog."]},
+  Podcast:{
+    formats:["Host-read pre-roll, mid-roll or post-roll","A dedicated segment or full interview","Series sponsorship across several episodes","Show-notes placement","A social clip promoting the episode"],
+    ask:["Which slot, and how long the read is","Whether the ad is baked in permanently or dynamically inserted — dynamic ads can be removed later","Downloads per episode over the first 30 days","Where the show-notes link sits","A vanity URL or code, since podcast attribution is otherwise guesswork"],
+    ex:["A meal-kit brand buys mid-roll reads across six consecutive episodes with a vanity URL.","A recruiter sponsors one interview episode featuring a guest from their own team."]},
+  Facebook:{
+    formats:["A page post","A Group post or pinned announcement, with admin approval","Event sponsorship","Reels","Local community placement"],
+    ask:["For a Group, that an admin has approved it and how many members are actually active","How long the pin holds","Whether the post is boosted with paid spend, and who pays","The geographic reach, if your offer is local","Whether comments are moderated"],
+    ex:["A local trades business buys a pinned post in a town community group for a week.","A pet brand sponsors a Group's monthly photo contest, including the prize."]}
+};
+function resPlaybookHtml(p){
+  const m=PLATFORM_META[p], d=RES_PLAYBOOKS[p];
+  if(!m||!d) return "";
+  return `<details class="faq-item res-plat">
+    <summary><span class="res-plat-sum"><span class="res-plat-ico" style="background:${m.color}14;color:${m.color}">${m.ico}</span>${esc(p)}</span></summary>
+    <div class="res-plat-body">
+      <div class="two-list">
+        <div><h4>Formats you can buy</h4><ul class="list-yes">${d.formats.map(x=>`<li>${esc(x)}<button type="button" class="res-vis" data-p="${esc(p)}" data-f="${esc(x)}" aria-haspopup="dialog" aria-label="See a visual example: ${esc(p)} — ${esc(x)}">Visual</button></li>`).join("")}</ul></div>
+        <div><h4>Pin down before you fund</h4><ul class="list-ask">${d.ask.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+      </div>
+    </div>
+  </details>`;
+}
+function resRenderPlaybooks(){
+  const el=$("resPlaybooks");
+  if(!el) return;
+  el.innerHTML=RES_PB_ORDER.map(resPlaybookHtml).join("");
+  if(!el._visWired){
+    el.addEventListener("click",e=>{
+      const b=e.target.closest(".res-vis");
+      if(b){ e.preventDefault(); resVisOpen(b); }
+    });
+    el._visWired=true;
+  }
+}
+
+/* ---------- Visual viewer ----------
+   Every "Visual" link in the playbooks is one entry in a single ordered set, so
+   prev/next walks the whole page — the rest of a platform's formats first, then
+   on into the next platform. The panel itself is created the first time someone
+   opens it (nothing ships in the page's initial markup) and the key handler only
+   exists while it is open. Frames are labelled placeholders: no invented
+   platform UI, and nothing here depicts PromoSlot's own product. */
+const RES_VIS_PORTRAIT=new Set(["TikTok","Instagram","Pinterest"]);
+// Real example media, keyed "Platform|exact format string". Everything not
+// listed here still renders as the clearly-labelled placeholder below — no
+// fabricated screenshots stand in for a real platform's UI.
+const RES_VIS_MEDIA={
+  "TikTok|A dedicated video built around your product":"img/playbooks/tiktok-dedicated-video.jpg"
+};
+let _vwI=null, _vwTrigger=null, _vwScroll="";
+function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
+function resVisReduced(){ return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches); }
+function resVisBuild(){
+  if($("resViewer")) return $("resViewer");
+  const d=document.createElement("div");
+  d.className="vw"; d.id="resViewer";
+  d.setAttribute("role","dialog"); d.setAttribute("aria-modal","true"); d.setAttribute("aria-labelledby","vwTitle");
+  d.innerHTML=`<div class="vw-panel">
+    <div class="vw-grab"></div>
+    <button type="button" class="modal-x" id="vwClose" aria-label="Close" onclick="resVisClose()">✕</button>
+    <div class="vw-head">
+      <span class="res-plat-ico" id="vwIco" aria-hidden="true"></span>
+      <div><div class="vw-eyebrow" id="vwPlat"></div><div class="vw-title" id="vwTitle"></div></div>
+    </div>
+    <div class="vw-body"><div class="vw-frame" id="vwFrame"></div></div>
+    <div class="vw-foot">
+      <span class="vw-count" id="vwCount" aria-live="polite"></span>
+      <div class="vw-nav">
+        <button type="button" class="btn btn-o btn-sm" id="vwPrev" onclick="resVisStep(-1)" aria-label="Previous visual">← Prev</button>
+        <button type="button" class="btn btn-p btn-sm" id="vwNext" onclick="resVisStep(1)" aria-label="Next visual">Next →</button>
+      </div>
+    </div>
+  </div>`;
+  d.addEventListener("click",e=>{ if(e.target===d) resVisClose(); });
+  document.body.appendChild(d);
+  return d;
+}
+function resVisPaint(){
+  const items=resVisItems(), b=items[_vwI];
+  if(!b) return;
+  const p=b.dataset.p||"", f=b.dataset.f||"", m=PLATFORM_META[p];
+  const ico=$("vwIco");
+  if(ico){ ico.innerHTML=m?m.ico:""; ico.style.background=m?m.color+"14":"var(--acc-soft)"; ico.style.color=m?m.color:"var(--acc)"; }
+  const pl=$("vwPlat"); if(pl) pl.textContent=p;
+  const t=$("vwTitle"); if(t) t.textContent=f;
+  const c=$("vwCount"); if(c) c.textContent=(_vwI+1)+" / "+items.length;
+  const fr=$("vwFrame");
+  if(fr){
+    fr.classList.toggle("port", RES_VIS_PORTRAIT.has(p));
+    const img=RES_VIS_MEDIA[p+"|"+f];
+    fr.classList.toggle("has-img", !!img);
+    fr.innerHTML=img
+      ? `<img src="${esc(img)}" alt="${esc(p)} — ${esc(f)} — example">`
+      : `<span class="vw-frame-ico" style="color:${m?m.color:"var(--acc)"}">${m?m.ico:""}</span>
+      <span class="vw-frame-lbl">Placeholder<br>${esc(p)} — ${esc(f)}<br>image or video goes here</span>`;
+  }
+  // Keep the page underneath in step with the viewer.
+  let n=b.parentElement;
+  while(n){ if(n.tagName==="DETAILS") n.open=true; n=n.parentElement; }
+}
+function resVisOpen(btn){
+  const items=resVisItems(), i=items.indexOf(btn);
+  if(i<0) return;
+  resVisBuild();
+  _vwI=i; _vwTrigger=btn;
+  resVisPaint();
+  const vw=$("resViewer");
+  vw.classList.add("open");
+  _vwScroll=document.body.style.overflow;
+  document.body.style.overflow="hidden";
+  // Force a reflow before the .in class so the open transition always runs from
+  // its start state — a rAF here is not reliable in a backgrounded frame.
+  void vw.offsetWidth;
+  vw.classList.add("in");
+  document.addEventListener("keydown",resVisKey,true);
+  setTimeout(()=>{ const f=$("vwClose"); if(f) try{ f.focus(); }catch(e){} },30);
+}
+function resVisStep(dir){
+  const items=resVisItems(), n=items.length;
+  if(!n||_vwI===null) return;
+  _vwI=(_vwI+dir+n)%n;
+  const fr=$("vwFrame");
+  if(fr && !resVisReduced()){
+    fr.classList.add("swap");
+    setTimeout(()=>{ resVisPaint(); fr.classList.remove("swap"); },150);
+  } else resVisPaint();
+}
+function resVisClose(){
+  const vw=$("resViewer");
+  if(!vw||!vw.classList.contains("open")) return;
+  vw.classList.remove("in");
+  document.removeEventListener("keydown",resVisKey,true);
+  document.body.style.overflow=_vwScroll||"";
+  const t=_vwTrigger;
+  const finish=()=>vw.classList.remove("open");
+  if(resVisReduced()) finish(); else setTimeout(finish,240);
+  _vwI=null; _vwTrigger=null;
+  if(t) try{ t.focus(); }catch(e){}
+}
+// Escape, arrows and a tab loop. Capture phase so the app's own global Escape
+// handler never sees the key while this panel owns the screen.
+function resVisKey(e){
+  const vw=$("resViewer");
+  if(!vw||!vw.classList.contains("open")) return;
+  if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); resVisClose(); return; }
+  if(e.key==="ArrowRight"||e.key==="ArrowDown"){ e.preventDefault(); e.stopPropagation(); resVisStep(1); return; }
+  if(e.key==="ArrowLeft"||e.key==="ArrowUp"){ e.preventDefault(); e.stopPropagation(); resVisStep(-1); return; }
+  if(e.key!=="Tab") return;
+  const f=[].slice.call(vw.querySelectorAll("button:not([disabled])"));
+  if(!f.length) return;
+  const first=f[0], last=f[f.length-1];
+  if(!vw.contains(document.activeElement)){ e.preventDefault(); first.focus(); return; }
+  if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+}
+// Guidance per payment model. The label and the field names are read from
+// PM_MODELS at render time, so this only carries the editorial part.
+const RES_MODELS={
+  fixed:{what:"One agreed price for one agreed deliverable. The full amount is held before work starts.",
+    best:"A single piece of work you can describe in a sentence: one video, one send, one pinned post. It is also the sensible default the first time you work with a partner.",
+    watch:"You are paying for the deliverable, not for a projected audience. If a reach figure matters to you, it belongs in the terms as a named number with named evidence, not as an expectation."},
+  "per-view":{what:"A guaranteed minimum plus a rate per thousand views, up to a maximum payout.",
+    best:"Short-form video, where the same account can do modest numbers one week and very large numbers the next, and neither side can honestly predict which.",
+    watch:"Name the counter and the measurement window before you fund. A platform's creator dashboard, its public counter and a third-party tool rarely agree, and that gap is the most common cause of a dispute."},
+  "per-imp":{what:"A rate per thousand impressions, against the impressions the placement is expected to deliver.",
+    best:"Placement inventory — newsletter slots, banners, story frames — where the audience is served the placement rather than choosing to watch it.",
+    watch:"Impressions are neither views nor clicks. Agree which screen the figure is read from, and remember that an impression count says nothing about whether anyone read it."},
+  time:{what:"A price per day, week or month for a placement that stays live for a set duration.",
+    best:"Positions you rent rather than content you commission: pinned messages, stream overlays, sidebar and resource-page links, board placements.",
+    watch:"A period is only verifiable if it is checked at both ends. Ask for dated evidence at the start and at the end of the window, not just a screenshot on day one."},
+  affiliate:{what:"A percentage per sale, with a cookie window and an optional minimum payout.",
+    best:"A product with a working checkout, tracking you already trust, and an audience close enough to buying that a recommendation converts on its own.",
+    watch:"It can pay nothing through nobody's fault, so experienced partners often decline it on its own. Only the minimum payout is held up front — with no minimum, nothing is escrowed."},
+  hybrid:{what:"A guaranteed amount held up front, plus agreed performance terms on top of it.",
+    best:"A first campaign together, or any deal where you and the partner genuinely disagree about the likely result and both have a defensible case.",
+    watch:"Write the performance half as a formula with one named source and one window — five pounds per thousand views on the post's own analytics, counted 30 days after publication — never as an adjective like strong performance."},
+  custom:{what:"Anything the six above do not describe: staged retainers, product plus fee, revenue splits, barter.",
+    best:"Genuinely unusual deals. If a standard model nearly fits, use the standard model — it is easier for both sides and for a reviewer to check.",
+    watch:"There are no defaults to fall back on, and only the amount stated up front is held. Spell out how each part is calculated, when it falls due, and what evidence settles it."}
+};
+const RES_SCENARIOS=[
+  {t:"One post, one price",k:"fixed",why:"A single well-defined deliverable is exactly what fixed price is for. Name the thing, agree the number, fund it."},
+  {t:"Reach could be huge or nothing",k:"per-view",why:"Per view shares the uncertainty rather than arguing about it: the minimum protects the partner, the rate rewards a hit, the cap protects you."},
+  {t:"I'm renting a position for a while",k:"time",why:"Pins, overlays, sidebars and boards are positions rather than posts. Price the period, and evidence both ends of it."},
+  {t:"I'm buying newsletter or banner inventory",k:"per-imp",why:"Placement inventory is sold on volume delivered. Agree which figure the platform reports before you fund anything."},
+  {t:"I want to pay on sales only",k:"affiliate",why:"Affiliate works when checkout and tracking are already reliable. Expect fewer partners to accept it with no guaranteed element."},
+  {t:"First campaign with this partner",k:"hybrid",why:"Hybrid is the honest answer when neither side can predict the result: guarantee enough to be worth their time, and put the rest on numbers you have both named."},
+  {t:"None of these describe it",k:"custom",why:"Custom carries no defaults, so anything left out of the terms cannot be checked later. Write more than feels necessary."}
+];
+let _resModel="fixed", _resScen=null;
+function resModelDetailHtml(k){
+  const m=PM_MODELS[k], d=RES_MODELS[k];
+  if(!m||!d) return "";
+  const s=_resScen!=null&&RES_SCENARIOS[_resScen]&&RES_SCENARIOS[_resScen].k===k ? RES_SCENARIOS[_resScen] : null;
+  return `<h4>${esc(m.label)}</h4>
+    <p class="rm-what">${esc(d.what)}</p>
+    ${s?`<div class="rm-why">${esc(s.why)}</div>`:""}
+    <div class="rm-row"><div class="rm-l">Best when</div><p>${esc(d.best)}</p></div>
+    <div class="rm-row"><div class="rm-l">Watch out for</div><p>${esc(d.watch)}</p></div>
+    <div class="rm-row"><div class="rm-l">What the listing asks for</div><div class="rm-fields">${m.fields.map(f=>`<span>${esc(f.l)}</span>`).join("")}</div></div>`;
+}
+function resSyncModels(){
+  const d=$("resModelDetail");
+  if(d) d.innerHTML=resModelDetailHtml(_resModel);
+  const rec=_resScen!=null&&RES_SCENARIOS[_resScen] ? RES_SCENARIOS[_resScen].k : null;
+  document.querySelectorAll("#resModels .rm-nav-btn").forEach(b=>{
+    b.classList.toggle("on", b.dataset.mk===_resModel);
+    b.classList.toggle("rec", b.dataset.mk===rec);
+    b.setAttribute("aria-pressed", b.dataset.mk===_resModel?"true":"false");
+  });
+  document.querySelectorAll("#resModels .rm-chip").forEach(b=>{
+    const on=Number(b.dataset.si)===_resScen;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", on?"true":"false");
+  });
+}
+function resRenderModels(){
+  const el=$("resModels");
+  if(!el) return;
+  el.innerHTML=`<div class="rm-q">Start from what you are actually buying</div>
+    <div class="rm-chips">${RES_SCENARIOS.map((s,i)=>`<button type="button" class="dj-chip rm-chip" data-si="${i}" aria-pressed="false" onclick="resScenario(${i})"><span class="dj-chip-dot"></span>${esc(s.t)}</button>`).join("")}</div>
+    <div class="rm-cols">
+      <div class="rm-nav">${PM_ORDER.map(k=>`<button type="button" class="rm-nav-btn" data-mk="${esc(k)}" aria-pressed="false" onclick="resPickModel('${esc(k)}')">${esc(PM_MODELS[k].label)}<span class="rm-rec">SUGGESTED</span></button>`).join("")}</div>
+      <div class="rm-detail" id="resModelDetail"></div>
+    </div>`;
+  resSyncModels();
+}
+// Clicking a model reads it directly; clicking a scenario chip jumps to the
+// model it implies and explains why. Clicking the same chip again clears it.
+function resPickModel(k){ if(!PM_MODELS[k]) return; _resModel=k; resSyncModels(); }
+function resScenario(i){
+  const s=RES_SCENARIOS[i]; if(!s) return;
+  if(_resScen===i){ _resScen=null; } else { _resScen=i; _resModel=s.k; }
+  resSyncModels();
+}
+function resRender(){ resRenderPlaybooks(); resRenderModels(); }
+
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
@@ -5423,7 +5577,7 @@ restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestri
 renderMarketRail,railSetRole,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
 djSetRole,djGo,djNext,djBack,djNavKey,
 psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure,
-pbOpenVisual,pbOpenVisualFlat};
+resRender,resPickModel,resScenario,resVisOpen,resVisClose,resVisStep};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
