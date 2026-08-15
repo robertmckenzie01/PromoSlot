@@ -5377,7 +5377,10 @@ const RES_VIS_PORTRAIT=new Set(["TikTok","Instagram","Pinterest"]);
 // fabricated screenshots stand in for a real platform's UI.
 const RES_VIS_MEDIA={
   "TikTok|A dedicated video built around your product":"img/playbooks/tiktok-dedicated-video.jpg",
-  "TikTok|A segment inside a video on the creator's own topic":"img/playbooks/tiktok-creator-topic-segment.jpg"
+  "TikTok|A segment inside a video on the creator's own topic":"img/playbooks/tiktok-creator-topic-segment.jpg",
+  "TikTok|A Live mention or on-stream demo":"img/playbooks/tiktok-live-mention-demo.jpg",
+  "TikTok|Participation in a sound or format you are running":"img/playbooks/tiktok-sound-format-participation.jpg",
+  "TikTok|Link-in-bio placement for a campaign window":"img/playbooks/tiktok-link-in-bio.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
