@@ -1208,8 +1208,13 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 .vw-frame-ico{display:grid;place-items:center;width:46px;height:46px;border-radius:13px;background:var(--card);border:1px solid var(--line)}
 .vw-frame-ico svg{width:22px;height:22px;vertical-align:0}
 .vw-frame-lbl{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);text-align:center;line-height:1.7;max-width:34ch}
-.vw-frame.has-img{padding:0;border-style:solid;background:var(--bg);overflow:hidden}
-.vw-frame.has-img img{width:100%;height:100%;object-fit:cover;border-radius:12px;display:block}
+/* A real image drops the placeholder's fixed 9:14 crop entirely — the frame
+   sizes itself to the image's own natural proportions (capped so a very
+   tall source still fits the viewport) instead of forcing every source photo
+   into one ratio. Nothing gets cropped, so nothing (like a headline sitting
+   near the top of the source graphic) can end up clipped by the frame. */
+.vw-frame.has-img{padding:0;border-style:solid;background:var(--bg);overflow:hidden;aspect-ratio:auto;width:fit-content;max-width:100%;margin:0 auto}
+.vw-frame.has-img img{display:block;width:auto;height:auto;max-width:min(320px,100%);max-height:calc(100vh - 220px);border-radius:12px}
 .vw-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 22px 22px}
 .vw-count{font-size:12.5px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
 .vw-nav{display:flex;gap:8px}
