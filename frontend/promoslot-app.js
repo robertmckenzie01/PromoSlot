@@ -4821,8 +4821,15 @@ function readRoute(){
   try{
     const r=JSON.parse(sessionStorage.getItem(ROUTE_KEY)||"null");
     if(!r || typeof r.name!=="string") return null;
-    // Only ever accept an integer id back out of storage.
-    if(r.arg!=null && !/^\d+$/.test(String(r.arg))) return null;
+    // Every route's arg is either absent, a numeric row id (deal, profile) —
+    // or, for market only, one of its two known tab names. Reject anything
+    // else outright rather than trust corrupted/tampered storage.
+    if(r.arg!=null){
+      const validArg = r.name==="market"
+        ? (r.arg==="platforms"||r.arg==="campaigns")
+        : /^\d+$/.test(String(r.arg));
+      if(!validArg) return null;
+    }
     return r;
   }catch(e){ return null; }
 }
