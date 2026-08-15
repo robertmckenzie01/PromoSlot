@@ -5376,7 +5376,8 @@ const RES_VIS_PORTRAIT=new Set(["TikTok","Instagram","Pinterest"]);
 // listed here still renders as the clearly-labelled placeholder below — no
 // fabricated screenshots stand in for a real platform's UI.
 const RES_VIS_MEDIA={
-  "TikTok|A dedicated video built around your product":"img/playbooks/tiktok-dedicated-video.jpg"
+  "TikTok|A dedicated video built around your product":"img/playbooks/tiktok-dedicated-video.jpg",
+  "TikTok|A segment inside a video on the creator's own topic":"img/playbooks/tiktok-creator-topic-segment.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
