@@ -5380,7 +5380,12 @@ const RES_VIS_MEDIA={
   "TikTok|A segment inside a video on the creator's own topic":"img/playbooks/tiktok-creator-topic-segment.jpg",
   "TikTok|A Live mention or on-stream demo":"img/playbooks/tiktok-live-mention-demo.jpg",
   "TikTok|Participation in a sound or format you are running":"img/playbooks/tiktok-sound-format-participation.jpg",
-  "TikTok|Link-in-bio placement for a campaign window":"img/playbooks/tiktok-link-in-bio.jpg"
+  "TikTok|Link-in-bio placement for a campaign window":"img/playbooks/tiktok-link-in-bio.jpg",
+  "Instagram|Sponsored in-feed post or carousel":"img/playbooks/instagram-feed-carousel.jpg",
+  "Instagram|Reel":"img/playbooks/instagram-reel.jpg",
+  "Instagram|A sequence of story frames with a link sticker":"img/playbooks/instagram-story-frames-link.jpg",
+  "Instagram|Collab post, co-authored so it appears on both accounts":"img/playbooks/instagram-collab-post.jpg",
+  "Instagram|Product tagging on existing content":"img/playbooks/instagram-product-tagging.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
