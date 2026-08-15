@@ -54,6 +54,147 @@ const PLATFORM_META = {
   Other:{color:"#6b7280",ico:_lic('<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>')}
 };
 const ALL_PLATFORMS = Object.keys(PLATFORM_META);
+
+/* ==================== RESOURCES — PLATFORM PLAYBOOKS ====================
+   Real, non-fabricated format options per platform (no stats/testimonials —
+   just what a business can actually ask a platform owner to do). Each item
+   can carry a real `img` (relative path under frontend/) once one exists;
+   items without one render as a clearly-labelled placeholder in the viewer. */
+const PLAYBOOK_DATA = {
+  TikTok:[
+    {t:"A dedicated video built around your product",d:"The whole video is built around what you sell, filmed and posted by the creator.",img:"img/playbooks/tiktok-dedicated-video.jpg"},
+    {t:"A product mention inside an existing format",d:"Your product is worked into a video style the creator already posts regularly."},
+    {t:"A duet, stitch or reaction",d:"The creator responds to or remixes existing content, reintroducing your product to their audience."}
+  ],
+  Instagram:[
+    {t:"A feed post or carousel",d:"A dedicated post or multi-image carousel featuring your product."},
+    {t:"A Story sequence",d:"A short run of Stories, often with a link sticker back to you."},
+    {t:"A Reel built around your product",d:"A short-form video placed in Reels, the platform's highest-reach format."}
+  ],
+  Discord:[
+    {t:"A pinned announcement",d:"Your campaign is pinned in a high-traffic channel for the agreed window."},
+    {t:"A scheduled community event or AMA",d:"A live event inside the server built around your product."},
+    {t:"A dedicated role or channel mention",d:"A custom role, channel or recurring mention tied to your campaign."}
+  ],
+  Newsletter:[
+    {t:"A dedicated send",d:"An entire issue built around your product, sent to the full list."},
+    {t:"A sponsored slot",d:"A defined section inside a regular issue, alongside the owner's usual content."},
+    {t:"A recurring mention",d:"Your product referenced across several issues rather than a single send."}
+  ],
+  YouTube:[
+    {t:"A dedicated video",d:"A standalone video reviewing or demonstrating your product."},
+    {t:"A mid-roll integration",d:"A segment inside an existing video format, not a standalone upload."},
+    {t:"Description and end-card placement",d:"A link and mention placed across a video or short series, without a dedicated segment."}
+  ],
+  Twitch:[
+    {t:"A live on-stream mention or demo",d:"The streamer mentions or demonstrates your product live during a broadcast."},
+    {t:"A dedicated segment",d:"A defined portion of a stream set aside for your product."},
+    {t:"A panel or overlay placement",d:"A visible mention on the stream layout for the length of the broadcast."}
+  ],
+  Reddit:[
+    {t:"A post in a relevant subreddit",d:"A dedicated post inside a community the owner has real standing in."},
+    {t:"A comment-level mention",d:"Your product referenced inside an existing high-traffic thread."},
+    {t:"An AMA or discussion post",d:"A post built around your product that invites community discussion."}
+  ],
+  Quora:[
+    {t:"An answer referencing your product",d:"Your product worked into a genuine answer on a relevant question."},
+    {t:"A dedicated Space post",d:"A post inside a Quora Space the owner runs or contributes to."},
+    {t:"A profile-level mention",d:"A reference on the owner's profile linking back to your product."}
+  ],
+  X:[
+    {t:"A dedicated post or thread",d:"A standalone post or thread built around your product."},
+    {t:"A reply or quote-post placement",d:"Your product surfaced inside a relevant, already-active conversation."},
+    {t:"A pinned post for the campaign window",d:"Your post held at the top of the owner's profile for an agreed period."}
+  ],
+  LinkedIn:[
+    {t:"A dedicated post",d:"A standalone post introducing your product to a professional audience."},
+    {t:"A newsletter-style article mention",d:"Your product referenced inside a longer-form LinkedIn article or newsletter."},
+    {t:"An engagement-style placement",d:"A comment or discussion-level mention inside a relevant post."}
+  ],
+  Pinterest:[
+    {t:"A dedicated pin or board",d:"A pin, or a themed board, built specifically around your product."},
+    {t:"Inclusion in an existing board",d:"Your product added into a themed board the owner already runs."},
+    {t:"A carousel pin",d:"A multi-image pin walking through your product."}
+  ],
+  "Blog/Website":[
+    {t:"A dedicated review or feature article",d:"A standalone article written specifically about your product."},
+    {t:"A banner or sidebar placement",d:"A persistent placement across the site for the agreed window."},
+    {t:"A mention inside an existing post",d:"Your product referenced inside content the owner already publishes."}
+  ],
+  Podcast:[
+    {t:"A host-read ad",d:"The host reads your ad live inside an episode, in their own voice."},
+    {t:"A dedicated interview or feature segment",d:"A standalone segment built around your product."},
+    {t:"Show notes placement",d:"A link and description in the episode notes, without a dedicated read."}
+  ],
+  Facebook:[
+    {t:"A dedicated feed post",d:"A standalone post featuring your product."},
+    {t:"A Story placement",d:"A short-lived Story mention."},
+    {t:"A group post",d:"A post inside a relevant Facebook Group the owner manages."}
+  ],
+  Telegram:[
+    {t:"A pinned message",d:"Your campaign pinned at the top of a channel for the agreed window."},
+    {t:"A dedicated post to subscribers",d:"A standalone message sent to the full channel."},
+    {t:"A group mention",d:"Your product referenced inside an active group discussion."}
+  ],
+  Threads:[
+    {t:"A dedicated post",d:"A standalone post introducing your product."},
+    {t:"A reply-thread placement",d:"Your product surfaced inside an already-active conversation."},
+    {t:"A short recurring series",d:"Your product referenced across a small run of posts."}
+  ],
+  "Forum/Community":[
+    {t:"A dedicated thread or post",d:"A standalone thread built around your product."},
+    {t:"A signature or profile placement",d:"A persistent mention attached to the owner's posts across the forum."},
+    {t:"A sticky or pinned post",d:"Your post held at the top of a relevant board for the agreed window."}
+  ]
+};
+const PB_PLATFORMS = Object.keys(PLAYBOOK_DATA);
+// Flat, ordered list across every platform — drives the viewer's prev/next.
+const PB_FLAT = PB_PLATFORMS.flatMap(p=>PLAYBOOK_DATA[p].map((it,i)=>({plat:p,idx:i,...it})));
+function pbFlatIndex(plat,idx){ return PB_FLAT.findIndex(x=>x.plat===plat&&x.idx===idx); }
+
+function renderPlaybooks(){
+  const host=$("pbList"); if(!host) return;
+  host.innerHTML=PB_PLATFORMS.map(p=>{
+    const m=PLATFORM_META[p];
+    const items=PLAYBOOK_DATA[p].map((it,i)=>`
+      <div class="pb-item">
+        <div class="pb-item-main">
+          <span class="pb-check">✓</span>
+          <div>
+            <div class="pb-item-title">${esc(it.t)}</div>
+            <div class="pb-item-desc">${esc(it.d)}</div>
+          </div>
+        </div>
+        <button type="button" class="pb-visual-btn" onclick="pbOpenVisual('${p.replace(/'/g,"\\'")}',${i})">Visual</button>
+      </div>`).join("");
+    return `<details class="pb-plat">
+      <summary><span class="pb-plat-ico" style="background:${m.color}14;color:${m.color}">${m.ico}</span>${esc(p)}</summary>
+      <div class="pb-items">${items}</div>
+    </details>`;
+  }).join("");
+}
+
+function pbRenderModal(flatIdx){
+  const n=PB_FLAT.length;
+  const i=((flatIdx%n)+n)%n; // wrap both directions
+  const it=PB_FLAT[i];
+  const media=it.img
+    ? `<img src="${esc(it.img)}" alt="${esc(it.t)} — example">`
+    : `<div class="pb-modal-placeholder"><span>Visual coming soon</span></div>`;
+  const html=`
+    <div class="m-pad">
+      <button type="button" class="pb-modal-nav pb-modal-prev" onclick="pbOpenVisualFlat(${i-1})" aria-label="Previous visual">‹</button>
+      <button type="button" class="pb-modal-nav pb-modal-next" onclick="pbOpenVisualFlat(${i+1})" aria-label="Next visual">›</button>
+      <div class="pb-modal-media">${media}</div>
+      <div class="pb-modal-info">
+        <div class="pb-modal-plat">${esc(it.plat)}</div>
+        <div class="pb-modal-title">${esc(it.t)}</div>
+      </div>
+    </div>`;
+  openModal(html,"narrow");
+}
+function pbOpenVisual(plat,idx){ pbRenderModal(pbFlatIndex(plat,idx)); }
+function pbOpenVisualFlat(flatIdx){ pbRenderModal(flatIdx); }
 const ALL_NICHES = ["Fitness","Beauty","Gaming","Finance","Food","Tech","Parenting","Fashion","Education","Travel"];
 const ALL_SERVICES = ["Sponsored social post","Short-form promo video","Instagram Story","TikTok Live promotion","YouTube integration","Community announcement","Pinned community post","Newsletter advertisement","Sponsored blog post","Product review","UGC content","Affiliate promotion","Giveaway","Product feedback","Brand AMA","Link-in-bio placement","Custom service"];
 const ALL_COUNTRIES = ["UK","US","Canada","Australia","Germany","France","Spain","Netherlands","Ireland","India","Brazil"];
@@ -4910,6 +5051,7 @@ function PSBoot(){
   renderHeroChips();
   renderHeroPreview();
   renderPlatBrowseChips();
+  renderPlaybooks();
   renderFooterSupport();
   wireNavDropdowns();
   djRender();
@@ -5280,7 +5422,8 @@ acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
 renderMarketRail,railSetRole,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
 djSetRole,djGo,djNext,djBack,djNavKey,
-psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure};
+psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure,
+pbOpenVisual,pbOpenVisualFlat};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
