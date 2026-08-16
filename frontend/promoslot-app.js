@@ -5408,7 +5408,13 @@ const RES_VIS_MEDIA={
   "Reddit|An AMA":"img/playbooks/reddit-ama.jpg",
   "Reddit|A mod-approved announcement or sticky":"img/playbooks/reddit-mod-sticky.jpg",
   "Reddit|Inclusion in a sidebar or wiki resources list":"img/playbooks/reddit-sidebar-wiki.jpg",
-  "Reddit|Sponsorship of a community event or contest":"img/playbooks/reddit-community-contest.jpg"
+  "Reddit|Sponsorship of a community event or contest":"img/playbooks/reddit-community-contest.jpg",
+  "Livestream|A sponsored segment inside a stream":"img/playbooks/livestream-sponsored-segment.jpg",
+  "Livestream|A full sponsored session, start to finish":"img/playbooks/livestream-full-session.jpg",
+  "Livestream|Overlay or panel placement for a fixed period":"img/playbooks/livestream-overlay-panel.jpg",
+  "Livestream|A live, on-air product demo or unboxing":"img/playbooks/livestream-product-demo.jpg",
+  "Livestream|A chat command, bot integration or on-stream giveaway":"img/playbooks/livestream-chat-command.jpg",
+  "Livestream|Clip and VOD retention rights after the stream ends":"img/playbooks/livestream-clip-vod-rights.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
