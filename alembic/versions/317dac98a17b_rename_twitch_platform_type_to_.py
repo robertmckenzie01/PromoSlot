@@ -1,7 +1,7 @@
 """rename Twitch platform_type to Livestream
 
 Revision ID: 317dac98a17b
-Revises: a3f7b21c9e84
+Revises: ba9360b5b6a3
 
 The "Twitch" entry in the frontend's platform taxonomy was renamed to the
 broader "Livestream" (covers Twitch, Kick and other live-streaming
@@ -19,7 +19,7 @@ back.
 from alembic import op
 
 revision = "317dac98a17b"
-down_revision = "a3f7b21c9e84"
+down_revision = "ba9360b5b6a3"
 branch_labels = None
 depends_on = None
 
