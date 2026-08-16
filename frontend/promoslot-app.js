@@ -5433,7 +5433,13 @@ const RES_VIS_MEDIA={
   "Pinterest|A multi-page idea pin":"img/playbooks/pinterest-idea-pin.jpg",
   "Pinterest|A dedicated board or board section":"img/playbooks/pinterest-dedicated-board.jpg",
   "Pinterest|Pins added to an established board":"img/playbooks/pinterest-established-board.jpg",
-  "Pinterest|A seasonal collection":"img/playbooks/pinterest-seasonal-collection.jpg"
+  "Pinterest|A seasonal collection":"img/playbooks/pinterest-seasonal-collection.jpg",
+  "Blog/Website|A sponsored article":"img/playbooks/blog-sponsored-article.jpg",
+  "Blog/Website|Inclusion in an existing comparison or roundup":"img/playbooks/blog-comparison-roundup.jpg",
+  "Blog/Website|Banner or sidebar placement for a period":"img/playbooks/blog-banner-sidebar.jpg",
+  "Blog/Website|A resource-page listing":"img/playbooks/blog-resource-page-listing.jpg",
+  "Blog/Website|A review or teardown":"img/playbooks/blog-review-teardown.jpg",
+  "Blog/Website|A post plus newsletter bundle":"img/playbooks/blog-post-newsletter-bundle.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
