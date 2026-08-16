@@ -5414,7 +5414,11 @@ const RES_VIS_MEDIA={
   "Livestream|Overlay or panel placement for a fixed period":"img/playbooks/livestream-overlay-panel.jpg",
   "Livestream|A live, on-air product demo or unboxing":"img/playbooks/livestream-product-demo.jpg",
   "Livestream|A chat command, bot integration or on-stream giveaway":"img/playbooks/livestream-chat-command.jpg",
-  "Livestream|Clip and VOD retention rights after the stream ends":"img/playbooks/livestream-clip-vod-rights.jpg"
+  "Livestream|Clip and VOD retention rights after the stream ends":"img/playbooks/livestream-clip-vod-rights.jpg",
+  "Quora|A sponsored answer from a writer with standing in the topic":"img/playbooks/quora-sponsored-answer.jpg",
+  "Quora|A post inside a Space":"img/playbooks/quora-space-post.jpg",
+  "Quora|A pinned Space announcement":"img/playbooks/quora-pinned-space-announcement.jpg",
+  "Quora|A long-form Quora blog post":"img/playbooks/quora-long-form-blog-post.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
