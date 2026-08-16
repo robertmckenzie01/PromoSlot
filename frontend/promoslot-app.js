@@ -5428,7 +5428,12 @@ const RES_VIS_MEDIA={
   "LinkedIn|A company-page post":"img/playbooks/linkedin-company-page-post.jpg",
   "LinkedIn|One edition of their newsletter":"img/playbooks/linkedin-newsletter-edition.jpg",
   "LinkedIn|A document or carousel post":"img/playbooks/linkedin-document-carousel.jpg",
-  "LinkedIn|A named appearance at a live event":"img/playbooks/linkedin-live-event.jpg"
+  "LinkedIn|A named appearance at a live event":"img/playbooks/linkedin-live-event.jpg",
+  "Pinterest|Standard pins":"img/playbooks/pinterest-standard-pins.jpg",
+  "Pinterest|A multi-page idea pin":"img/playbooks/pinterest-idea-pin.jpg",
+  "Pinterest|A dedicated board or board section":"img/playbooks/pinterest-dedicated-board.jpg",
+  "Pinterest|Pins added to an established board":"img/playbooks/pinterest-established-board.jpg",
+  "Pinterest|A seasonal collection":"img/playbooks/pinterest-seasonal-collection.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
