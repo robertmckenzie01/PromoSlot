@@ -5439,7 +5439,12 @@ const RES_VIS_MEDIA={
   "Blog/Website|Banner or sidebar placement for a period":"img/playbooks/blog-banner-sidebar.jpg",
   "Blog/Website|A resource-page listing":"img/playbooks/blog-resource-page-listing.jpg",
   "Blog/Website|A review or teardown":"img/playbooks/blog-review-teardown.jpg",
-  "Blog/Website|A post plus newsletter bundle":"img/playbooks/blog-post-newsletter-bundle.jpg"
+  "Blog/Website|A post plus newsletter bundle":"img/playbooks/blog-post-newsletter-bundle.jpg",
+  "Podcast|Host-read pre-roll, mid-roll or post-roll":"img/playbooks/podcast-host-read-roll.jpg",
+  "Podcast|A dedicated segment or full interview":"img/playbooks/podcast-dedicated-segment-interview.jpg",
+  "Podcast|Series sponsorship across several episodes":"img/playbooks/podcast-series-sponsorship.jpg",
+  "Podcast|Show-notes placement":"img/playbooks/podcast-show-notes-placement.jpg",
+  "Podcast|A social clip promoting the episode":"img/playbooks/podcast-social-clip.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
