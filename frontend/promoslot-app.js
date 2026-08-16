@@ -5423,7 +5423,12 @@ const RES_VIS_MEDIA={
   "X|A thread using your product as the worked example":"img/playbooks/x-thread-worked-example.jpg",
   "X|A quote-post amplifying your own announcement":"img/playbooks/x-quote-post-announcement.jpg",
   "X|Pinned post for a period":"img/playbooks/x-pinned-post.jpg",
-  "X|An appearance in an audio Space":"img/playbooks/x-audio-space.jpg"
+  "X|An appearance in an audio Space":"img/playbooks/x-audio-space.jpg",
+  "LinkedIn|A sponsored post from a personal profile":"img/playbooks/linkedin-personal-post.jpg",
+  "LinkedIn|A company-page post":"img/playbooks/linkedin-company-page-post.jpg",
+  "LinkedIn|One edition of their newsletter":"img/playbooks/linkedin-newsletter-edition.jpg",
+  "LinkedIn|A document or carousel post":"img/playbooks/linkedin-document-carousel.jpg",
+  "LinkedIn|A named appearance at a live event":"img/playbooks/linkedin-live-event.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
