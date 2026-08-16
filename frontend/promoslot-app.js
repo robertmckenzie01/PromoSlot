@@ -5385,7 +5385,13 @@ const RES_VIS_MEDIA={
   "Instagram|Reel":"img/playbooks/instagram-reel.jpg",
   "Instagram|A sequence of story frames with a link sticker":"img/playbooks/instagram-story-frames-link.jpg",
   "Instagram|Collab post, co-authored so it appears on both accounts":"img/playbooks/instagram-collab-post.jpg",
-  "Instagram|Product tagging on existing content":"img/playbooks/instagram-product-tagging.jpg"
+  "Instagram|Product tagging on existing content":"img/playbooks/instagram-product-tagging.jpg",
+  "Discord|Announcement post in the server's announcements channel":"img/playbooks/discord-announcement-post.jpg",
+  "Discord|Pinned message in a topical channel":"img/playbooks/discord-pinned-message.jpg",
+  "Discord|A dedicated channel or category for your product":"img/playbooks/discord-dedicated-category.jpg",
+  "Discord|Role or emoji giveaway":"img/playbooks/discord-role-emoji-unlock.jpg",
+  "Discord|AMA or voice event":"img/playbooks/discord-live-ama.jpg",
+  "Discord|Sponsorship of a recurring server event":"img/playbooks/discord-recurring-event.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
