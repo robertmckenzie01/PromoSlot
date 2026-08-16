@@ -5396,7 +5396,13 @@ const RES_VIS_MEDIA={
   "Newsletter|Primary sponsor slot in a regular issue":"img/playbooks/newsletter-primary-sponsor.jpg",
   "Newsletter|Short classified or text ad":"img/playbooks/newsletter-text-ad.jpg",
   "Newsletter|A sponsored section inside an editorial piece":"img/playbooks/newsletter-sponsored-section.jpg",
-  "Newsletter|Footer or 'what I'm using' placement":"img/playbooks/newsletter-footer-placement.jpg"
+  "Newsletter|Footer or 'what I'm using' placement":"img/playbooks/newsletter-footer-placement.jpg",
+  "YouTube|Host-read pre-roll mention":"img/playbooks/youtube-host-read-preroll.jpg",
+  "YouTube|Mid-roll integration":"img/playbooks/youtube-mid-roll-integration.jpg",
+  "YouTube|A dedicated review, tutorial or teardown":"img/playbooks/youtube-dedicated-review.jpg",
+  "YouTube|Unscripted product placement":"img/playbooks/youtube-unscripted-placement.jpg",
+  "YouTube|Description and end-screen placement only":"img/playbooks/youtube-description-endscreen.jpg",
+  "YouTube|Shorts":"img/playbooks/youtube-shorts.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
