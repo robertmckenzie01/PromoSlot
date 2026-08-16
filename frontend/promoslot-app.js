@@ -5418,7 +5418,12 @@ const RES_VIS_MEDIA={
   "Quora|A sponsored answer from a writer with standing in the topic":"img/playbooks/quora-sponsored-answer.jpg",
   "Quora|A post inside a Space":"img/playbooks/quora-space-post.jpg",
   "Quora|A pinned Space announcement":"img/playbooks/quora-pinned-space-announcement.jpg",
-  "Quora|A long-form Quora blog post":"img/playbooks/quora-long-form-blog-post.jpg"
+  "Quora|A long-form Quora blog post":"img/playbooks/quora-long-form-blog-post.jpg",
+  "X|A single sponsored post":"img/playbooks/x-single-sponsored-post.jpg",
+  "X|A thread using your product as the worked example":"img/playbooks/x-thread-worked-example.jpg",
+  "X|A quote-post amplifying your own announcement":"img/playbooks/x-quote-post-announcement.jpg",
+  "X|Pinned post for a period":"img/playbooks/x-pinned-post.jpg",
+  "X|An appearance in an audio Space":"img/playbooks/x-audio-space.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
