@@ -5403,7 +5403,12 @@ const RES_VIS_MEDIA={
   "YouTube|A dedicated review, tutorial or teardown":"img/playbooks/youtube-dedicated-review.jpg",
   "YouTube|Unscripted product placement":"img/playbooks/youtube-unscripted-placement.jpg",
   "YouTube|Description and end-screen placement only":"img/playbooks/youtube-description-endscreen.jpg",
-  "YouTube|Shorts":"img/playbooks/youtube-shorts.jpg"
+  "YouTube|Shorts":"img/playbooks/youtube-shorts.jpg",
+  "Reddit|A sponsored post where the subreddit's rules allow it":"img/playbooks/reddit-sponsored-post.jpg",
+  "Reddit|An AMA":"img/playbooks/reddit-ama.jpg",
+  "Reddit|A mod-approved announcement or sticky":"img/playbooks/reddit-mod-sticky.jpg",
+  "Reddit|Inclusion in a sidebar or wiki resources list":"img/playbooks/reddit-sidebar-wiki.jpg",
+  "Reddit|Sponsorship of a community event or contest":"img/playbooks/reddit-community-contest.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
