@@ -5391,7 +5391,12 @@ const RES_VIS_MEDIA={
   "Discord|A dedicated channel or category for your product":"img/playbooks/discord-dedicated-category.jpg",
   "Discord|Role or emoji giveaway":"img/playbooks/discord-role-emoji-unlock.jpg",
   "Discord|AMA or voice event":"img/playbooks/discord-live-ama.jpg",
-  "Discord|Sponsorship of a recurring server event":"img/playbooks/discord-recurring-event.jpg"
+  "Discord|Sponsorship of a recurring server event":"img/playbooks/discord-recurring-event.jpg",
+  "Newsletter|Dedicated send, your message only":"img/playbooks/newsletter-dedicated-send.jpg",
+  "Newsletter|Primary sponsor slot in a regular issue":"img/playbooks/newsletter-primary-sponsor.jpg",
+  "Newsletter|Short classified or text ad":"img/playbooks/newsletter-text-ad.jpg",
+  "Newsletter|A sponsored section inside an editorial piece":"img/playbooks/newsletter-sponsored-section.jpg",
+  "Newsletter|Footer or 'what I'm using' placement":"img/playbooks/newsletter-footer-placement.jpg"
 };
 let _vwI=null, _vwTrigger=null, _vwScroll="";
 function resVisItems(){ return [].slice.call(document.querySelectorAll("#resPlaybooks .res-vis")); }
