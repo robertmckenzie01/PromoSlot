@@ -13,8 +13,10 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
-from ..models import DealStatus, WebhookEvent
-from ..services import confirm_refund_from_charge, mark_deal_funded_from_pi
+from ..models import Deal, DealStatus, WebhookEvent
+from ..services import (close_dispute_from_event, confirm_refund_from_charge,
+                        mark_deal_funded_from_pi, open_dispute_from_event,
+                        record_dispute_funds_event, update_dispute_from_event)
 from ..stripe_client import stripe
 
 router = APIRouter(tags=["webhooks"])
@@ -29,12 +31,19 @@ router = APIRouter(tags=["webhooks"])
 APPLIED, IGNORED, RETRY = "applied", "ignored", "retry"
 
 
+_DISPUTE_EVENTS = {
+    "charge.dispute.created", "charge.dispute.updated", "charge.dispute.closed",
+    "charge.dispute.funds_withdrawn", "charge.dispute.funds_reinstated",
+}
+
+
 def _dispatch(event, db) -> str:
     """Route a verified event to its handler and report the outcome.
 
     Handlers (each re-verifies real Stripe state before changing money-state):
       payment_intent.succeeded -> mark deal funded (P3)
       charge.refunded          -> confirm deal refunded (P5)
+      charge.dispute.*         -> open/update/close a chargeback dispute record
     Payout is executed synchronously by the release endpoint (the Transfer call
     succeeding is the authoritative money-move). Connected-account status (v2)
     syncs via live reads in /connect/status.
@@ -54,6 +63,26 @@ def _dispatch(event, db) -> str:
         if deal is None:
             return IGNORED
         return APPLIED if deal.status == DealStatus.REFUNDED else RETRY
+    if etype in _DISPUTE_EVENTS:
+        # Resolved from the event's own charge id, with no Stripe API call —
+        # a charge unrelated to any PromoSlot deal is durably IGNORED without
+        # ever touching Stripe. Only a charge we recognise goes any further.
+        charge_id = event["data"]["object"].get("charge")
+        deal = db.query(Deal).filter_by(charge_id=charge_id).first() if charge_id else None
+        if deal is None:
+            return IGNORED
+        dispute_id = event["data"]["object"]["id"]
+        if etype == "charge.dispute.created":
+            d = open_dispute_from_event(db, dispute_id, deal)
+        elif etype == "charge.dispute.updated":
+            d = update_dispute_from_event(db, dispute_id, deal)
+        elif etype == "charge.dispute.closed":
+            d = close_dispute_from_event(db, dispute_id, deal)
+        elif etype == "charge.dispute.funds_withdrawn":
+            d = record_dispute_funds_event(db, dispute_id, deal, "withdrawn")
+        else:
+            d = record_dispute_funds_event(db, dispute_id, deal, "reinstated")
+        return APPLIED if d is not None else RETRY
     return IGNORED
 
 

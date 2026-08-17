@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import (Campaign, Conversation, Deal, DealStatus, Message, Notification,
+from ..models import (Campaign, Conversation, Deal, DealStatus, Dispute, Message, Notification,
                       Platform, Proof, SupportTicket, SupportTicketEvent, User)
 from ..permissions import Perm, has_permission, is_super_admin
 
@@ -43,7 +43,8 @@ def unread_count(user: User = Depends(get_current_user), db: Session = Depends(g
     return {"unread": n}
 
 
-QUEUES = ("review", "payouts", "support")
+QUEUES = ("review", "payouts", "support", "disputes")
+_QUEUE_PERM = {"disputes": Perm.DISPUTE_MANAGE}  # everything else defaults to DEAL_VIEW_EVIDENCE
 
 
 def _queue_is_new(user: User, queue_key: str, latest_activity) -> bool:
@@ -118,6 +119,16 @@ def attention_summary(user: User = Depends(get_current_user), db: Session = Depe
         stamps = [t for t in (latest_ticket, latest_reply) if t is not None]
         support_new = _queue_is_new(user, "support", max(stamps) if stamps else None)
 
+    disputes_pending = 0
+    disputes_new = False
+    if has_permission(user, Perm.DISPUTE_MANAGE):
+        open_statuses = ("warning_needs_response", "warning_under_review",
+                         "needs_response", "under_review")
+        disputes_pending = db.query(Dispute).filter(Dispute.status.in_(open_statuses)).count()
+        latest_dispute = (db.query(func.max(Dispute.opened_at))
+                          .filter(Dispute.status.in_(open_statuses)).scalar())
+        disputes_new = _queue_is_new(user, "disputes", latest_dispute)
+
     # Same definition the Upcoming Lifts tab uses — suspended, not banned, has an
     # end date, and that date has passed. The badge and the tab must never
     # disagree about what counts.
@@ -137,9 +148,11 @@ def attention_summary(user: User = Depends(get_current_user), db: Session = Depe
 
     return {"unread": unread, "review_pending": review_pending,
             "awaiting_payout": awaiting_payout,
+            "disputes_pending": disputes_pending,
             "overdue_suspensions": overdue_suspensions,
             "unread_messages": unread_messages, "review_new": review_new,
-            "payouts_new": payouts_new, "support_new": support_new}
+            "payouts_new": payouts_new, "support_new": support_new,
+            "disputes_new": disputes_new}
 
 
 @router.post("/queue-viewed/{queue}")
@@ -152,7 +165,7 @@ def mark_queue_viewed(queue: str, user: User = Depends(get_current_user),
     """
     if queue not in QUEUES:
         raise HTTPException(status_code=422, detail="Unknown queue")
-    if not has_permission(user, Perm.DEAL_VIEW_EVIDENCE):
+    if not has_permission(user, _QUEUE_PERM.get(queue, Perm.DEAL_VIEW_EVIDENCE)):
         raise HTTPException(status_code=403, detail="Reviewer access required")
     # Whole-dict reassignment: a plain JSON column doesn't track in-place edits.
     user.queue_last_viewed_at = {**(user.queue_last_viewed_at or {}),

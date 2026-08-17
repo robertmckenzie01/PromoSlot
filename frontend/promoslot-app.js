@@ -2193,6 +2193,7 @@ async function renderRealDeal(dealId){
   const meOwner = S.account && S.account.id===d.platform_owner_id;
   const isReviewer = can("deal.view_evidence");
   const bothApproved = d.business_approved && d.owner_approved;
+  const disputeOpen = !!d.payment_dispute_open;
   let proofs=[];
   if(d.funded && (meBiz||meOwner||isReviewer)){ try{ proofs=await PSApi.get("/deals/"+dealId+"/proofs"); }catch(e){} }
   let myReview=null;
@@ -2260,22 +2261,35 @@ async function renderRealDeal(dealId){
       <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.net_to_owner):"pending"}</span></div></div>
     <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
       ${meOwner && proofs.length ? `<p class="review-thanks" style="margin-top:10px">Thank you for submitting proof of delivery, your submission will be reviewed by our team shortly</p>` : ""}
-      ${meOwner && !d.verified ? `<div class="frm" style="margin-top:10px">
+      ${meOwner && !d.verified && !disputeOpen ? `<div class="frm" style="margin-top:10px">
         <div><label>Views delivered (optional — shown on your Past campaigns)${d.views_promised?` · ${fmtN(d.views_promised)} promised`:""}</label>
           <input type="number" id="pf-views" min="0" placeholder="e.g. 12500" value="${d.views_delivered!=null?d.views_delivered:""}"></div>
         <div id="pf-slots">${proofSlotHtml(0)}</div>
         <div style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="addProofSlot()">＋ Add another item</button></div>
         <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="realSubmitProof(${d.id})">Submit evidence</button></div>` : ""}</div>
-    ${isReviewer ? reviewerControls(d, proofs.length) : ""}
+    ${isReviewer && !disputeOpen ? reviewerControls(d, proofs.length) : ""}
     ${(d.paid && (meBiz||meOwner)) ? (myReview
       ? `<p class="review-thanks">– Thank you for leaving a review, your response has been submitted</p>`
       : `<div class="btn-row"><button class="btn btn-p" onclick="realReviewModal(${d.id})">⭐ Leave a review</button></div>`) : ""}`;
   }
+  // Read-only for both parties: never the raw backend status string when a
+  // dispute is open (that string is literally "disputed" server-side, which
+  // both parties should never see — reads as an internal delivery dispute,
+  // not a card-network chargeback). Compound with Paid when relevant, per
+  // spec: "Paid · Payment dispute under review", never a bare "Disputed".
+  const statusLabel = disputeOpen
+    ? (d.paid ? "Paid · Payment dispute under review" : "Payment dispute under review")
+    : (d.source_removed ? (d.source_removed==="campaign"?"Campaign removed":"Listing removed") : d.status);
+  const statusCls = disputeOpen ? "st-dispute" : (d.paid?"st-done":d.funded?"st-escrow":"st-review");
+  const disputeNotice = disputeOpen ? `<div class="dispute-notice">
+    <b>Payment dispute under review.</b> PromoSlot is handling this case directly with Stripe
+    and will contact ${meBiz||meOwner?"you":"the relevant party"} if anything is needed.
+    No action is required from either side right now.</div>` : "";
   $("dealWrap").innerHTML=`
     <div class="deal-top"><button class="btn btn-ghost" onclick="openDash()">← Dashboard</button><h2>Deal ${d.id}</h2>
-      <span class="deal-status status-pill ${d.paid?"st-done":d.funded?"st-escrow":"st-review"}">${d.source_removed?esc(d.source_removed==="campaign"?"Campaign removed":"Listing removed"):esc(d.status)}</span></div>
+      <span class="deal-status status-pill ${statusCls}">${esc(statusLabel)}</span></div>
     ${stepper}
-    <div class="deal-grid"><div class="deal-main view-anim">${main}</div>
+    <div class="deal-grid"><div class="deal-main view-anim">${disputeNotice}${main}</div>
       <div class="deal-side">
         <div class="side-card"><h5>Amounts</h5><div class="mini-rows">
           <div><span>Listed price</span><b>${gbpP(d.listed_price)}</b></div>
@@ -3514,7 +3528,8 @@ const NOTIF_FEED=[
  {ico:"🏢",tag:"New campaign",txt:"See how a complete business campaign looks — open the Example Campaign.",ref:"cx-ex"}
 ];
 let notifOpen=false;
-const NOTIF_ICON={deal_funded:"🔒",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️",message:"💬",campaign_application:"📩",deal_declined:"🚫",deal_approved:"🤝",review_received:"⭐",listing_removed:"🗑️",campaign_removed:"🗑️",account_restored:"👋"};
+const NOTIF_ICON={deal_funded:"🔒",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️",message:"💬",campaign_application:"📩",deal_declined:"🚫",deal_approved:"🤝",review_received:"⭐",listing_removed:"🗑️",campaign_removed:"🗑️",account_restored:"👋",
+  dispute_opened:"🛡️",dispute_opened_admin:"🛡️",dispute_closed:"✅",dispute_closed_admin:"✅",dispute_info_requested:"❓"};
 function setBell(n){ const b=$("bellCnt"); if(!b) return; b.classList.toggle("hide",n<=0); b.textContent=n>9?"9+":n; }
 function bellSync(){ if(!S.account) setBell(0); }
 function _dot(id,on){ const e=$(id); if(e) e.classList.toggle("hide", !on); }
@@ -3531,6 +3546,7 @@ function updateDots(){
   _dot("dot-review", !!a.review_new);
   _dot("dot-payouts", !!a.payouts_new);
   _dot("dot-support", !!a.support_new);
+  _dot("dot-disputes", !!a.disputes_new);
   _dot("dot-msgs", !!a.unread_messages);
   _dot("dot-admin", (a.overdue_suspensions||0)>0);
 }
@@ -3576,6 +3592,10 @@ function openNotif(ref){
   if(typeof ref==="string" && ref.indexOf("support_ticket:")===0){
     openSupportQueue(parseInt(ref.slice(15),10)); return;
   }
+  // Admin-facing dispute alerts open straight into that dispute's detail view.
+  if(typeof ref==="string" && ref.indexOf("dispute:")===0){
+    openDispute(parseInt(ref.slice(8),10)); return;
+  }
   if(findListing(ref)){ openListing(ref); return; }
   if(findCampaign(ref)){ openCampaign(ref); return; }
   if(/^\d+$/.test(String(ref))){ showView("view-deal"); renderRealDeal(parseInt(ref,10)); return; }  // deal notifications
@@ -3614,6 +3634,7 @@ function authReflect(){
   // never by a hardcoded account.
   $("nl-support").classList.toggle("hide", !canReview);
   $("nl-payouts").classList.toggle("hide", !canReview);
+  $("nl-disputes").classList.toggle("hide", !can("dispute.manage"));
   $("nl-completed").classList.toggle("hide", !canReview);
   $("nl-admin").classList.toggle("hide", !can("admin.view"));
   if(a){
@@ -3778,6 +3799,145 @@ async function transferSupportTicket(id){
   catch(e){ toast(e.message||"Could not transfer"); return; }
   toast("Ownership transferred");
   openSupportTicket(id);
+}
+
+/* ==================== DISPUTES QUEUE (chargebacks) ====================
+   Admin-only. A "payment dispute" here is a real Stripe chargeback — never
+   to be confused with the delivery-review queue above. Reason codes, the
+   Stripe dispute id and the evidence deadline are shown here because this
+   whole surface is dispute.manage-gated; deal.js/renderRealDeal never shows
+   any of this to the business or platform owner (see payment_dispute_open). */
+const DISPUTE_OPEN_STATUSES=new Set(["warning_needs_response","warning_under_review","needs_response","under_review"]);
+function _disputeStatusLabel(s){
+  return ({warning_needs_response:"Needs response (inquiry)",warning_under_review:"Under review (inquiry)",
+    warning_closed:"Closed (inquiry)",needs_response:"Needs response",under_review:"Under review",
+    won:"Won",lost:"Lost"})[s] || s;
+}
+function _disputeStatusCls(s){
+  if(s==="won") return "st-done";
+  if(s==="lost") return "st-dispute";
+  if(DISPUTE_OPEN_STATUSES.has(s)) return "st-review";
+  return "st-draft";
+}
+function _disputeDeadline(iso){
+  if(!iso) return "";
+  const ms=new Date(iso).getTime()-Date.now();
+  const days=ms/86400000;
+  const cls=days<0?"mut":days<2?"amber-urgent":"mut";
+  const label=days<0?"deadline passed":days<1?"due within 24h":`due in ${Math.ceil(days)}d`;
+  return `<span class="${cls}" style="${days<2&&days>=0?'color:var(--red);font-weight:800':''}">${label}</span>`;
+}
+async function openDisputesQueue(){
+  if(!can("dispute.manage")){ toast("Admin access required"); return; }
+  setRoute("disputes-queue");
+  showView("view-deal");
+  let list=[]; try{ list=await PSApi.get("/disputes"); }catch(e){}
+  PSApi.post("/notifications/queue-viewed/disputes",{}).catch(()=>{}).then(loadNotifications);
+  S._disputesList=list;
+  const open=list.filter(d=>DISPUTE_OPEN_STATUSES.has(d.status)).length;
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button>
+      <h2>Disputes</h2>
+      <span class="status-pill ${open?"st-dispute":"st-done"}">${open} open</span></div>
+    <div class="panel"><div class="panel-b">${list.length?list.map(d=>`
+      <div class="deal-row" onclick="openDispute(${d.id})">
+        <div class="pfp" style="background:${d.status==='lost'?'var(--red)':d.status==='won'?'var(--money)':'var(--amber)'}">${d.deal_id}</div>
+        <div><div class="dr-t">Deal ${d.deal_id} · ${esc((d.business&&d.business.name)||"?")} ⇄ ${esc((d.owner&&d.owner.name)||"?")}</div>
+          <div class="dr-s">${esc(d.reason||"unspecified")}${d.payout_already_released?" · payout already released":""}
+            ${DISPUTE_OPEN_STATUSES.has(d.status)&&d.evidence_due_by?" · "+_disputeDeadline(d.evidence_due_by):""}</div></div>
+        <span class="status-pill ${_disputeStatusCls(d.status)}">${esc(_disputeStatusLabel(d.status))}</span>
+        <div class="dr-amt"><b>${gbpP(d.amount)}</b><small>${d.assigned_to?esc(d.assigned_to.name):"unclaimed"}</small></div>
+      </div>`).join("")
+      :`<div class="empty-state"><div class="es-ico">🛡️</div><h4>No disputes</h4><p>Chargebacks opened on any deal's payment appear here automatically.</p></div>`}</div></div>`;
+}
+async function openDispute(id){
+  if(!can("dispute.manage")){ toast("Admin access required"); return; }
+  let d; try{ d=await PSApi.get(`/disputes/${id}`); }catch(e){ toast(e.message||"Could not load that dispute"); return; }
+  S._dispute=d;
+  const meId=String(S.account&&S.account.id);
+  const owner=d.assigned_to;
+  const iOwn=owner && String(owner.id)===meId;
+  const events=(d.events||[]).map(e=>{
+    const who=e.author?esc(e.author.name):"System";
+    const when=e.created_at?new Date(e.created_at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
+    if(e.kind==="note") return `<div class="proof-item got"><span class="pi-ico">🔒</span>
+      <div><b>Internal note · ${who}</b><div class="mut" style="font-size:12px;white-space:pre-wrap">${esc(e.body||"")}</div>
+      <div class="mut" style="font-size:11.5px">${when} · never shown to either party</div></div></div>`;
+    if(e.kind==="request_info") return `<div class="proof-item got" style="border-left:3px solid var(--acc)">
+      <span class="pi-ico">❓</span>
+      <div><b>Info requested from ${e.target_party==="business"?"the business":"the platform owner"} · ${who}</b>
+      <div class="mut" style="font-size:12px;white-space:pre-wrap">${esc(e.body||"")}</div>
+      <div class="mut" style="font-size:11.5px">${when} · sent as a notification</div></div></div>`;
+    if(e.kind==="claim") return `<div class="proof-item"><span class="pi-ico">🙋</span>
+      <div><b>Claimed · ${who}</b><div class="mut" style="font-size:11.5px">${when}</div></div></div>`;
+    return `<div class="proof-item"><span class="pi-ico">🔔</span>
+      <div><b>${who==="System"?"":who+" · "}${esc(e.body||"")}</b><div class="mut" style="font-size:11.5px">${when}</div></div></div>`;
+  }).join("") || `<p class="mut" style="font-size:12.5px">Nothing yet.</p>`;
+
+  const ownerRow = owner
+    ? `<span class="status-pill ${iOwn?"st-done":"st-escrow"}">${iOwn?"You own this":esc(owner.name)+" owns this"}</span>`
+    : `<span class="status-pill st-review">Unclaimed</span>`;
+  const isOpenCase=DISPUTE_OPEN_STATUSES.has(d.status);
+
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="openDisputesQueue()">← Disputes</button>
+      <h2>Dispute on Deal ${d.deal_id}</h2>${ownerRow}</div>
+    <div class="agree-doc">
+      <div class="ad-head"><span>🛡️ ${esc(_disputeStatusLabel(d.status))}</span>
+        <span><a href="${d.stripe_url}" target="_blank" rel="noopener" class="btn btn-o btn-sm">Open in Stripe ↗</a></span></div>
+      <div class="ad-row"><span class="k">Deal</span><span class="v"><a href="#" onclick="showView('view-deal');renderRealDeal(${d.deal_id});return false">Deal ${d.deal_id} →</a></span></div>
+      <div class="ad-row"><span class="k">Business</span><span class="v">${esc((d.business&&d.business.name)||"—")}</span></div>
+      <div class="ad-row"><span class="k">Platform owner</span><span class="v">${esc((d.owner&&d.owner.name)||"—")}</span></div>
+      <div class="ad-row"><span class="k">Amount disputed</span><span class="v"><b>${gbpP(d.amount)}</b></span></div>
+      <div class="ad-row"><span class="k">Reason (Stripe)</span><span class="v">${esc(d.reason||"unspecified")}</span></div>
+      ${isOpenCase&&d.evidence_due_by?`<div class="ad-row"><span class="k">Evidence deadline</span><span class="v">${_disputeDeadline(d.evidence_due_by)} · ${new Date(d.evidence_due_by).toLocaleString("en-GB")}</span></div>`:""}
+      <div class="ad-row"><span class="k">Payout impact</span><span class="v">${d.payout_already_released?`<b style="color:var(--red)">Payout already released</b> — an absorbed loss if this is lost, no automatic clawback`:"Deal frozen — nothing released yet, no extra loss beyond the disputed charge"}</span></div>
+      ${d.outcome?`<div class="ad-row"><span class="k">Outcome</span><span class="v"><b>${esc(_disputeStatusLabel(d.outcome))}</b></span></div>`:""}
+      <div class="ad-row"><span class="k">Stripe dispute ID</span><span class="v mut" style="font-size:12px">${esc(d.stripe_dispute_id)}</span></div>
+    </div>
+
+    ${!owner?`<div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-p" id="dq-claim" onclick="claimDispute(${d.id})">Claim this dispute</button></div>`:""}
+
+    <div class="det-sec" style="margin-top:18px"><h5>Activity</h5>${events}</div>
+
+    <div class="det-sec"><h5>Request information</h5>
+      <p class="mut" style="font-size:12px;margin-bottom:8px">Ask the business or platform owner for a message, a deliverable or a screenshot before finalising the response in Stripe. Their reply comes back through Messages.</p>
+      <div class="frm"><div class="row2">
+        <div><label>Ask</label><select id="dq-target"><option value="business">Business — ${esc((d.business&&d.business.name)||"")}</option><option value="owner">Platform owner — ${esc((d.owner&&d.owner.name)||"")}</option></select></div>
+      </div>
+      <div><textarea id="dq-ask" placeholder="What do you need from them?"></textarea></div>
+      <button class="btn btn-o btn-sm" onclick="requestDisputeInfo(${d.id})">Send request</button></div></div>
+
+    <div class="det-sec"><h5>Internal note (dispute managers only)</h5>
+      <div class="frm">
+        <div><textarea id="dq-note" placeholder="Never shown to either party…"></textarea></div>
+        <button class="btn btn-o btn-sm" onclick="addDisputeNote(${d.id})">Add note</button></div></div>
+
+    <p class="mut" style="font-size:12px;margin-top:14px">Accepting or challenging this dispute — and submitting evidence — happens on Stripe's own dashboard (evidence submission is final). This page is for visibility and record-keeping, not for responding to Stripe directly.</p>`;
+}
+async function claimDispute(id){
+  const b=$("dq-claim"); if(b){ b.disabled=true; b.innerHTML=`<span class="spin"></span> Claiming…`; }
+  try{ await PSApi.post(`/disputes/${id}/claim`); }
+  catch(e){ toast(e.message||"Could not claim"); }
+  openDispute(id);
+}
+async function addDisputeNote(id){
+  const ta=$("dq-note"); const body=(ta&&ta.value||"").trim();
+  if(!body){ toast("Write the note first"); return; }
+  try{ await PSApi.post(`/disputes/${id}/note`,{body}); }
+  catch(e){ toast(e.message||"Could not add note"); return; }
+  toast("Internal note added");
+  openDispute(id);
+}
+async function requestDisputeInfo(id){
+  const target=($("dq-target")||{}).value||"business";
+  const ta=$("dq-ask"); const body=(ta&&ta.value||"").trim();
+  if(!body){ toast("Write what you need first"); return; }
+  try{ await PSApi.post(`/disputes/${id}/request-info`,{target_party:target, body}); }
+  catch(e){ toast(e.message||"Could not send"); return; }
+  toast("Request sent");
+  openDispute(id);
 }
 
 /* ==================== ADMIN CONSOLE ====================
@@ -4895,6 +5055,9 @@ async function applyRoute(r){
     case "payouts":
       if(!can("deal.view_evidence")) return false;
       await openPayouts(); return true;
+    case "disputes-queue":
+      if(!can("dispute.manage")) return false;
+      await openDisputesQueue(); return true;
     case "completed":
       if(!can("deal.view_evidence")) return false;
       await openCompleted(); return true;
@@ -4933,6 +5096,7 @@ const NAV_ACTIONS={
   "review-queue":()=>openReviewQueue(),
   "support-queue":()=>openSupportQueue(),
   "payouts":()=>openPayouts(),
+  "disputes-queue":()=>openDisputesQueue(),
   "completed":()=>openCompleted(),
   "admin":()=>openAdmin(),
   "wiz-biz":()=>startWizard("biz"),
@@ -5693,7 +5857,8 @@ renderMarketRail,railSetRole,heroSearchGo,heroPlatformGo,renderHeroChips,renderP
 djSetRole,djGo,djNext,djBack,djNavKey,
 psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure,
 resRender,resPickModel,resScenario,resVisOpen,resVisClose,resVisStep,
-refreshPayoutStatus,connectPayouts};
+refreshPayoutStatus,connectPayouts,
+openDisputesQueue,openDispute,claimDispute,addDisputeNote,requestDisputeInfo};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

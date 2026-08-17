@@ -27,6 +27,7 @@ class Perm:
     DEAL_VERIFY = "deal.verify"
     DEAL_REJECT = "deal.reject"
     PAYOUT_RELEASE = "payout.release"          # kept separate from verify on purpose
+    DISPUTE_MANAGE = "dispute.manage"          # chargeback queue: view, assign, note, request info
 
     # Admin account management
     ADMIN_VIEW = "admin.view"
@@ -56,6 +57,7 @@ _ADMIN_PERMS = frozenset({
     Perm.DEAL_VERIFY,
     Perm.DEAL_REJECT,
     Perm.PAYOUT_RELEASE,
+    Perm.DISPUTE_MANAGE,
 })
 
 _SUPER_ADMIN_PERMS = frozenset(_ADMIN_PERMS | {

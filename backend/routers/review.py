@@ -29,6 +29,23 @@ router = APIRouter(prefix="/review", tags=["review"])
 _INCLUDE = ["configuration.recipient", "requirements", "identity"]
 
 
+def _assert_no_open_dispute(d: Deal) -> None:
+    """Block verify/release/refund while a chargeback is open on this deal.
+
+    deal_state.py's ALLOWED_TRANSITIONS technically permits DISPUTED -> VERIFIED
+    /PAID/REFUNDED (that path exists for services.close_dispute_from_event,
+    which drives it automatically from the real Stripe outcome) — but nothing
+    here should move the deal by hand while a dispute is genuinely still open.
+    Only Deal.dispute_status (cleared the moment the dispute closes) gates this,
+    so a resolved dispute never blocks normal review again.
+    """
+    if d.dispute_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This deal has an open payment dispute — it resolves automatically "
+                   "once Stripe closes the case, see the Disputes queue.")
+
+
 class VerifyIn(BaseModel):
     decision: str                                    # "approved" | "rejected" | "changes_requested"
     notes: Optional[str] = None
@@ -147,6 +164,7 @@ def verify(deal_id: int, body: VerifyIn, request: Request,
     d = _deal_or_404(db, deal_id)
     _assert_not_party(reviewer, d)
     assert_not_final(d)
+    _assert_no_open_dispute(d)
     if d.funded_at is None:
         raise HTTPException(status_code=409, detail="Deal is not funded")
     if d.verified_at is not None:
@@ -198,6 +216,7 @@ def release_payout(deal_id: int, body: ReleaseIn, request: Request,
                             detail="You must confirm you reviewed the delivery evidence.")
     d = _deal_or_404(db, deal_id)
     _assert_not_party(reviewer, d)
+    _assert_no_open_dispute(d)
     if d.funded_at is None:
         raise HTTPException(status_code=409, detail="Deal is not funded")
     assert_payout_eligible(d)
@@ -247,6 +266,7 @@ def refund(deal_id: int, body: ReleaseIn, request: Request,
     """Refund the business (delivery not verified). Real Stripe Refund."""
     d = _deal_or_404(db, deal_id)
     _assert_not_party(reviewer, d)
+    _assert_no_open_dispute(d)
     if d.funded_at is None:
         raise HTTPException(status_code=409, detail="Deal is not funded — nothing to refund")
     if d.paid_at is not None:

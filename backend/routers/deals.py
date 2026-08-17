@@ -89,6 +89,10 @@ def deal_dict(d: Deal) -> dict:
         "funded": d.funded_at is not None,
         "verified": d.verified_at is not None,
         "paid": d.paid_at is not None,
+        # Read-only for both parties — never the Stripe dispute id, reason
+        # code, evidence deadline or accept/challenge state (admin-only, see
+        # routers/disputes.py). Just "is there an open case right now".
+        "payment_dispute_open": d.dispute_status is not None,
         # Event timestamps for the dashboard growth timeline.
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "funded_at": d.funded_at.isoformat() if d.funded_at else None,

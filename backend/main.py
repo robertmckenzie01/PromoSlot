@@ -10,7 +10,7 @@ from . import models  # noqa: F401  (ensure models are registered on Base)
 from .assets import render_index
 from .config import settings
 from .routers import (
-    admin, auth, campaigns, connect, deals, health, messages, notifications,
+    admin, auth, campaigns, connect, deals, disputes, health, messages, notifications,
     inbound, platforms, profiles, proofs, review, reviews, support, webhooks,
 )
 
@@ -48,6 +48,7 @@ app.include_router(profiles.router)
 app.include_router(support.router)
 app.include_router(platforms.router)
 app.include_router(campaigns.router)
+app.include_router(disputes.router)
 
 
 @app.get("/api", tags=["root"])

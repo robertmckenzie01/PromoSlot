@@ -298,6 +298,18 @@ class Deal(Base):
     verified_at = Column(DateTime)   # set by a human reviewer action
     paid_at = Column(DateTime)       # set on transfer/payout confirmation
 
+    # Chargeback lifecycle — mirrored from Stripe's charge.dispute.* events.
+    # dispute_status is a cheap denormalised read of the most recent Dispute's
+    # raw Stripe status (see Dispute.status below), so deal lists and detail
+    # views don't need a join just to show the read-only "under review" badge.
+    # Null once there has never been a dispute, or once the last one closed.
+    dispute_status = Column(String)
+    # Only ever set while an UNPAID deal is frozen into DealStatus.DISPUTED, so
+    # a won/withdrawn dispute can put the deal back exactly where it was. Never
+    # touched for a deal that was already PAID — PAID never moves (see
+    # deal_state.py and services.close_dispute_from_event).
+    status_before_dispute = Column(String)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # The two real parties (for showing each side's actual identity, never "You").
@@ -332,6 +344,95 @@ class Transfer(Base):
     currency = Column(String, default="gbp", nullable=False)
     status = Column(String, default="pending", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Dispute(Base):
+    """A real Stripe chargeback (charge.dispute.*) on a deal's charge.
+
+    One row per Stripe dispute id — chargebacks don't repeat on the same
+    charge, but the row is looked up by stripe_dispute_id (not deal_id) so
+    updated/closed webhooks always land on the right record even if a deal
+    somehow saw more than one over its life.
+
+    Reason codes, the Stripe dispute id itself, the evidence deadline and the
+    accept/challenge decision are ADMIN-ONLY (see routers/disputes.py) — the
+    business and platform owner only ever see a read-only, non-alarming
+    "payment dispute under review" state on the deal, derived from whether
+    this row is still open (see Deal.dispute_status).
+
+    PromoSlot's Connect config makes the platform the responsible party for
+    every charge (separate charges & transfers, fees_collector/losses_collector
+    = "application" in routers/connect.py) — so it's always PromoSlot, never
+    the platform owner's connected account, that Stripe expects a response
+    from. If that configuration ever changes to direct charges, this
+    assumption — and the admin-only response flow below — would need revisiting.
+    """
+    __tablename__ = "disputes"
+    id = Column(Integer, primary_key=True)
+    deal_id = Column(Integer, ForeignKey("deals.id"), nullable=False, index=True)
+    stripe_dispute_id = Column(String, unique=True, nullable=False, index=True)
+    charge_id = Column(String, nullable=False, index=True)
+
+    amount = Column(Integer, nullable=False)          # pence, disputed amount
+    currency = Column(String, default="gbp", nullable=False)
+    reason = Column(String)                            # Stripe reason code
+    # Raw Stripe dispute.status: warning_needs_response | warning_under_review |
+    # warning_closed | needs_response | under_review | won | lost.
+    status = Column(String, nullable=False)
+    evidence_due_by = Column(DateTime)
+
+    # True if the deal's payout had already been released (Transfer already
+    # sent to the platform owner) at the moment this dispute opened — the
+    # scenario where a chargeback becomes a real absorbed loss rather than
+    # just money that never gets released. Set once, at creation.
+    payout_already_released = Column(Boolean, default=False, nullable=False)
+    # The deal's DealStatus immediately before this dispute froze it, so a
+    # won/withdrawn outcome can restore it exactly. Null when the deal was
+    # already PAID (PAID never moves — see models.Deal.status_before_dispute).
+    deal_status_before = Column(String)
+
+    outcome = Column(String)          # won | lost | warning_closed — set on close
+    opened_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    closed_at = Column(DateTime)
+    funds_withdrawn_at = Column(DateTime)
+    funds_reinstated_at = Column(DateTime)
+
+    # Shared-queue ownership, same pattern as SupportTicket: first admin to
+    # claim/assign owns it; anyone with dispute.manage can still view and note.
+    assigned_to_id = Column(Integer, ForeignKey("users.id"), index=True)
+    claimed_at = Column(DateTime)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    deal = relationship("Deal", foreign_keys=[deal_id])
+    assigned_to = relationship("User", foreign_keys=[assigned_to_id])
+
+
+class DisputeEvent(Base):
+    """The admin-only timeline on a dispute.
+
+    kind='system'       -> auto-logged from a webhook (opened, status changed,
+                            funds withdrawn/reinstated, closed + outcome).
+    kind='note'         -> internal admin note. Never shown to either party.
+    kind='request_info' -> admin asked a party (business|owner) for something
+                            (a message, a deliverable, a screenshot) before
+                            finalising the response in Stripe. Logged here and
+                            also sent as a real Notification to that party;
+                            their reply comes back through the existing
+                            messaging system, not a bespoke channel.
+    kind='claim' / 'assign' -> ownership changes, kept here so the thread
+                            reads in order (audit log is the immutable record).
+    """
+    __tablename__ = "dispute_events"
+    id = Column(Integer, primary_key=True)
+    dispute_id = Column(Integer, ForeignKey("disputes.id"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id"), index=True)  # null for kind='system'
+    kind = Column(String, nullable=False)
+    body = Column(Text)
+    target_party = Column(String)     # 'business' | 'owner' — only set for request_info
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    author = relationship("User", foreign_keys=[author_id])
 
 
 class Proof(Base):

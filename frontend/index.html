@@ -945,6 +945,9 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 .st-escrow{background:var(--acc-soft);color:var(--acc-ink)}
 .st-review{background:var(--amber-soft);color:var(--amber)}
 .st-done{background:var(--money-soft);color:var(--money)}
+.st-dispute{background:var(--red-soft);color:var(--red)}
+.dispute-notice{border:1.5px solid var(--red-border);background:var(--red-soft);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--ink2);margin:0 0 16px}
+.dispute-notice b{color:var(--red)}
 .notif{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px}
 .notif:last-child{border:none}
 .notif .n-ico{width:32px;height:32px;border-radius:10px;background:var(--acc-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px}
@@ -1431,6 +1434,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
       <button class="nav-link hide" id="nl-review" data-act="review-queue">Review queue<span class="attn-dot hide" id="dot-review"></span></button>
       <button class="nav-link hide" id="nl-support" data-act="support-queue">Contacted Support<span class="attn-dot hide" id="dot-support"></span></button>
       <button class="nav-link hide" id="nl-payouts" data-act="payouts">Awaiting payouts<span class="attn-dot hide" id="dot-payouts"></span></button>
+      <button class="nav-link hide" id="nl-disputes" data-act="disputes-queue">Disputes<span class="attn-dot hide" id="dot-disputes"></span></button>
       <button class="nav-link hide" id="nl-completed" data-act="completed">Completed deals</button>
       <button class="nav-link hide" id="nl-admin" data-act="admin">Admin<span class="attn-dot hide" id="dot-admin"></span></button>
     </div>
