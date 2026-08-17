@@ -423,21 +423,58 @@ def ban_user(user_id: int, body: ReasonIn, request: Request,
              background: BackgroundTasks,
              actor: User = Depends(RequirePerm(Perm.USER_BAN)),
              db: Session = Depends(get_db)):
+    """Ban this account — and, unlike suspension, its linked identity too.
+
+    Suspension is meant to be recoverable and identity-scoped: suspending the
+    platform-owner side while the business side stays usable is a deliberate,
+    reasonable state, and stays that way (see suspend_user above, unchanged).
+
+    A ban is different: it's the serious, no-appeal call that this person is
+    off PromoSlot, and the two linked identities share one login (one email,
+    one password) precisely so that can't be worked around by operating
+    under the other identity instead. So banning either identity bans the
+    email as a whole — both rows, one action.
+    """
     target = _target_user(db, user_id)
     _guard_target(actor, target)
     _protect_last_super_admin(db, target)
     _reauth(actor, body, db)
 
+    linked = db.get(User, target.linked_user_id) if target.linked_user_id else None
+    if linked is not None:
+        _protect_last_super_admin(db, linked)
+
+    reason = body.reason.strip()
+    now = datetime.utcnow()
+
     before = _user_snapshot(target)
-    target.banned_at = datetime.utcnow()
-    target.suspended_reason = body.reason.strip()
+    target.banned_at = now
+    target.suspended_reason = reason
     db.commit()
     revoked = _revoke_sessions(db, target.id)
     db.refresh(target)
     audit.record(db, actor=actor, action="user.ban", target_type="user",
                  target_id=target.id, previous_state=before,
                  new_state={**_user_snapshot(target), "sessions_revoked": revoked},
-                 reason=body.reason, request=request)
+                 reason=reason, request=request)
+
+    # Same email, same login — ban the linked identity too, unless it's
+    # somehow already banned (nothing to do, and no need for a second audit
+    # entry re-stating the same fact).
+    if linked is not None and linked.banned_at is None:
+        linked_before = _user_snapshot(linked)
+        linked.banned_at = now
+        linked.suspended_reason = reason
+        db.commit()
+        linked_revoked = _revoke_sessions(db, linked.id)
+        db.refresh(linked)
+        audit.record(db, actor=actor, action="user.ban", target_type="user",
+                     target_id=linked.id, previous_state=linked_before,
+                     new_state={**_user_snapshot(linked), "sessions_revoked": linked_revoked},
+                     reason=f"{reason} (cascaded: linked to banned account #{target.id})",
+                     request=request)
+
+    # One inbox either way — a single notification covers both identities.
     background.add_task(_notify_account_action, target.email, "banned",
                         target.suspended_reason or "")
     return user_admin_dict(target)
