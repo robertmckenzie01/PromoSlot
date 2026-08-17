@@ -2318,7 +2318,7 @@ async function realFund(dealId){
     <div id="payment-element" style="margin:12px 0"></div>
     <div class="hint-err hide" id="pay-err"></div>
     <button class="btn btn-g btn-lg" id="pay-btn" onclick="realPay()">Pay ${gbpP(r.total_charged)}</button>
-    <p class="mut" style="font-size:12px;margin-top:8px">Test card: 4242 4242 4242 4242 · any future expiry · any CVC.</p>`;
+    ${String(r.publishable_key||"").startsWith("pk_live_")?"":'<p class="mut" style="font-size:12px;margin-top:8px">Test card: 4242 4242 4242 4242 · any future expiry · any CVC.</p>'}`;
   if(typeof Stripe==="undefined"){ const e=$("pay-err"); e.textContent="Stripe.js failed to load."; e.classList.remove("hide"); return; }
   const stripe=Stripe(r.publishable_key);
   const elements=stripe.elements({clientSecret:r.client_secret});
@@ -3451,14 +3451,49 @@ function renderPlatDash(){
         <div><span>Analytics evidence</span><b>${S.myPlatforms.some(p=>p.verified)?'<span style="color:var(--money)">Verified ✔</span>':"Self-reported"}</b></div>
         <div><span>Verified listings win more deals</span><button class="btn btn-o btn-sm" onclick="S.myPlatforms.some(p=>p.verified)?toast('Your listings are already verified ✔',true):openVerify('plat')">${S.myPlatforms.some(p=>p.verified)?"Verified ✔":"Get verified ✔"}</button></div>
       </div></div>
-      <div class="panel"><div class="panel-h"><h4>Payout settings</h4></div><div class="panel-b mini-rows">
-        <div><span>Payout method</span><b class="mut">Not connected yet</b></div>
+      <div class="panel"><div class="panel-h"><h4>Payout settings</h4></div><div class="panel-b mini-rows" id="payoutPanel">
+        <div><span>Payout method</span><b class="mut">Checking…</b></div>
         <div><span>Marketplace fee</span><b>10% seller fee (+5% buyer at checkout)</b></div>
-        <div><span>Connect payouts</span><button class="btn btn-o btn-sm" onclick="toast('Payouts run on Stripe Connect, which isn\\'t live yet — you\\'ll connect a bank account here before your first payout')">Set up later</button></div>
       </div></div>
     </div></div>`;
   renderGrowthTimeline("platGrowth", growthEvents, {verb:"earned"});
   requestAnimationFrame(animateKpis);
+  refreshPayoutStatus();
+}
+async function refreshPayoutStatus(){
+  const el=$("payoutPanel"); if(!el) return;
+  let s;
+  try{ s=await PSApi.get("/connect/status"); }
+  catch(err){
+    el.innerHTML=`<div><span>Payout method</span><b class="mut">Couldn't check status</b></div>
+      <div><span>Marketplace fee</span><b>10% seller fee (+5% buyer at checkout)</b></div>
+      <div><span>Connect payouts</span><button class="btn btn-o btn-sm" onclick="refreshPayoutStatus()">Retry</button></div>`;
+    return;
+  }
+  const feeRow=`<div><span>Marketplace fee</span><b>10% seller fee (+5% buyer at checkout)</b></div>`;
+  if(!s.has_account){
+    el.innerHTML=`<div><span>Payout method</span><b class="mut">Not connected yet</b></div>${feeRow}
+      <div><span>Connect payouts</span><button class="btn btn-p btn-sm" id="connectPayoutsBtn" onclick="connectPayouts()">Connect with Stripe</button></div>`;
+  }else if(!s.onboarding_complete){
+    el.innerHTML=`<div><span>Payout method</span><b style="color:var(--amber)">Setup in progress</b></div>${feeRow}
+      ${s.requirements_due&&s.requirements_due.length?`<div><span>Stripe still needs</span><b style="text-align:right">${s.requirements_due.length} item${s.requirements_due.length===1?"":"s"}</b></div>`:""}
+      <div><span>Continue setup</span><button class="btn btn-p btn-sm" id="connectPayoutsBtn" onclick="connectPayouts()">Continue on Stripe</button></div>`;
+  }else{
+    el.innerHTML=`<div><span>Payout method</span><b style="color:var(--money)">Connected ✔</b></div>${feeRow}
+      <div><span>Stripe account</span><b class="mut" style="text-align:right;font-size:12px">${esc(s.stripe_account_id||"")}</b></div>`;
+  }
+}
+async function connectPayouts(){
+  const btn=$("connectPayoutsBtn");
+  if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Redirecting…`; }
+  try{
+    await PSApi.post("/connect/account");
+    const r=await PSApi.post("/connect/onboarding-link");
+    window.location.href=r.url;
+  }catch(err){
+    toast(err.message||"Could not start payout setup");
+    if(btn){ btn.disabled=false; btn.textContent="Connect with Stripe"; }
+  }
 }
 function openNewCampaign(){
   if(!S.biz){ startWizard("biz"); return; }
@@ -5657,7 +5692,8 @@ restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestri
 renderMarketRail,railSetRole,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
 djSetRole,djGo,djNext,djBack,djNavKey,
 psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure,
-resRender,resPickModel,resScenario,resVisOpen,resVisClose,resVisStep};
+resRender,resPickModel,resScenario,resVisOpen,resVisClose,resVisStep,
+refreshPayoutStatus,connectPayouts};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

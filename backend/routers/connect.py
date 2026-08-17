@@ -11,6 +11,7 @@ capability. A payout is only possible once Stripe reports that capability
 `active` — we never treat onboarding as complete on our own say-so.
 """
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -21,6 +22,25 @@ from ..services import onboarding_complete, sync_connected_account, transfers_st
 from ..stripe_client import client
 
 router = APIRouter(prefix="/connect", tags=["connect"])
+
+
+@router.get("/return")
+def onboarding_return():
+    """Browser lands here after the platform owner finishes Stripe onboarding.
+
+    No auth dependency here on purpose — Stripe redirects the raw browser,
+    which may not be carrying our session in a way we want to depend on.
+    The frontend has no hash-based router, so this just gets the person
+    back into the app rather than a bare 404; the dashboard re-checks real
+    status via GET /connect/status on load, Stripe is the source of truth.
+    """
+    return RedirectResponse(url="/")
+
+
+@router.get("/refresh")
+def onboarding_refresh():
+    """Browser lands here if the onboarding link expired or was abandoned."""
+    return RedirectResponse(url="/")
 
 # v2 account fields to expand on reads.
 _INCLUDE = ["configuration.recipient", "requirements", "identity"]
