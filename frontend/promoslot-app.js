@@ -2340,11 +2340,22 @@ async function realFund(dealId){
   pe.mount("#payment-element");
   window._stripeCtx={stripe,elements,dealId,total:r.total_charged};
 }
+function cardErrorMessage(err){
+  // Stripe's raw err.message can be verbose/internal-sounding (e.g. the live-mode
+  // test-card decline text). Show a short, consistent, customer-facing message
+  // instead, with just enough hint to be actionable.
+  if(!err) return "Something went wrong — please try again.";
+  const code=err.code||"";
+  if(code==="incomplete_number"||code==="incorrect_number") return "Card Invalid — check the card number.";
+  if(code==="incomplete_expiry"||code==="invalid_expiry_month"||code==="invalid_expiry_year"||code==="expired_card") return "Card Invalid — check the expiry date.";
+  if(code==="incomplete_cvc"||code==="incorrect_cvc") return "Card Invalid — check the security code.";
+  return "Card Invalid — please check your details or try a different card.";
+}
 async function realPay(){
   const ctx=window._stripeCtx; if(!ctx) return;
   const btn=$("pay-btn"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Processing…`;
   const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required"});
-  if(res.error){ btn.disabled=false; btn.textContent="Pay "+gbpP(ctx.total); const e=$("pay-err"); e.textContent=res.error.message; e.classList.remove("hide"); return; }
+  if(res.error){ btn.disabled=false; btn.textContent="Pay "+gbpP(ctx.total); const e=$("pay-err"); e.textContent=cardErrorMessage(res.error); e.classList.remove("hide"); return; }
   // Reconcile with the backend (real Stripe re-verify; the deal funds only if
   // Stripe confirms the PaymentIntent succeeded).
   try{ await PSApi.post(`/deals/${ctx.dealId}/refresh`); }catch(e){}
