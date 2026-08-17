@@ -83,11 +83,17 @@ def get_intro_video(user_id: int, db: Session = Depends(get_db)):
 class ProfileIn(BaseModel):
     about_text: Optional[str] = Field(default=None, max_length=5000)
     links: Optional[List[dict]] = None      # [{label, url}, …] — no cap
+    display_name: Optional[str] = Field(default=None, max_length=120)
 
 
 @router.post("/me/profile")
 def update_profile(body: ProfileIn, user: User = Depends(get_current_user),
                    db: Session = Depends(get_db)):
+    if body.display_name is not None:
+        name = body.display_name.strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="Display name cannot be empty")
+        user.display_name = name
     if body.about_text is not None:
         user.about_text = body.about_text.strip() or None
     if body.links is not None:
@@ -98,7 +104,8 @@ def update_profile(body: ProfileIn, user: User = Depends(get_current_user),
                 clean.append({"label": (l.get("label") or "").strip() or url, "url": url})
         user.links = clean
     db.commit()
-    return {"about_text": user.about_text or "", "links": user.links or []}
+    return {"display_name": user.display_name or "", "about_text": user.about_text or "",
+            "links": user.links or []}
 
 
 @router.post("/me/assets", status_code=201)

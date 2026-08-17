@@ -4673,6 +4673,28 @@ function supportFormHtml(){
     </div>
     <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="submitSupport()">Send message</button></div>`;
 }
+function openEditDisplayName(){
+  const cur=(S.account&&S.account.display_name)||"";
+  openModal(`<div class="m-pad"><h3 class="m-title">Change your display name</h3>
+    <p class="m-sub">Shown across PromoSlot — on your profile, listings, and to the other party in a deal.</p>
+    <div class="frm"><label>Display name</label>
+      <input type="text" id="dn-name" value="${esc(cur)}" placeholder="e.g. Meadow & Moss" onkeydown="if(event.key==='Enter')saveDisplayName()"></div>
+    <div class="hint-err hide" id="dn-err"></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="saveDisplayName()">Save</button></div></div>`);
+}
+async function saveDisplayName(){
+  const input=$("dn-name"); const e=$("dn-err");
+  const v=(input.value||"").trim();
+  if(!v){ e.textContent="Enter a name."; e.classList.remove("hide"); return; }
+  try{
+    const r=await PSApi.post("/me/profile",{display_name:v});
+    S.account.display_name=r.display_name;
+    closeModal();
+    toast("Display name updated",true);
+    openAccount();
+  }catch(err){ e.textContent=err.message||"Could not update name"; e.classList.remove("hide"); }
+}
 function openAccount(){
   const a=S.account;
   if(!a){ authModal("login"); return; }
@@ -4694,7 +4716,7 @@ function openAccount(){
           <label class="btn btn-o btn-sm" for="acct-avatar">${a.avatar_url?"Change profile picture":"Add profile picture"}</label>
           <input type="file" id="acct-avatar" accept="image/*" class="pf-file-input" onchange="uploadAvatar()"></div>
         <div class="acct-rows">
-          <div class="acct-row"><span>Name</span><b>${esc(a.display_name||"—")}</b></div>
+          <div class="acct-row"><span>Name</span><b>${esc(a.display_name||"—")} <button class="btn btn-o btn-sm" style="margin-left:6px;padding:2px 8px" onclick="openEditDisplayName()">Edit</button></b></div>
           <div class="acct-row"><span>Email</span><b>${esc(a.email)}</b></div>
           <div class="acct-row"><span>Role${roleLabels(a).length>1?"s":""}</span><b>${roleLabels(a).map(r=>`<span class="tag">${esc(r)}</span>`).join(" ")}</b></div>
         </div>
@@ -5869,7 +5891,8 @@ djSetRole,djGo,djNext,djBack,djNavKey,
 psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure,
 resRender,resPickModel,resScenario,resVisOpen,resVisClose,resVisStep,
 refreshPayoutStatus,connectPayouts,
-openDisputesQueue,openDispute,claimDispute,addDisputeNote,requestDisputeInfo};
+openDisputesQueue,openDispute,claimDispute,addDisputeNote,requestDisputeInfo,
+openEditDisplayName,saveDisplayName};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});

@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class SignupIn(BaseModel):
@@ -64,6 +64,12 @@ class LinkedAccountBrief(BaseModel):
     is_business: bool
     is_platform_owner: bool
     has_published_listing_or_campaign: bool = False
+    # Read only to decide whether to surface this linked identity at all (see
+    # UserOut's validator below) — never actually shown to the client, since a
+    # banned linked profile is nulled out of the response entirely rather than
+    # shown-but-labelled. Not worth hiding from the wire format: it's always
+    # the caller's own second identity, never someone else's.
+    banned_at: Optional[datetime] = None
     model_config = {"from_attributes": True}
 
 
@@ -77,6 +83,17 @@ class UserOut(BaseModel):
     avatar_url: Optional[str] = None
     intro_video_url: Optional[str] = None
     linked_account: Optional[LinkedAccountBrief] = None
+
+    @model_validator(mode="after")
+    def _hide_banned_linked_account(self):
+        """A banned linked profile is unusable (switching to it is blocked
+        server-side regardless), so don't advertise it as a "Linked profiles"
+        option at all — drop it from the response rather than show it in a
+        state the user can't actually use. See routers/auth.py switch_account
+        for the enforcement this mirrors."""
+        if self.linked_account is not None and self.linked_account.banned_at is not None:
+            self.linked_account = None
+        return self
     # Tour state rides on the account so the client knows on first paint whether
     # to offer it, resume it, or stay quiet — no extra round trip.
     product_tour_started_at: Optional[datetime] = None
