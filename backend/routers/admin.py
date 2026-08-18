@@ -619,6 +619,12 @@ def listing_remove(platform_id: int, body: ReasonIn, request: Request,
         for path in (m.video_path, m.cover_path):
             delete_stored(path)
         db.delete(m)
+    # No ORM relationship links Platform <-> PlatformMedia (just a raw FK
+    # column), so SQLAlchemy has no dependency info to order these deletes
+    # against the platform delete below — flush explicitly so the media rows
+    # are actually gone in the database before the platform delete is even
+    # issued, rather than relying on flush-ordering that isn't guaranteed.
+    db.flush()
     delete_stored(p.image_path)
     db.delete(p)
     # Suspension already notifies; permanent removal is the bigger action and
