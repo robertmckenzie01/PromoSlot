@@ -581,15 +581,31 @@ def listing_unsuspend(platform_id: int, body: ReasonIn, request: Request,
     return {"ok": True, "listing_id": p.id, "suspended": False}
 
 
+@router.get("/listings/{platform_id}/deal-status")
+def listing_deal_status(platform_id: int,
+                        actor: User = Depends(RequirePerm(Perm.LISTING_REMOVE)),
+                        db: Session = Depends(get_db)):
+    """Cheap pre-check so the confirm dialog can warn honestly before Remove
+    is actually clicked — no state change here."""
+    total, active = _deal_counts(db, platform_id)
+    return {"deals_total": total, "deals_active": active}
+
+
 @router.post("/listings/{platform_id}/remove")
 def listing_remove(platform_id: int, body: ReasonIn, request: Request,
                    actor: User = Depends(RequirePerm(Perm.LISTING_REMOVE)),
                    db: Session = Depends(get_db)):
-    """Two outcomes, chosen by the data rather than by the admin — same rule as
-    the owner's own removal (see platforms.py remove_platform): a listing with
-    any deal ever attached to it can't be hard-deleted without orphaning that
-    deal's history (and any reviews built on it), so it's archived instead.
-    Only a listing with zero deals attached is actually deleted."""
+    """Super-Admin can always remove a listing, on the spot, whatever is
+    attached to it — this is the one place in the app that's deliberately
+    "just delete it," unlike the owner's own removal (platforms.py
+    remove_platform), which archives instead when a deal is attached.
+
+    Any deal referencing this listing is detached (platform_id set to null)
+    rather than touched in any other way: its status, money, and history are
+    left completely alone — this only removes the listing, never anything
+    about the deal itself. See the deal-status pre-check above, which is what
+    the frontend's warning is based on before this endpoint is ever called.
+    """
     p = db.get(Platform, platform_id)
     if p is None:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -599,20 +615,8 @@ def listing_remove(platform_id: int, body: ReasonIn, request: Request,
     total, active = _deal_counts(db, pid)
 
     if total:
-        p.removed_at = datetime.utcnow()
-        db.add(Notification(
-            user_id=owner_id, type="listing_removed",
-            body=f"Your listing “{name}” has been removed: {body.reason.strip()}",
-            ref=None))
-        db.commit()
-        audit.record(db, actor=actor, action="listing.remove", target_type="listing",
-                     target_id=pid, previous_state=before,
-                     new_state={"removed": True, "mode": "archived", "name": name,
-                                "owner_id": owner_id, "deals_total": total,
-                                "deals_active": active},
-                     reason=body.reason, request=request)
-        return {"ok": True, "removed_listing_id": pid, "mode": "archived",
-                "deals_total": total, "deals_active": active}
+        db.query(Deal).filter(Deal.platform_id == pid).update(
+            {Deal.platform_id: None}, synchronize_session=False)
 
     media = db.query(PlatformMedia).filter_by(platform_id=pid).all()
     for m in media:
@@ -639,10 +643,10 @@ def listing_remove(platform_id: int, body: ReasonIn, request: Request,
     audit.record(db, actor=actor, action="listing.remove", target_type="listing",
                  target_id=pid, previous_state=before,
                  new_state={"removed": True, "mode": "deleted", "name": name,
-                            "owner_id": owner_id},
+                            "owner_id": owner_id, "deals_detached": total},
                  reason=body.reason, request=request)
     return {"ok": True, "removed_listing_id": pid, "mode": "deleted",
-            "deals_total": 0, "deals_active": 0}
+            "deals_detached": total, "deals_active": active}
 
 
 # ------------------------------ campaigns ------------------------------
@@ -710,12 +714,23 @@ def campaign_unsuspend(campaign_id: int, body: ReasonIn, request: Request,
     return {"ok": True, "campaign_id": c.id, "suspended": False}
 
 
+@router.get("/campaigns/{campaign_id}/deal-status")
+def campaign_deal_status(campaign_id: int,
+                         actor: User = Depends(RequirePerm(Perm.CAMPAIGN_REMOVE)),
+                         db: Session = Depends(get_db)):
+    """See listing_deal_status above — same idea, campaign side."""
+    total, active = _campaign_deal_counts(db, campaign_id)
+    return {"deals_total": total, "deals_active": active}
+
+
 @router.post("/campaigns/{campaign_id}/remove")
 def campaign_remove(campaign_id: int, body: ReasonIn, request: Request,
                     actor: User = Depends(RequirePerm(Perm.CAMPAIGN_REMOVE)),
                     db: Session = Depends(get_db)):
-    """Same archive-or-delete rule as listing_remove above, mirroring the
-    owner's own removal (see campaigns.py remove_campaign)."""
+    """Super-Admin can always remove a campaign on the spot — see listing_remove
+    above for the full reasoning. Any deal referencing this campaign is
+    detached (campaign_id set to null); its status, money, and history are
+    never touched."""
     c = db.get(Campaign, campaign_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -724,19 +739,8 @@ def campaign_remove(campaign_id: int, body: ReasonIn, request: Request,
     total, active = _campaign_deal_counts(db, cid)
 
     if total:
-        c.removed_at = datetime.utcnow()
-        db.add(Notification(
-            user_id=biz, type="campaign_removed",
-            body=f"Your campaign “{title}” has been removed: {body.reason.strip()}",
-            ref=None))
-        db.commit()
-        audit.record(db, actor=actor, action="campaign.remove", target_type="campaign",
-                     target_id=cid, previous_state={"title": title},
-                     new_state={"removed": True, "mode": "archived", "business_id": biz,
-                                "deals_total": total, "deals_active": active},
-                     reason=body.reason, request=request)
-        return {"ok": True, "removed_campaign_id": cid, "mode": "archived",
-                "deals_total": total, "deals_active": active}
+        db.query(Deal).filter(Deal.campaign_id == cid).update(
+            {Deal.campaign_id: None}, synchronize_session=False)
 
     delete_stored(c.image_path)
     db.delete(c)
@@ -748,10 +752,11 @@ def campaign_remove(campaign_id: int, body: ReasonIn, request: Request,
     db.commit()
     audit.record(db, actor=actor, action="campaign.remove", target_type="campaign",
                  target_id=cid, previous_state={"title": title},
-                 new_state={"removed": True, "mode": "deleted", "business_id": biz},
+                 new_state={"removed": True, "mode": "deleted", "business_id": biz,
+                            "deals_detached": total},
                  reason=body.reason, request=request)
     return {"ok": True, "removed_campaign_id": cid, "mode": "deleted",
-            "deals_total": 0, "deals_active": 0}
+            "deals_detached": total, "deals_active": active}
 
 
 # ------------------------------ audit log (read-only) ------------------------------

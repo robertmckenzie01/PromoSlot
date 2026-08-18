@@ -4319,20 +4319,31 @@ const adminSuspendListing   = id => _modAction(`/admin/listings/${id}/suspend`, 
 const adminUnsuspendListing = id => _modAction(`/admin/listings/${id}/unsuspend`, "Listing restored", {backTo:"banned"});
 const adminSuspendCampaign  = id => _modAction(`/admin/campaigns/${id}/suspend`,  "Campaign suspended — hidden from the marketplace", {withDuration:true, backTo:"banned"});
 const adminUnsuspendCampaign= id => _modAction(`/admin/campaigns/${id}/unsuspend`,"Campaign restored", {backTo:"banned"});
-// Permanent when nothing real is attached: the server hard-deletes the row.
-// If a deal has ever been attached, the server archives instead (mode is
-// reported back so the toast tells the truth about which one happened,
-// rather than always claiming "removed permanently"). Distinguished from
-// Suspend in both wording and styling because Suspend can be undone and this
-// (either outcome) cannot. The server still demands password + action code.
-const adminRemoveListing    = id => _modAction(`/admin/listings/${id}/remove`,
-  r => r.mode==="archived"
-    ? `Listing archived — ${r.deals_total} deal(s) are attached, so it's hidden rather than deleted`
-    : "Listing permanently deleted");
-const adminRemoveCampaign   = id => _modAction(`/admin/campaigns/${id}/remove`,
-  r => r.mode==="archived"
-    ? `Campaign archived — ${r.deals_total} deal(s) are attached, so it's hidden rather than deleted`
-    : "Campaign permanently deleted");
+// Always permanent, on the spot — Super-Admin can remove a listing/campaign
+// whatever is attached to it. A quick pre-check warns honestly if a deal is
+// in process before the (irreversible) confirm flow even starts; any
+// attached deal is only ever detached from the listing/campaign, never
+// touched otherwise (its status and money are left exactly as they were).
+// Distinguished from Suspend in both wording and styling because Suspend can
+// be undone and this cannot. The server still demands password + action code.
+async function adminRemoveListing(id){
+  let status={deals_total:0};
+  try{ status=await PSApi.get(`/admin/listings/${id}/deal-status`); }catch(e){}
+  if(status.deals_total>0){
+    if(!confirm(`Listing currently in process — ${status.deals_total} deal(s) are attached. Removing the listing will not affect those deals or any money, only the listing itself. Continue?`)) return;
+  }
+  _modAction(`/admin/listings/${id}/remove`,
+    r => r.deals_detached ? `Listing permanently deleted (${r.deals_detached} deal(s) detached, untouched otherwise)` : "Listing permanently deleted");
+}
+async function adminRemoveCampaign(id){
+  let status={deals_total:0};
+  try{ status=await PSApi.get(`/admin/campaigns/${id}/deal-status`); }catch(e){}
+  if(status.deals_total>0){
+    if(!confirm(`Campaign currently in process — ${status.deals_total} deal(s) are attached. Removing the campaign will not affect those deals or any money, only the campaign itself. Continue?`)) return;
+  }
+  _modAction(`/admin/campaigns/${id}/remove`,
+    r => r.deals_detached ? `Campaign permanently deleted (${r.deals_detached} deal(s) detached, untouched otherwise)` : "Campaign permanently deleted");
+}
 
 async function adminSetRole(userId, role){
   if(!userId){ toast("Enter a user ID"); return; }
