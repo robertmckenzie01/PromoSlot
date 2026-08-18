@@ -28,10 +28,13 @@ from ..db import get_db
 from ..deps import RequirePerm, get_current_user
 from ..mailer import (account_banned_email, account_restored_email,
                       account_suspended_email, send_email)
-from ..models import (Campaign, Deal, DealStatus, Notification, Platform, Session as AuthSession,
-                      User)
+from ..models import (Campaign, Deal, DealStatus, Notification, Platform, PlatformMedia,
+                      Session as AuthSession, User)
 from ..permissions import Perm, Role, is_super_admin, permissions_for, require_permission
 from ..security import hash_password, verify_password
+from ..storage import delete_stored
+from .campaigns import _campaign_deal_counts
+from .platforms import _deal_counts
 
 log = logging.getLogger(__name__)
 
@@ -582,12 +585,41 @@ def listing_unsuspend(platform_id: int, body: ReasonIn, request: Request,
 def listing_remove(platform_id: int, body: ReasonIn, request: Request,
                    actor: User = Depends(RequirePerm(Perm.LISTING_REMOVE)),
                    db: Session = Depends(get_db)):
+    """Two outcomes, chosen by the data rather than by the admin — same rule as
+    the owner's own removal (see platforms.py remove_platform): a listing with
+    any deal ever attached to it can't be hard-deleted without orphaning that
+    deal's history (and any reviews built on it), so it's archived instead.
+    Only a listing with zero deals attached is actually deleted."""
     p = db.get(Platform, platform_id)
     if p is None:
         raise HTTPException(status_code=404, detail="Listing not found")
     _reauth(actor, body, db)
     before = _listing_snapshot(p)
     owner_id, pid, name = p.owner_id, p.id, p.name
+    total, active = _deal_counts(db, pid)
+
+    if total:
+        p.removed_at = datetime.utcnow()
+        db.add(Notification(
+            user_id=owner_id, type="listing_removed",
+            body=f"Your listing “{name}” has been removed: {body.reason.strip()}",
+            ref=None))
+        db.commit()
+        audit.record(db, actor=actor, action="listing.remove", target_type="listing",
+                     target_id=pid, previous_state=before,
+                     new_state={"removed": True, "mode": "archived", "name": name,
+                                "owner_id": owner_id, "deals_total": total,
+                                "deals_active": active},
+                     reason=body.reason, request=request)
+        return {"ok": True, "removed_listing_id": pid, "mode": "archived",
+                "deals_total": total, "deals_active": active}
+
+    media = db.query(PlatformMedia).filter_by(platform_id=pid).all()
+    for m in media:
+        for path in (m.video_path, m.cover_path):
+            delete_stored(path)
+        db.delete(m)
+    delete_stored(p.image_path)
     db.delete(p)
     # Suspension already notifies; permanent removal is the bigger action and
     # said nothing at all. ref is deliberately None: the listing no longer
@@ -600,9 +632,11 @@ def listing_remove(platform_id: int, body: ReasonIn, request: Request,
     db.commit()
     audit.record(db, actor=actor, action="listing.remove", target_type="listing",
                  target_id=pid, previous_state=before,
-                 new_state={"removed": True, "name": name, "owner_id": owner_id},
+                 new_state={"removed": True, "mode": "deleted", "name": name,
+                            "owner_id": owner_id},
                  reason=body.reason, request=request)
-    return {"ok": True, "removed_listing_id": pid}
+    return {"ok": True, "removed_listing_id": pid, "mode": "deleted",
+            "deals_total": 0, "deals_active": 0}
 
 
 # ------------------------------ campaigns ------------------------------
@@ -674,11 +708,31 @@ def campaign_unsuspend(campaign_id: int, body: ReasonIn, request: Request,
 def campaign_remove(campaign_id: int, body: ReasonIn, request: Request,
                     actor: User = Depends(RequirePerm(Perm.CAMPAIGN_REMOVE)),
                     db: Session = Depends(get_db)):
+    """Same archive-or-delete rule as listing_remove above, mirroring the
+    owner's own removal (see campaigns.py remove_campaign)."""
     c = db.get(Campaign, campaign_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
     _reauth(actor, body, db)
     cid, title, biz = c.id, c.title, c.business_id
+    total, active = _campaign_deal_counts(db, cid)
+
+    if total:
+        c.removed_at = datetime.utcnow()
+        db.add(Notification(
+            user_id=biz, type="campaign_removed",
+            body=f"Your campaign “{title}” has been removed: {body.reason.strip()}",
+            ref=None))
+        db.commit()
+        audit.record(db, actor=actor, action="campaign.remove", target_type="campaign",
+                     target_id=cid, previous_state={"title": title},
+                     new_state={"removed": True, "mode": "archived", "business_id": biz,
+                                "deals_total": total, "deals_active": active},
+                     reason=body.reason, request=request)
+        return {"ok": True, "removed_campaign_id": cid, "mode": "archived",
+                "deals_total": total, "deals_active": active}
+
+    delete_stored(c.image_path)
     db.delete(c)
     # See listing_remove: ref is None because the campaign is gone.
     db.add(Notification(
@@ -688,9 +742,10 @@ def campaign_remove(campaign_id: int, body: ReasonIn, request: Request,
     db.commit()
     audit.record(db, actor=actor, action="campaign.remove", target_type="campaign",
                  target_id=cid, previous_state={"title": title},
-                 new_state={"removed": True, "business_id": biz},
+                 new_state={"removed": True, "mode": "deleted", "business_id": biz},
                  reason=body.reason, request=request)
-    return {"ok": True, "removed_campaign_id": cid}
+    return {"ok": True, "removed_campaign_id": cid, "mode": "deleted",
+            "deals_total": 0, "deals_active": 0}
 
 
 # ------------------------------ audit log (read-only) ------------------------------

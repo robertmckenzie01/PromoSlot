@@ -4311,18 +4311,28 @@ async function _modAction(path, okMsg, opts){
   let extra={};
   if(opts.withDuration){ const d=askDuration(); if(!d) return; extra=d; }
   const c=adminCreds(); if(!c) return;
-  try{ await PSApi.post(path, {...c, ...extra}); }catch(e){ toast(e.message||"Action failed"); return; }
-  toast(okMsg,true); loadMarket(); openAdmin(opts.backTo||"moderation");
+  let r;
+  try{ r=await PSApi.post(path, {...c, ...extra}); }catch(e){ toast(e.message||"Action failed"); return; }
+  toast(typeof okMsg==="function"?okMsg(r):okMsg, true); loadMarket(); openAdmin(opts.backTo||"moderation");
 }
 const adminSuspendListing   = id => _modAction(`/admin/listings/${id}/suspend`,   "Listing suspended — hidden from the marketplace", {withDuration:true, backTo:"banned"});
 const adminUnsuspendListing = id => _modAction(`/admin/listings/${id}/unsuspend`, "Listing restored", {backTo:"banned"});
 const adminSuspendCampaign  = id => _modAction(`/admin/campaigns/${id}/suspend`,  "Campaign suspended — hidden from the marketplace", {withDuration:true, backTo:"banned"});
 const adminUnsuspendCampaign= id => _modAction(`/admin/campaigns/${id}/unsuspend`,"Campaign restored", {backTo:"banned"});
-// Permanent: the server hard-deletes the row. Distinguished from Suspend in
-// both wording and styling because Suspend can be undone and this cannot. The
-// server still demands password + action code.
-const adminRemoveListing    = id => _modAction(`/admin/listings/${id}/remove`,    "Listing removed permanently");
-const adminRemoveCampaign   = id => _modAction(`/admin/campaigns/${id}/remove`,   "Campaign removed permanently");
+// Permanent when nothing real is attached: the server hard-deletes the row.
+// If a deal has ever been attached, the server archives instead (mode is
+// reported back so the toast tells the truth about which one happened,
+// rather than always claiming "removed permanently"). Distinguished from
+// Suspend in both wording and styling because Suspend can be undone and this
+// (either outcome) cannot. The server still demands password + action code.
+const adminRemoveListing    = id => _modAction(`/admin/listings/${id}/remove`,
+  r => r.mode==="archived"
+    ? `Listing archived — ${r.deals_total} deal(s) are attached, so it's hidden rather than deleted`
+    : "Listing permanently deleted");
+const adminRemoveCampaign   = id => _modAction(`/admin/campaigns/${id}/remove`,
+  r => r.mode==="archived"
+    ? `Campaign archived — ${r.deals_total} deal(s) are attached, so it's hidden rather than deleted`
+    : "Campaign permanently deleted");
 
 async function adminSetRole(userId, role){
   if(!userId){ toast("Enter a user ID"); return; }
