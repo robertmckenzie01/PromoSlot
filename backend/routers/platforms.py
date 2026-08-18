@@ -498,6 +498,10 @@ def remove_platform(platform_id: int, user: User = Depends(get_current_user),
         for path in (m.video_path, m.cover_path):
             delete_stored(path)
         db.delete(m)
+    # No ORM relationship links Platform <-> PlatformMedia (just a raw FK
+    # column), so flush explicitly before deleting the platform — see the
+    # same fix in routers/admin.py's listing_remove for the full reasoning.
+    db.flush()
     delete_stored(p.image_path)
     db.delete(p)
     db.commit()
