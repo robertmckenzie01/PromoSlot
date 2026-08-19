@@ -21,7 +21,7 @@ from ..deal_state import assert_not_final, assert_payout_eligible, assert_transi
 from ..models import ConnectedAccount, Deal, DealStatus, Proof, User
 from ..permissions import Perm, is_super_admin
 from ..services import (create_deal_payout, deal_money_for, onboarding_complete,
-                        refund_deal, sync_connected_account, verify_delivery)
+                        refund_deal, sync_connected_account, try_instant_payout, verify_delivery)
 from ..stripe_client import client
 
 router = APIRouter(prefix="/review", tags=["review"])
@@ -246,6 +246,17 @@ def release_payout(deal_id: int, body: ReleaseIn, request: Request,
         tr = create_deal_payout(db, d, ca.stripe_account_id)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Stripe transfer failed: {e}")
+
+    # Best-effort: if the owner opted in to always-instant, try converting this
+    # payout to a real Instant Payout on top of the Transfer above. Never lets
+    # an instant-payout failure affect the (already-succeeded) main release —
+    # a failed/ineligible attempt just leaves the deal on the standard
+    # scheduled payout, exactly as if opt-in were off.
+    if ca.instant_payout_opt_in:
+        try:
+            try_instant_payout(db, d, ca)
+        except Exception:
+            pass
 
     audit.record(db, actor=reviewer, action="payout.release", target_type="deal",
                  target_id=d.id, previous_state=before, new_state=_deal_snapshot(d),

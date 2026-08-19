@@ -2258,14 +2258,17 @@ async function renderRealDeal(dealId){
     <div class="det-sec" style="margin-top:18px"><h5>Progress</h5>
       <div class="proof-item got"><span class="pi-ico">🔒</span>Payment Protection funded<span class="ok">✓</span></div>
       <div class="proof-item ${d.verified?"got":""}"><span class="pi-ico">🔎</span>Delivery verified by a reviewer<span class="ok">${d.verified?"✓":"pending"}</span></div>
-      <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.net_to_owner):"pending"}</span></div></div>
+      <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.instant_paid?d.instant_net_amount:d.net_to_owner)+(d.instant_paid?" (instant)":""):"pending"}</span></div></div>
     <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
       ${meOwner && proofs.length ? (d.paid
-        ? `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified &amp; paid — your evidence met PromoSlot's delivery conditions, and ${gbpP(d.net_to_owner)} has been sent to your connected account. Bank transfers can take up to 7 days to land, especially on newer accounts — no action needed on your end.</p>`
+        ? (d.instant_paid
+          ? `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified &amp; paid instantly — your evidence met PromoSlot's delivery conditions, and ${gbpP(d.instant_net_amount)} (after Stripe's instant-payout fee) was sent to your account. It should land within about 30 minutes.</p>`
+          : `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified &amp; paid — your evidence met PromoSlot's delivery conditions, and ${gbpP(d.net_to_owner)} has been sent to your connected account. Bank transfers can take up to 7 days to land, especially on newer accounts — no action needed on your end.</p>`)
         : d.verified
           ? `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified — your evidence met PromoSlot's delivery conditions. Payout is being released to your account now.</p>`
           : `<p class="review-thanks" style="margin-top:10px">Thank you for submitting proof of delivery, your submission will be reviewed by our team shortly</p>`
       ) : ""}
+      ${meOwner && d.paid && !d.instant_paid ? `<div style="margin-top:10px"><button class="btn btn-o btn-sm" id="instantBtn-${d.id}" onclick="realInstantPayout(${d.id})">⚡ Get paid now — 1% fee</button></div>` : ""}
       ${meOwner && !d.verified && !disputeOpen ? `<div class="frm" style="margin-top:10px">
         <div><label>Views delivered (optional — shown on your Past campaigns)${d.views_promised?` · ${fmtN(d.views_promised)} promised`:""}</label>
           <input type="number" id="pf-views" min="0" placeholder="e.g. 12500" value="${d.views_delivered!=null?d.views_delivered:""}"></div>
@@ -2445,6 +2448,19 @@ async function realSubmitProof(dealId){
     }
   }catch(err){ toast(err.message||"Could not submit evidence"); renderRealDeal(dealId); return; }
   toast(items.length>1?`${items.length} evidence items submitted`:"Evidence submitted",true);
+  renderRealDeal(dealId);
+}
+async function realInstantPayout(dealId){
+  const btn=$("instantBtn-"+dealId);
+  if(!confirm("Get paid instantly? Stripe charges a small fee for instant payouts (typically around 1%), deducted automatically from what you receive. Funds should land within about 30 minutes instead of the standard schedule.")) return;
+  if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Sending…`; }
+  try{
+    await PSApi.post(`/deals/${dealId}/payout/instant`);
+    toast("Instant payout sent — should land within about 30 minutes ⚡",true);
+  }catch(err){
+    toast(err.message||"Could not send instant payout");
+    if(btn){ btn.disabled=false; btn.innerHTML="⚡ Get paid now — 1% fee"; }
+  }
   renderRealDeal(dealId);
 }
 // The API requires a stated reason and an explicit confirmation that the
@@ -3511,7 +3527,69 @@ async function refreshPayoutStatus(){
   }else{
     el.innerHTML=`<div><span>Payout method</span><b style="color:var(--money)">Connected ✔</b></div>${feeRow}
       <div><span>Stripe account</span><b class="mut" style="text-align:right;font-size:12px">${esc(s.stripe_account_id||"")}</b></div>
-      <div><span>Payout timing</span><b class="mut" style="text-align:right;font-size:12px">Up to 7 days on new accounts</b></div>`;
+      <div><span>Payout timing</span><b class="mut" style="text-align:right;font-size:12px">Up to 7 days on new accounts</b></div>
+      <div id="instantRow"><span>Instant payouts</span><b class="mut">Checking…</b></div>
+      <div id="instantExtra"></div>`;
+    refreshInstantStatus();
+  }
+}
+async function refreshInstantStatus(){
+  const row=$("instantRow"), extra=$("instantExtra");
+  if(!row) return;
+  let s;
+  try{ s=await PSApi.get("/connect/instant-status"); }
+  catch(err){ row.innerHTML=`<span>Instant payouts</span><b class="mut">Couldn't check</b>`; return; }
+  window._instantPk=s.publishable_key;
+  if(s.eligible){
+    row.innerHTML=`<span>Get paid instantly (1% fee)</span><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="instantToggle" ${s.opted_in?"checked":""} onchange="toggleInstantPayout(this)"><b class="mut" style="font-size:12px">${s.opted_in?"On":"Off"}</b></label>`;
+    extra.innerHTML=`<p class="mut" style="font-size:12px;margin-top:6px">Applies automatically to future payouts when on. Stripe deducts its instant-payout fee (about 1%) from what you receive — funds usually land within 30 minutes instead of the standard schedule.</p>`;
+  }else{
+    row.innerHTML=`<span>Instant payouts</span><b class="mut">Not eligible yet</b>`;
+    extra.innerHTML=`<p class="mut" style="font-size:12px;margin-top:6px">Your bank account isn't on Stripe's instant-eligible list yet. Add a debit card to unlock instant payouts (1% fee, deducted automatically).</p>
+      <button class="btn btn-o btn-sm" id="addCardBtn" onclick="openAddDebitCard()">＋ Add debit card</button>
+      <div id="debitCardForm" style="margin-top:10px"></div>`;
+  }
+}
+async function toggleInstantPayout(cb){
+  cb.disabled=true;
+  try{
+    await PSApi.post("/connect/instant-preference", {enabled: cb.checked});
+    toast(cb.checked?"Instant payouts turned on":"Instant payouts turned off",true);
+    const label=cb.nextElementSibling; if(label) label.textContent=cb.checked?"On":"Off";
+  }catch(err){ toast(err.message||"Could not update preference"); cb.checked=!cb.checked; }
+  cb.disabled=false;
+}
+async function openAddDebitCard(){
+  const btn=$("addCardBtn");
+  try{ await ensureStripeJs(); }catch(e){ toast("Stripe.js failed to load"); return; }
+  if(typeof Stripe==="undefined"||!window._instantPk){ toast("Stripe.js failed to load"); return; }
+  if(btn) btn.style.display="none";
+  const form=$("debitCardForm");
+  form.innerHTML=`<div id="debit-card-element" style="padding:10px;border:1px solid var(--line,#ddd);border-radius:8px"></div>
+    <div class="hint-err hide" id="debit-card-err" style="margin-top:6px"></div>
+    <button class="btn btn-p btn-sm" style="margin-top:10px" id="debitCardSubmit" onclick="submitDebitCard()">Add card</button>`;
+  const stripe=Stripe(window._instantPk);
+  const elements=stripe.elements();
+  const card=elements.create("card");
+  card.mount("#debit-card-element");
+  window._debitCardCtx={stripe,card};
+}
+async function submitDebitCard(){
+  const ctx=window._debitCardCtx; if(!ctx) return;
+  const btn=$("debitCardSubmit"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Adding…`;
+  const errEl=$("debit-card-err"); errEl.classList.add("hide");
+  // currency:'gbp' requests the special payout-destination token type, not a
+  // charge token — the card number never reaches our backend, only this token id.
+  const {token,error}=await ctx.stripe.createToken(ctx.card,{currency:"gbp"});
+  if(error){ btn.disabled=false; btn.textContent="Add card"; errEl.textContent=error.message||"Card invalid — check your details."; errEl.classList.remove("hide"); return; }
+  try{
+    await PSApi.post("/connect/debit-card", {token: token.id});
+    toast("Debit card added",true);
+    window._debitCardCtx=null;
+    refreshInstantStatus();
+  }catch(err){
+    btn.disabled=false; btn.textContent="Add card";
+    errEl.textContent=err.message||"Could not add card"; errEl.classList.remove("hide");
   }
 }
 async function connectPayouts(){
@@ -5923,7 +6001,7 @@ renderMarketRail,railSetRole,heroSearchGo,heroPlatformGo,renderHeroChips,renderP
 djSetRole,djGo,djNext,djBack,djNavKey,
 psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure,
 resRender,resPickModel,resScenario,resVisOpen,resVisClose,resVisStep,
-refreshPayoutStatus,connectPayouts,
+refreshPayoutStatus,connectPayouts,refreshInstantStatus,toggleInstantPayout,openAddDebitCard,submitDebitCard,realInstantPayout,
 openDisputesQueue,openDispute,claimDispute,addDisputeNote,requestDisputeInfo,
 openEditDisplayName,saveDisplayName};
 Object.assign(window,EXPORTS);

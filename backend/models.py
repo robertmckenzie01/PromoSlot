@@ -170,6 +170,10 @@ class ConnectedAccount(Base):
     # Are there still onboarding requirements outstanding?
     requirements_due = Column(Boolean, default=True, nullable=False)
     transfers_status = Column(String)  # raw capability status for debugging
+    # Standing preference: "always pay me instantly when eligible". Never acted
+    # on without a fresh live eligibility check against Stripe — see
+    # services.try_instant_payout(). Owner bears Stripe's instant-payout fee.
+    instant_payout_opt_in = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -297,6 +301,15 @@ class Deal(Base):
     funded_at = Column(DateTime)     # set on payment_intent.succeeded webhook
     verified_at = Column(DateTime)   # set by a human reviewer action
     paid_at = Column(DateTime)       # set on transfer/payout confirmation
+
+    # Instant Payout detail on an already-PAID deal — never a new deal state.
+    # NULL means "standard scheduled payout" (the default, no fee). Set only
+    # after a real Stripe Payout(method="instant") succeeds on top of the
+    # existing Transfer. instant_net_amount is what actually lands after
+    # Stripe's own instant-payout fee (owner bears it, per deal_money terms).
+    instant_payout_id = Column(String)
+    instant_net_amount = Column(Integer)
+    instant_requested_at = Column(DateTime)
 
     # Chargeback lifecycle — mirrored from Stripe's charge.dispute.* events.
     # dispute_status is a cheap denormalised read of the most recent Dispute's

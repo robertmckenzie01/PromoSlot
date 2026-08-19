@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session, selectinload
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import Deal, DealStatus, Notification, Payment, User
-from ..services import deal_money_for, mark_deal_funded_from_pi
+from ..models import ConnectedAccount, Deal, DealStatus, Notification, Payment, User
+from ..services import deal_money_for, mark_deal_funded_from_pi, try_instant_payout
 from ..stripe_client import stripe
 
 router = APIRouter(prefix="/deals", tags=["deals"])
@@ -89,6 +89,10 @@ def deal_dict(d: Deal) -> dict:
         "funded": d.funded_at is not None,
         "verified": d.verified_at is not None,
         "paid": d.paid_at is not None,
+        # Instant Payout detail — None means "standard scheduled payout" (the
+        # default). Set only after a real Stripe Instant Payout succeeded.
+        "instant_paid": d.instant_payout_id is not None,
+        "instant_net_amount": d.instant_net_amount,
         # Read-only for both parties — never the Stripe dispute id, reason
         # code, evidence deadline or accept/challenge state (admin-only, see
         # routers/disputes.py). Just "is there an open case right now".
@@ -320,5 +324,41 @@ def decline_deal(deal_id: int, user: User = Depends(get_current_user), db: Sessi
     db.add(Notification(user_id=other_id, type="deal_declined",
                         body=f"Deal #{d.id} was declined.", ref=str(d.id)))
     db.commit()
+    db.refresh(d)
+    return deal_dict(d)
+
+
+@router.post("/{deal_id}/payout/instant")
+def request_instant_payout(deal_id: int, user: User = Depends(get_current_user),
+                           db: Session = Depends(get_db)):
+    """The platform owner's one-off 'Get paid now' button on an already-paid
+    deal. Owner bears Stripe's instant-payout fee — net_available already
+    reflects that. Never touches deal.paid_at/status; this only ever converts
+    an already-completed standard payout into an instant one, or leaves it
+    alone if that's not possible right now.
+    """
+    d = db.get(Deal, deal_id)
+    if d is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    if user.id != d.platform_owner_id:
+        raise HTTPException(status_code=403, detail="Only the platform owner can request instant payout")
+    if d.paid_at is None:
+        raise HTTPException(status_code=409, detail="This deal hasn't been paid out yet")
+    if d.instant_payout_id:
+        raise HTTPException(status_code=409, detail="This deal was already paid out instantly")
+
+    ca = db.query(ConnectedAccount).filter_by(user_id=user.id).first()
+    if ca is None:
+        raise HTTPException(status_code=409, detail="No connected payout account")
+
+    result = try_instant_payout(db, d, ca)
+    if not result["ok"]:
+        reason = result["reason"]
+        friendly = {
+            "not_eligible": "Your bank or card isn't eligible for instant payouts yet — "
+                            "add a debit card in Payout settings, or your bank may already qualify.",
+            "no_instant_balance_available": "No instant-eligible balance available for this deal right now.",
+        }.get(reason, f"Instant payout couldn't be completed ({reason}).")
+        raise HTTPException(status_code=409, detail=friendly)
     db.refresh(d)
     return deal_dict(d)

@@ -205,6 +205,104 @@ def create_deal_payout(db: Session, deal: Deal, destination: str) -> Transfer:
     return tr
 
 
+def check_instant_eligibility(stripe_account_id: str) -> dict:
+    """Live check: does this connected account have any external account
+    (bank or card) Stripe will do an Instant Payout to right now?
+
+    Never cached — Stripe can re-assess instant eligibility over time, and
+    caching a stale "yes" could send an owner down a payout path that fails.
+    """
+    destinations = []
+    for obj_type in ("bank_account", "card"):
+        try:
+            accounts = stripe.Account.list_external_accounts(
+                stripe_account_id, object=obj_type, limit=10)
+        except Exception:
+            continue
+        for ext in accounts.get("data", []):
+            methods = ext.get("available_payout_methods") or []
+            if "instant" in methods:
+                destinations.append({
+                    "id": ext["id"], "type": obj_type,
+                    "last4": ext.get("last4"), "brand": ext.get("brand") or ext.get("bank_name"),
+                })
+    return {"eligible": bool(destinations), "destinations": destinations}
+
+
+def try_instant_payout(db: Session, deal: Deal, connected_account: ConnectedAccount) -> dict:
+    """Convert an already-PAID deal's payout into a real Stripe Instant Payout,
+    on top of the Transfer create_deal_payout() already made into the owner's
+    Connect balance. Never touches deal.paid_at/status — those are already
+    set. Only ever sets the instant_* detail fields on success.
+
+    Deliberately returns a status dict instead of raising for expected/
+    recoverable outcomes (not eligible, no balance, Stripe declines it), so
+    an auto-triggered attempt (opted-in owner) can never break the main
+    payout-release flow it's piggybacking on. Genuine Stripe API failures
+    are caught too, for the same reason — see reason strings below.
+    """
+    if deal.paid_at is None:
+        return {"ok": False, "reason": "not_paid_yet"}
+    if deal.instant_payout_id:
+        return {"ok": False, "reason": "already_instant"}
+
+    elig = check_instant_eligibility(connected_account.stripe_account_id)
+    if not elig["eligible"]:
+        return {"ok": False, "reason": "not_eligible"}
+
+    try:
+        bal = stripe.Balance.retrieve(
+            stripe_account=connected_account.stripe_account_id,
+            expand=["instant_available.net_available"],
+        )
+    except Exception as e:
+        return {"ok": False, "reason": f"balance_lookup_failed: {e}"}
+
+    # net_available.amount is ALREADY net of whatever instant-payout fee is
+    # configured on the platform (Stripe requires using this exact figure
+    # when monetizing instant payouts via Application Fees — the owner bears
+    # this fee, per PromoSlot's pricing decision, not PromoSlot).
+    eligible_ids = {d["id"] for d in elig["destinations"]}
+    dest_id, net_amount = None, None
+    for bucket in (bal.get("instant_available") or []):
+        if bucket.get("currency") != deal.currency:
+            continue
+        for entry in (bucket.get("net_available") or []):
+            if entry.get("destination") in eligible_ids:
+                dest_id, net_amount = entry["destination"], entry["amount"]
+                break
+        if dest_id:
+            break
+
+    if not dest_id or not net_amount:
+        return {"ok": False, "reason": "no_instant_balance_available"}
+
+    try:
+        payout = stripe.Payout.create(
+            amount=net_amount,
+            currency=deal.currency,
+            method="instant",
+            destination=dest_id,
+            metadata={"deal_id": str(deal.id), "promoslot": "instant_payout"},
+            stripe_account=connected_account.stripe_account_id,
+        )
+    except Exception as e:
+        return {"ok": False, "reason": f"payout_failed: {e}"}
+
+    deal.instant_payout_id = payout.id
+    deal.instant_net_amount = net_amount
+    deal.instant_requested_at = datetime.utcnow()
+    db.add(Notification(
+        user_id=deal.platform_owner_id, type="instant_payout_sent",
+        body=(f"Instant payout sent for deal #{deal.id} — "
+              f"{deal.currency.upper()} {net_amount/100:.2f} should land in your account "
+              f"within about 30 minutes (Stripe's instant-payout fee already deducted)."),
+        ref=str(deal.id)))
+    db.commit()
+    db.refresh(deal)
+    return {"ok": True, "payout_id": payout.id, "net_amount": net_amount}
+
+
 def refund_deal(db: Session, deal: Deal, reason: str = "requested_by_customer"):
     """Refund the business via a REAL Stripe Refund on the deal's PaymentIntent.
 

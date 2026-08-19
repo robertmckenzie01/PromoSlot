@@ -12,14 +12,15 @@ capability. A payout is only possible once Stripe reports that capability
 """
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import ConnectedAccount, User
-from ..services import onboarding_complete, sync_connected_account, transfers_status_of
-from ..stripe_client import client
+from ..services import check_instant_eligibility, onboarding_complete, sync_connected_account, transfers_status_of
+from ..stripe_client import client, stripe
 
 router = APIRouter(prefix="/connect", tags=["connect"])
 
@@ -154,3 +155,81 @@ def connect_status(user: User = Depends(get_current_user), db: Session = Depends
         "requirements_due": row.requirements_due,
         "onboarding_complete": onboarding_complete(row),
     }
+
+
+@router.get("/instant-status")
+def instant_status(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Live Instant Payout eligibility + the owner's standing opt-in preference.
+
+    Eligibility is always checked fresh against Stripe (never cached) — see
+    services.check_instant_eligibility(). Owner bears Stripe's instant-payout
+    fee if/when they use it; this endpoint never moves money, it only reports
+    state so the frontend knows what to show.
+    """
+    _require_platform_owner(user)
+    row = _account_row(db, user)
+    if row is None or not onboarding_complete(row):
+        return {"has_account": row is not None, "onboarding_complete": False,
+                "eligible": False, "opted_in": False, "destinations": []}
+
+    elig = check_instant_eligibility(row.stripe_account_id)
+    return {
+        "has_account": True,
+        "onboarding_complete": True,
+        "eligible": elig["eligible"],
+        "destinations": elig["destinations"],
+        "opted_in": row.instant_payout_opt_in,
+        "publishable_key": settings.stripe_publishable_key,
+    }
+
+
+class InstantPreferenceIn(BaseModel):
+    enabled: bool
+
+
+@router.post("/instant-preference")
+def set_instant_preference(body: InstantPreferenceIn,
+                           user: User = Depends(get_current_user),
+                           db: Session = Depends(get_db)):
+    """Set the owner's standing 'always pay me instantly when eligible' choice.
+
+    This alone never moves money — it's only consulted the next time a deal's
+    payout is released (see review.release_payout), and even then only after
+    a fresh eligibility check.
+    """
+    _require_platform_owner(user)
+    row = _account_row(db, user)
+    if row is None:
+        raise HTTPException(status_code=400, detail="Connect your payout account first")
+    row.instant_payout_opt_in = body.enabled
+    db.commit()
+    return {"opted_in": row.instant_payout_opt_in}
+
+
+class DebitCardIn(BaseModel):
+    token: str
+
+
+@router.post("/debit-card")
+def add_debit_card(body: DebitCardIn, user: User = Depends(get_current_user),
+                   db: Session = Depends(get_db)):
+    """Attach a debit card as a payout destination, from a Stripe.js token
+    created client-side (stripe.createToken(cardElement, {currency: 'gbp'})).
+
+    The raw card number never reaches this backend — only Stripe's token id
+    does, exactly like the existing funding flow's Payment Element. Adding a
+    card doesn't by itself guarantee Instant Payout eligibility; the frontend
+    should re-check GET /connect/instant-status afterward.
+    """
+    _require_platform_owner(user)
+    row = _account_row(db, user)
+    if row is None:
+        raise HTTPException(status_code=400, detail="Connect your payout account first")
+    if not body.token.startswith("tok_"):
+        raise HTTPException(status_code=422, detail="Invalid card token")
+    try:
+        ext = stripe.Account.create_external_account(
+            row.stripe_account_id, external_account=body.token)
+    except Exception as e:
+        raise _stripe_error(e)
+    return {"ok": True, "external_account_id": ext.id, "last4": ext.get("last4")}
