@@ -4933,6 +4933,46 @@ async function saveDisplayName(){
     openAccount();
   }catch(err){ e.textContent=err.message||"Could not update name"; e.classList.remove("hide"); }
 }
+// Real completeness track for the My Account identity header — every item
+// is read from data that actually exists on the account (S.account,
+// S._who from /users/{id}/public, S.myPlatforms, S.myCampaigns). Nothing
+// here is fabricated, scored, or ranked against other users.
+function acctCompletenessSteps(a){
+  const isPlat=!!a.is_platform_owner, isBiz=!!a.is_business;
+  const bio=((S._who&&S._who.about_text)||"").trim();
+  const firstList = isPlat ? (S.myPlatforms||[]) : (isBiz ? (S.myCampaigns||[]) : []);
+  const hasFirst = firstList.length>0;
+  const firstLabel = isPlat ? "First listing live" : (isBiz ? "First campaign posted" : "Set up a role");
+  const firstName = isPlat ? (firstList[0]&&firstList[0].name) : (firstList[0]&&(firstList[0].title||firstList[0].name));
+  return [
+    {label:"Profile photo", done:!!a.avatar_url, state:a.avatar_url?"Added":"Not added yet"},
+    {label:"Bio written", done:bio.length>0, state:bio.length>0?"Live on your profile":"Empty"},
+    {label:"Intro video", done:!!a.intro_video_url, state:a.intro_video_url?"Added":"Not added yet"},
+    {label:firstLabel, done:hasFirst, state:hasFirst?(firstName||"Live"):(isPlat||isBiz?"None yet":"Business or platform owner")}
+  ];
+}
+function acctTrackHtml(a){
+  const steps=acctCompletenessSteps(a);
+  const done=steps.filter(s=>s.done).length;
+  const headline=done>=steps.length?"Your profile is complete.":`${done} of ${steps.length} things done.`;
+  return `<div>
+      <div class="acct2-track-label">Your profile, so far</div>
+      <p class="acct2-track-headline">${esc(headline)}</p>
+    </div>
+    <div class="acct2-steps">
+      ${steps.map(s=>`<div class="acct2-step${s.done?" done":""}">
+          <div class="acct2-step-track"><span class="acct2-step-dot">${s.done?"✓":""}</span><span class="acct2-step-line"></span></div>
+          <div class="acct2-step-body"><div class="acct2-step-label">${esc(s.label)}</div><div class="acct2-step-state">${esc(s.state)}</div></div>
+        </div>`).join("")}
+    </div>`;
+}
+// Repaints just the identity-header track — called after anything that
+// changes what it's measuring (bio saved, asset added) without re-rendering
+// the whole account page. No-ops if the account view isn't open.
+function updateAcctTrack(){
+  const host=$("acct2Track"); if(!host||!S.account) return;
+  host.innerHTML=acctTrackHtml(S.account);
+}
 function openAccount(){
   const a=S.account;
   if(!a){ authModal("login"); return; }
@@ -4944,82 +4984,164 @@ function openAccount(){
     a.profile_setup_viewed_at=new Date().toISOString();
     PSApi.post("/auth/profile-viewed").then(acct=>{ if(acct) S.account=acct; }).catch(()=>{});
   }
+  const isPlat=!!a.is_platform_owner, isBiz=!!a.is_business, isSuper=S.myRole==="SUPER_ADMIN", isAdmin=S.myRole==="ADMIN";
+  const roles=roleLabels(a);
   $("accountWrap").innerHTML=`
-    <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button><h2>My Account</h2></div>
-    <div class="acct-grid">
-      <div class="panel"><div class="panel-b">
-        <div class="acct-id">${avatarBlock(a.avatar_url, a.display_name||a.email, true)}
-          <div><div class="acct-name">${esc(a.display_name||"—")}</div><div class="acct-email">${esc(a.email)}</div></div></div>
-        <div style="margin:0 0 14px">
-          <label class="btn btn-o btn-sm" for="acct-avatar">${a.avatar_url?"Change profile picture":"Add profile picture"}</label>
-          <input type="file" id="acct-avatar" accept="image/*" class="pf-file-input" onchange="uploadAvatar()"></div>
-        <div class="acct-rows">
-          <div class="acct-row"><span>Name</span><b>${esc(a.display_name||"—")} <button class="btn btn-o btn-sm" style="margin-left:6px;padding:2px 8px" onclick="openEditDisplayName()">Edit</button></b></div>
-          <div class="acct-row"><span>Email</span><b>${esc(a.email)}</b></div>
-          <div class="acct-row"><span>Role${roleLabels(a).length>1?"s":""}</span><b>${roleLabels(a).map(r=>`<span class="tag">${esc(r)}</span>`).join(" ")}</b></div>
+    <div class="deal-top">
+      <button class="btn btn-ghost" onclick="goHome()">← Home</button>
+      <div class="acct2-kicker">Your account</div>
+      <button type="button" class="acct2-logout" style="margin-left:auto" onclick="doLogout()">Log out</button>
+    </div>
+    <div class="acct2">
+      <header class="acct2-hero">
+        <div class="acct2-hero-bar"></div>
+        <div class="acct2-hero-grid">
+          <div class="acct2-id-col">
+            <div class="acct2-id-row">
+              <div class="acct2-avatar-col">
+                <div class="acct2-avatar${a.avatar_url?" has-img":""}"${a.avatar_url?` style="background-image:url('${a.avatar_url}')"`:""}>${a.avatar_url?"":esc((a.display_name||a.email||"?").slice(0,1).toUpperCase())}</div>
+                <label class="acct2-avatar-btn" for="acct-avatar">${a.avatar_url?"Change photo":"Add photo"}</label>
+                <input type="file" id="acct-avatar" accept="image/*" class="pf-file-input" onchange="uploadAvatar()">
+              </div>
+              <div style="min-width:220px;flex:1">
+                <div class="acct2-name-row">
+                  <h1 class="acct2-name">${esc(a.display_name||"—")}</h1>
+                  <button type="button" class="acct2-name-edit" onclick="openEditDisplayName()">Edit name</button>
+                </div>
+                <p class="acct2-email">${esc(a.email)}<span class="acct2-email-tag">Sign-in email</span></p>
+                <div class="acct2-tags">
+                  ${isPlat?`<span class="acct2-tag">Platform owner</span>`:""}
+                  ${isBiz?`<span class="acct2-tag">Business</span>`:""}
+                  ${isSuper?`<span class="acct2-tag super">Super-Admin</span>`:(isAdmin?`<span class="acct2-tag super">Admin</span>`:"")}
+                  ${!isPlat&&!isBiz?`<span class="acct2-tag neutral">No role set</span>`:""}
+                  <button type="button" class="acct2-tour" onclick="tourRestart()">${a.product_tour_completed_at?"Replay product tour":"Take the product tour"}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="acct2-track" id="acct2Track">${acctTrackHtml(a)}</div>
         </div>
-        <div class="acct-rows" style="margin-top:14px">
-          <div class="acct-row"><span>Product tour</span>
-            <b><button class="btn btn-o btn-sm" onclick="tourRestart()">${a.product_tour_completed_at?"Replay tour":"Take the tour"}</button></b></div>
+      </header>
+
+      <section class="acct2-zone">
+        <div class="acct2-zone-head">
+          <div>
+            <div class="acct2-zone-kicker">01 — Your public presence</div>
+            <h2 class="acct2-zone-title">What businesses see <em>before</em> they message you.</h2>
+          </div>
+          <p class="acct2-zone-sub">Your listings, your intro video and your bio all appear on your public profile. This is the part of the account worth spending time on.</p>
         </div>
-        <div style="margin-top:16px"><button class="btn btn-o btn-sm" onclick="doLogout()">Log out</button></div>
-      </div></div>
 
-      ${a.linked_account ? `
-      <div class="panel" style="grid-column:1/-1"><div class="panel-b">
-        <h5 style="margin-bottom:8px">Linked profiles</h5>
-        <p class="mut" style="font-size:12.5px;margin-bottom:10px">One login, two identities — switch anytime, no need to log out.</p>
-        <div class="op-row">${avatarBlock(null, a.linked_account.display_name, false)}
-          <div><b>${esc(a.linked_account.display_name||"—")}</b>
-            <small>${a.linked_account.is_business?"Business":"Platform owner"} profile</small></div>
-          <button class="btn btn-p btn-sm" onclick="switchToLinkedAccount('${a.linked_account.is_business?"biz":"plat"}')">Switch to this profile</button></div>
-      </div></div>` : `
-      <div class="panel" style="grid-column:1/-1"><div class="panel-b">
-        <h5 style="margin-bottom:8px">Add another profile</h5>
-        <p class="mut" style="font-size:12.5px;margin-bottom:10px">Run a business and a platform-owner profile from the same login, each with its own name.</p>
-        ${!a.is_business?`<button class="btn btn-o btn-sm" onclick="switchRole('biz')">＋ Set up a business profile</button>`:""}
-        ${!a.is_platform_owner?`<button class="btn btn-o btn-sm" style="margin-left:8px" onclick="switchRole('plat')">＋ Set up a platform-owner profile</button>`:""}
-        ${a.is_business&&a.is_platform_owner?`<p class="mut" style="font-size:12.5px">Both roles are already on this one account (set up before this feature shipped) — nothing to add.</p>`:""}
-      </div></div>`}
+        ${isPlat?`
+        <div class="acct2-listings-panel">
+          <div class="acct2-listings-head">
+            <div><h3>Your listings</h3><p>Services, pricing and analytics for each platform you run. Open a listing to change what people see.</p></div>
+            <button class="btn btn-p" onclick="openRegisterPlatform()">Register a new platform</button>
+          </div>
+          <div class="acct2-listings-grid">
+            ${(S.myPlatforms||[]).length?(S.myPlatforms||[]).map(l=>`
+              <div class="acct2-lcard">
+                <div class="acct2-lcard-top">${pfp(l.name,l.platform,"",l.ownerAvatar)}
+                  <div style="min-width:0"><div class="acct2-lcard-name">${esc(l.name)}</div><div class="acct2-lcard-kind">${esc(l.platform)}</div></div>
+                </div>
+                <div class="acct2-lcard-tags">
+                  <span class="acct2-lcard-tag">${(l.services||[]).length} service${(l.services||[]).length===1?"":"s"}</span>
+                  <span class="acct2-lcard-tag acc">${(l.pricing||[]).length} price${(l.pricing||[]).length===1?"":"s"}</span>
+                </div>
+                <div class="acct2-lcard-foot">
+                  <span class="acct2-lcard-status">${l.suspended?"Suspended":"Visible in marketplace"}</span>
+                  <button class="btn btn-o btn-sm" onclick="openListing('${l.id}')">Open</button>
+                </div>
+              </div>`).join(""):""}
+            <button type="button" class="acct2-add-listing" onclick="openRegisterPlatform()">
+              <span><span class="t">Add a listing</span><span class="s">Another newsletter, channel, community or stream under this account.</span></span>
+              <span class="go">Register →</span>
+            </button>
+          </div>
+        </div>`:""}
 
-      <div class="panel"><div class="panel-b">
-        <h5 style="margin-bottom:8px">Profile intro video</h5>
-        <p class="mut" style="font-size:12.5px;margin-bottom:8px">A short intro shown on your public profile — separate from your My Work portfolio.</p>
-        ${a.intro_video_url
-          ? `<video controls preload="metadata" src="${a.intro_video_url}" style="width:100%;border-radius:10px;background:#000;max-height:260px"></video>`
-          : `<div class="empty-state small"><div class="es-ico">🎬</div><p>No intro video yet.</p></div>`}
-        <div style="margin-top:10px">
-          <label class="btn btn-o btn-sm" for="acct-intro">${a.intro_video_url?"Replace intro video":"Add intro video"}</label>
-          <input type="file" id="acct-intro" accept="video/*" class="pf-file-input" onchange="uploadIntroVideo()"></div>
-        <div class="hint-err hide" id="intro-err"></div>
-      </div></div>
-
-      <div class="panel"><div class="panel-b">
-        <h5 style="margin-bottom:10px">Change password</h5>
-        <div class="frm">
-          <div><label>Current password</label><input type="password" id="pw-cur" autocomplete="current-password"></div>
-          <div><label>New password</label><input type="password" id="pw-new" placeholder="At least 8 characters" autocomplete="new-password"></div>
-          <div><label>Confirm new password</label><input type="password" id="pw-conf" autocomplete="new-password" onkeydown="if(event.key==='Enter')doChangePassword()"></div>
-          <div class="hint-err hide" id="pw-err"></div>
+        <div class="acct2-cards2">
+          <div class="acct2-card" id="whoPanel"></div>
+          <div class="acct2-card">
+            <h3>Intro video</h3>
+            <p>A short hello on your public profile — separate from your My Work portfolio.</p>
+            <div class="acct2-video-slot">
+              ${a.intro_video_url
+                ? `<video controls preload="metadata" src="${a.intro_video_url}"></video>`
+                : `<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;color:var(--faint);text-align:center;line-height:1.5">no intro video yet<br>portrait 9:16 · up to 60s</span>`}
+            </div>
+            <div style="margin-top:14px">
+              <label class="btn btn-o btn-sm" for="acct-intro">${a.intro_video_url?"Replace intro video":"Add intro video"}</label>
+              <input type="file" id="acct-intro" accept="video/*" class="pf-file-input" onchange="uploadIntroVideo()">
+            </div>
+            <div class="hint-err hide" id="intro-err"></div>
+          </div>
         </div>
-        <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="doChangePassword()">Update password</button></div>
-      </div></div>
+      </section>
 
-      ${a.is_platform_owner?`<div class="panel" style="grid-column:1/-1"><div class="panel-b">
-        <h5 style="margin-bottom:6px">Your listings — services, pricing &amp; analytics</h5>
-        <p class="mut" style="font-size:12.5px;margin-bottom:10px">These sections also appear on your public profile. Edit a listing to change what people see.</p>
-        ${(S.myPlatforms||[]).length?(S.myPlatforms||[]).map(l=>`<div class="op-row">${pfp(l.name,l.platform,"",l.ownerAvatar)}
-            <div><b>${esc(l.name)}</b><small>${esc(l.platform)} · ${(l.services||[]).length} service(s) · ${(l.pricing||[]).length} price(s)</small></div>
-            <button class="btn btn-o btn-sm" onclick="openListing('${l.id}')">Open</button></div>`).join("")
-          :`<p class="mut" style="font-size:12.5px">No listings yet.</p>`}
-        <div style="margin-top:10px"><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add a listing</button></div>
-      </div></div>`:""}
+      <section class="acct2-zone">
+        <div class="acct2-zone-kicker muted">02 — Access &amp; security</div>
+        <h2 class="acct2-zone-title" style="margin-top:14px">Who can get into this account, and under which profile.</h2>
+        <div class="acct2-secondary" style="margin-top:22px">
+          <div class="acct2-mini">
+            <h4>Change password</h4>
+            <p>You'll stay signed in on this device.</p>
+            <div class="frm">
+              <label>Current password<input type="password" id="pw-cur" autocomplete="current-password"></label>
+              <label>New password<input type="password" id="pw-new" placeholder="At least 8 characters" autocomplete="new-password"></label>
+              <label>Confirm new password<input type="password" id="pw-conf" autocomplete="new-password" onkeydown="if(event.key==='Enter')doChangePassword()"></label>
+              <div class="hint-err hide" id="pw-err"></div>
+            </div>
+            <div style="margin-top:14px"><button class="btn btn-o btn-sm" style="width:100%" onclick="doChangePassword()">Update password</button></div>
+          </div>
 
-      <div class="panel" style="grid-column:1/-1"><div class="panel-b" id="actionCodePanel"></div></div>
+          <div class="acct2-mini">
+            <h4>Profiles on this login</h4>
+            <p>Run a business and a platform-owner identity from the same sign-in, each with its own name.</p>
+            ${a.linked_account?`
+            <div class="acct2-mini-row">
+              <div class="acct2-profile-opt on">
+                <span class="acct2-profile-opt-av">${esc((a.display_name||a.email||"?").slice(0,1).toUpperCase())}</span>
+                <span><b>${esc(a.display_name||"—")}</b><small>${isBiz?"Business":"Platform owner"} · current</small></span>
+                <span class="act">Active</span>
+              </div>
+              <button type="button" class="acct2-profile-opt" onclick="switchToLinkedAccount('${a.linked_account.is_business?"biz":"plat"}')">
+                <span class="acct2-profile-opt-av" style="background:#0f766e">${esc((a.linked_account.display_name||"?").slice(0,1).toUpperCase())}</span>
+                <span><b>${esc(a.linked_account.display_name||"—")}</b><small>${a.linked_account.is_business?"Business":"Platform owner"}</small></span>
+                <span class="act">Switch</span>
+              </button>
+            </div>`:`
+            <div class="acct2-mini-row">
+              ${!isBiz?`<button type="button" class="acct2-add-profile" onclick="switchRole('biz')">＋ Set up a business profile</button>`:""}
+              ${!isPlat?`<button type="button" class="acct2-add-profile" onclick="switchRole('plat')">＋ Set up a platform-owner profile</button>`:""}
+              ${isBiz&&isPlat?`<p class="mut" style="font-size:12.5px">Both roles are already on this one account (set up before this feature shipped) — nothing to add.</p>`:""}
+            </div>`}
+          </div>
 
-      <div class="panel" style="grid-column:1/-1"><div class="panel-b" id="whoPanel"></div></div>
+          <div class="acct2-mini">
+            <h4>Sign-in details</h4>
+            <p>Your email is how you sign in and can't be changed here.</p>
+            <div class="acct2-signin-rows">
+              <div class="acct2-signin-row"><span class="k">Display name</span><span class="v">${esc(a.display_name||"—")}</span></div>
+              <div class="acct2-signin-row"><span class="k">Email</span><span class="v" style="word-break:break-all">${esc(a.email)}</span></div>
+              <div class="acct2-signin-row"><span class="k">Account role${roles.length>1?"s":""}</span><span class="v" style="color:var(--acc-ink)">${esc(roles.join(" · "))}</span></div>
+            </div>
+            <p class="acct2-signin-note">Editing your name in the header above changes it everywhere on PromoSlot.</p>
+          </div>
+        </div>
+      </section>
 
-      <div class="panel"><div class="panel-b" id="supportPanel">${supportFormHtml()}</div></div>
+      <section class="acct2-zone acct2-utility">
+        <div class="acct2-zone-kicker muted">03 — Help &amp; internal</div>
+        <div class="acct2-utility-body">
+          <div>
+            <h3 class="acct2-utility-title">Something not right? Talk to a person.</h3>
+            <p class="acct2-utility-sub">Messages land in the PromoSlot support inbox. We reply to the email on your account unless you tell us otherwise.</p>
+            ${isSuper?`<div class="acct2-actioncode" id="actionCodePanel"></div>`:`<div id="actionCodePanel"></div>`}
+          </div>
+          <div id="supportPanel">${supportFormHtml()}</div>
+        </div>
+      </section>
     </div>`;
   renderWhoWeAre();
   renderActionCodePanel();
@@ -5126,11 +5248,13 @@ async function renderWhoWeAre(){
   try{ p=await PSApi.get(`/users/${S.account.id}/public`); }catch(e){}
   S._who=p;
   paintWho(host,p);
+  updateAcctTrack();
 }
 // Re-render from local state so unsaved text/links survive a file add/delete.
 function renderWhoWeArePreserving(){
   const host=$("whoPanel"); if(!host) return;
   paintWho(host, S._who||{about_text:"",links:[],assets:[]});
+  updateAcctTrack();
 }
 function paintWho(host,p){
   host.innerHTML=`<h5 style="margin-bottom:6px">Who we are — public profile</h5>
