@@ -1385,6 +1385,40 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   .deal-main{padding:18px 14px}
   .deal-top h2{font-size:18px}
   .stepper{padding:12px 8px 10px}
+}
+/* ---------- About page: authentic product-journey graphic (real components,
+   fictional demo data) — see about-journey-notes.md for the component list.
+   Desktop: horizontal scroll-rail (same pattern as .market-rail). Mobile:
+   vertical timeline, not a shrunk copy of the desktop layout. ---------- */
+.about-journey{position:relative;border-radius:18px;overflow:hidden;background:linear-gradient(100deg,#101f36 0%,#14273f 55%,#1b3050 100%);padding:clamp(36px,6vw,60px) clamp(18px,4vw,40px) clamp(44px,6vw,64px);box-shadow:0 30px 80px -30px rgba(0,0,0,.5)}
+.about-journey::after{content:"";position:absolute;top:6%;right:2%;width:48%;height:78%;background:radial-gradient(circle,rgba(79,70,229,.32),transparent 70%);pointer-events:none}
+.aj-tag{position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#a5b4fc;background:rgba(165,180,252,.12);border:1px solid rgba(165,180,252,.3);padding:6px 14px 6px 11px;border-radius:99px;margin-bottom:clamp(22px,4vw,34px)}
+.aj-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:#a5b4fc}
+.aj-rail-wrap{position:relative;z-index:1;overflow-x:auto;scrollbar-width:none;margin:0 -6px}
+.aj-rail-wrap::-webkit-scrollbar{display:none}
+.aj-rail{display:flex;align-items:flex-end;gap:22px;padding:10px 6px 8px;width:max-content}
+.aj-node{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start}
+.aj-node.rise-0{margin-bottom:0}
+.aj-node.rise-1{margin-bottom:24px}
+.aj-node.rise-2{margin-bottom:48px}
+.aj-node.rise-3{margin-bottom:72px}
+.aj-node.rise-4{margin-bottom:96px}
+.aj-dot{width:8px;height:8px;border-radius:50%;background:#a5b4fc;box-shadow:0 0 0 4px rgba(165,180,252,.18);margin-bottom:11px}
+.aj-label{font-size:10.5px;font-weight:800;color:#8fa0ba;letter-spacing:.06em;text-transform:uppercase;margin-bottom:9px;white-space:nowrap}
+.aj-card{box-shadow:0 20px 40px -16px rgba(0,0,0,.55),0 0 0 1px rgba(165,180,252,.28)}
+.aj-frag{background:var(--card);border-radius:12px;box-shadow:0 14px 26px -12px rgba(0,0,0,.5),0 0 0 1px rgba(165,180,252,.24);padding:12px 14px;min-width:180px}
+.aj-rail-caption{position:relative;z-index:1;margin:16px 0 0;font-size:12px;color:var(--navy-mut)}
+.aj-mobile{display:none}
+@media (max-width:800px){
+  .aj-rail-wrap,.aj-rail-caption{display:none}
+  .aj-mobile{position:relative;z-index:1;display:flex;flex-direction:column;padding-left:22px}
+  .aj-mobile::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:linear-gradient(180deg,rgba(165,180,252,.55),rgba(165,180,252,.1))}
+  .aj-mrow{position:relative;padding-bottom:26px}
+  .aj-mrow:last-child{padding-bottom:0}
+  .aj-mrow::before{content:"";position:absolute;left:-22px;top:5px;width:9px;height:9px;border-radius:50%;background:#a5b4fc;box-shadow:0 0 0 4px rgba(165,180,252,.18)}
+  .aj-mlabel{font-size:10.5px;font-weight:800;color:#8fa0ba;letter-spacing:.06em;text-transform:uppercase;margin-bottom:9px}
+}
+@media (max-width:800px){
   .step{min-width:86px;font-size:10.5px}
   .step .dot{width:26px;height:26px;font-size:11.5px}
   .stepper-track{top:25px;left:48px;right:48px}
@@ -2521,11 +2555,255 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   </div>
 </section>
 
-<!-- ============ SPECULATIVE VISUAL: full-bleed placeholder band ============ -->
+<!-- ============ PRODUCT JOURNEY: real PromoSlot components, fictional demo
+     data. Every card below reuses the site's actual CSS classes (.lcard,
+     .stepper, .status-pill, .msg, .rev-item, .toast, .pfp, .ex-badge) so it
+     is styled identically to the live product — nothing here is a generic
+     invented UI. Desktop = horizontal scroll-rail (same pattern as
+     .market-rail on the homepage). Mobile = vertical timeline, not a shrunk
+     copy of the desktop layout. ============ -->
 <section style="background:var(--navy);padding:0 clamp(20px,5vw,72px) clamp(72px,12vh,150px)">
-  <div data-rise="24" data-img-slot="about-scale" style="max-width:1320px;margin:0 auto;border:1px dashed var(--navy-line);border-radius:18px;background:repeating-linear-gradient(135deg,#16293f,#16293f 10px,#182d47 10px,#182d47 20px);aspect-ratio:21/9;min-height:220px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;padding:clamp(22px,3vw,40px)">
-    <span data-parallax="0.03" style="font-family:ui-monospace,Menlo,monospace;font-size:clamp(11px,1vw,13px);line-height:1.5;letter-spacing:.02em;color:var(--navy-acc);max-width:70ch">[VISUAL: PromoSlot in ten years — an abstract representation of the marketplace at scale]</span>
-    <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.7;color:var(--navy-mut);max-width:72ch">Ultra-wide 21:9. A speculative, abstract image of many thousands of funded deals as structure rather than data-viz — accumulated lines, held positions, weight distributed across a field. Navy ground, indigo emphasis, no glow. Should feel like an aerial plan, calm and legible, not a network-graph screensaver.</span>
+  <div data-rise="24" class="about-journey" style="max-width:1320px;margin:0 auto">
+    <span class="aj-tag">Illustrative journey · fictional demo account</span>
+
+    <div class="aj-rail-wrap">
+      <div class="aj-rail">
+
+        <!-- 1. Listing published -->
+        <div class="aj-node rise-0">
+          <span class="aj-label">1 · Listing published</span>
+          <span class="aj-dot"></span>
+          <div class="toast" style="position:static;animation:none;box-shadow:0 14px 26px -12px rgba(0,0,0,.5)"><span class="toast-ico">✓</span><span>Listing published — live on the marketplace</span></div>
+        </div>
+
+        <!-- 2. Appears on the marketplace: real .lcard -->
+        <div class="aj-node rise-2">
+          <span class="aj-label">2 · On the marketplace</span>
+          <span class="aj-dot"></span>
+          <article class="lcard aj-card" style="width:300px;cursor:default;animation:none">
+            <div class="lcard-top">
+              <div class="pfp" style="background:#d97706">TF</div>
+              <div class="who"><h4>Founders Weekly</h4><div class="handle">@foundersdigest · by Priya N.</div></div>
+              <span class="pbadge" style="background:#d9770614;color:#d97706">📰 Newsletter</span>
+            </div>
+            <div class="tagrow"><span class="tag">Startups</span><span class="tag">SaaS</span><span class="tag ind">Sponsored issue</span></div>
+            <div class="statrow">
+              <div><b>4.1k</b><span>Subs</span></div>
+              <div><b>2.6k</b><span>Opens</span></div>
+              <div><b>52%</b><span>Open rate</span></div>
+            </div>
+            <div class="lcard-bio">A weekly digest for early-stage founders — one sponsor slot per issue.</div>
+            <div class="lcard-bot"><span class="stars no-rating">No ratings yet</span><div class="price-from">From £120</div></div>
+          </article>
+        </div>
+
+        <!-- 3. A business reaches out: real .activity-row -->
+        <div class="aj-node rise-1">
+          <span class="aj-label">3 · A business reaches out</span>
+          <span class="aj-dot"></span>
+          <div class="aj-frag" style="padding:13px 16px">
+            <div class="activity-row" style="padding:0;border:none"><span class="act-time">2m ago</span><span>New message from Bloom &amp; Co.</span></div>
+          </div>
+        </div>
+
+        <!-- 4. They connect: real .msg bubbles -->
+        <div class="aj-node rise-3">
+          <span class="aj-label">4 · They connect</span>
+          <span class="aj-dot"></span>
+          <div class="aj-frag" style="display:flex;flex-direction:column;gap:8px;width:240px">
+            <div class="msg them" style="align-self:flex-start">Loved your last issue — got room for a sponsor slot next month?<span class="mt">10:14</span></div>
+            <div class="msg me" style="align-self:flex-end">Yes! Sending terms over now.<span class="mt">10:21</span></div>
+          </div>
+        </div>
+
+        <!-- 5. Deal started: real .stepper + .status-pill -->
+        <div class="aj-node rise-0">
+          <span class="aj-label">5 · Deal started</span>
+          <span class="aj-dot"></span>
+          <div class="aj-frag" style="width:320px">
+            <span class="status-pill st-review" style="display:inline-block;margin-bottom:12px">approved</span>
+            <div class="stepper" style="margin-bottom:0;padding:12px 10px 10px;box-shadow:none;border:1px solid var(--line)">
+              <div class="stepper-track"><i style="width:20%"></i></div>
+              <div class="step done"><div class="dot">✓</div><span>Agreement</span></div>
+              <div class="step cur"><div class="dot">2</div><span>Approval</span></div>
+              <div class="step"><div class="dot">3</div><span>Funding</span></div>
+              <div class="step"><div class="dot">4</div><span>Delivery</span></div>
+              <div class="step"><div class="dot">5</div><span>Verification</span></div>
+              <div class="step"><div class="dot">6</div><span>Payout</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Delivery in progress: real .status-pill states (colours follow the
+             product's actual rule — funded-but-unpaid is always st-escrow,
+             regardless of which of these four statuses it's in) -->
+        <div class="aj-node rise-4">
+          <span class="aj-label">6 · Delivery in progress</span>
+          <span class="aj-dot"></span>
+          <div class="aj-frag" style="display:flex;flex-wrap:wrap;gap:7px;width:190px">
+            <span class="status-pill st-escrow">funded</span>
+            <span class="status-pill st-escrow">in_delivery</span>
+            <span class="status-pill st-escrow">proof_submitted</span>
+            <span class="status-pill st-escrow">under_review</span>
+          </div>
+        </div>
+
+        <!-- 7. Verified & paid: real .stepper fully done + .status-pill paid -->
+        <div class="aj-node rise-1">
+          <span class="aj-label">7 · Verified &amp; paid</span>
+          <span class="aj-dot"></span>
+          <div class="aj-frag" style="width:320px">
+            <span class="status-pill st-done" style="display:inline-block;margin-bottom:12px">paid</span>
+            <div class="stepper" style="margin-bottom:0;padding:12px 10px 10px;box-shadow:none;border:1px solid var(--line)">
+              <div class="stepper-track"><i style="width:100%"></i></div>
+              <div class="step done"><div class="dot">✓</div><span>Agreement</span></div>
+              <div class="step done"><div class="dot">✓</div><span>Approval</span></div>
+              <div class="step done"><div class="dot">✓</div><span>Funding</span></div>
+              <div class="step done"><div class="dot">✓</div><span>Delivery</span></div>
+              <div class="step done"><div class="dot">✓</div><span>Verification</span></div>
+              <div class="step cur"><div class="dot">✓</div><span>Payout</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 8. Both leave reviews: real .rev-item -->
+        <div class="aj-node rise-3">
+          <span class="aj-label">8 · Both leave reviews</span>
+          <span class="aj-dot"></span>
+          <div class="aj-frag" style="width:270px;padding:8px 16px">
+            <div class="rev-item">
+              <div class="rvtop"><span class="rev-who"><div class="pfp rev-dot" style="background:#eef2ff;color:#4338ca">B</div><b>Bloom &amp; Co.</b></span><span class="stars">★★★★★</span></div>
+              <p>Delivered exactly as agreed, would sponsor again.</p>
+            </div>
+            <div class="rev-item" style="border:none">
+              <div class="rvtop"><span class="rev-who"><div class="pfp rev-dot" style="background:#eef2ff;color:#4338ca">P</div><b>Priya N.</b></span><span class="stars">★★★★★</span></div>
+              <p>Clear brief, paid on time — great first partner.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 9. A track record, carried forward: real profile pattern incl. the
+             site's actual .ex-badge "EXAMPLE" marker (real component, not an
+             invented ranking/badge) -->
+        <div class="aj-node rise-4">
+          <span class="aj-label">9 · A track record, carried forward</span>
+          <span class="aj-dot"></span>
+          <div class="aj-card" style="background:var(--card);border-radius:14px;padding:20px;width:300px">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+              <div class="pfp-wrap"><div class="pfp" style="background:#d97706">TF</div><span class="ex-badge">Example</span></div>
+              <div class="who"><h4 style="margin:0">Founders Weekly</h4><div class="handle">@foundersdigest · by Priya N.</div></div>
+            </div>
+            <div class="tagrow" style="margin-bottom:10px"><span class="tag">Startups</span><span class="tag">SaaS</span></div>
+            <div class="lcard-bot" style="border:none;padding:0"><span class="stars">★ 4.8 <span class="rc">(12)</span></span><div class="price-from">From £120</div></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <p class="aj-rail-caption">Scroll to follow the journey → · a fictional test account, shown for illustration only. Not every listing will reach this outcome.</p>
+
+    <!-- Mobile: vertical timeline, same real components, not the desktop rail shrunk down -->
+    <div class="aj-mobile">
+      <div class="aj-mrow">
+        <div class="aj-mlabel">1 · Listing published</div>
+        <div class="toast" style="position:static;animation:none;box-shadow:0 14px 26px -12px rgba(0,0,0,.5)"><span class="toast-ico">✓</span><span>Listing published — live on the marketplace</span></div>
+      </div>
+      <div class="aj-mrow">
+        <div class="aj-mlabel">2 · On the marketplace</div>
+        <article class="lcard aj-card" style="cursor:default;animation:none">
+          <div class="lcard-top">
+            <div class="pfp" style="background:#d97706">TF</div>
+            <div class="who"><h4>Founders Weekly</h4><div class="handle">@foundersdigest · by Priya N.</div></div>
+            <span class="pbadge" style="background:#d9770614;color:#d97706">📰 Newsletter</span>
+          </div>
+          <div class="tagrow"><span class="tag">Startups</span><span class="tag">SaaS</span><span class="tag ind">Sponsored issue</span></div>
+          <div class="statrow">
+            <div><b>4.1k</b><span>Subs</span></div>
+            <div><b>2.6k</b><span>Opens</span></div>
+            <div><b>52%</b><span>Open rate</span></div>
+          </div>
+          <div class="lcard-bio">A weekly digest for early-stage founders — one sponsor slot per issue.</div>
+          <div class="lcard-bot"><span class="stars no-rating">No ratings yet</span><div class="price-from">From £120</div></div>
+        </article>
+      </div>
+      <div class="aj-mrow">
+        <div class="aj-mlabel">3 · A business reaches out</div>
+        <div class="aj-frag" style="padding:13px 16px">
+          <div class="activity-row" style="padding:0;border:none"><span class="act-time">2m ago</span><span>New message from Bloom &amp; Co.</span></div>
+        </div>
+      </div>
+      <div class="aj-mrow">
+        <div class="aj-mlabel">4 · They connect</div>
+        <div class="aj-frag" style="display:flex;flex-direction:column;gap:8px">
+          <div class="msg them" style="align-self:flex-start">Loved your last issue — got room for a sponsor slot next month?<span class="mt">10:14</span></div>
+          <div class="msg me" style="align-self:flex-end">Yes! Sending terms over now.<span class="mt">10:21</span></div>
+        </div>
+      </div>
+      <div class="aj-mrow">
+        <div class="aj-mlabel">5 · Deal started</div>
+        <div class="aj-frag">
+          <span class="status-pill st-review" style="display:inline-block;margin-bottom:12px">approved</span>
+          <div class="stepper" style="margin-bottom:0;padding:12px 10px 10px;box-shadow:none;border:1px solid var(--line)">
+            <div class="stepper-track"><i style="width:20%"></i></div>
+            <div class="step done"><div class="dot">✓</div><span>Agreement</span></div>
+            <div class="step cur"><div class="dot">2</div><span>Approval</span></div>
+            <div class="step"><div class="dot">3</div><span>Funding</span></div>
+            <div class="step"><div class="dot">4</div><span>Delivery</span></div>
+            <div class="step"><div class="dot">5</div><span>Verification</span></div>
+            <div class="step"><div class="dot">6</div><span>Payout</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="aj-mrow">
+        <div class="aj-mlabel">6 · Delivery in progress</div>
+        <div class="aj-frag" style="display:flex;flex-wrap:wrap;gap:7px">
+          <span class="status-pill st-escrow">funded</span>
+          <span class="status-pill st-escrow">in_delivery</span>
+          <span class="status-pill st-escrow">proof_submitted</span>
+          <span class="status-pill st-escrow">under_review</span>
+        </div>
+      </div>
+      <div class="aj-mrow">
+        <div class="aj-mlabel">7 · Verified &amp; paid</div>
+        <div class="aj-frag">
+          <span class="status-pill st-done" style="display:inline-block;margin-bottom:12px">paid</span>
+          <div class="stepper" style="margin-bottom:0;padding:12px 10px 10px;box-shadow:none;border:1px solid var(--line)">
+            <div class="stepper-track"><i style="width:100%"></i></div>
+            <div class="step done"><div class="dot">✓</div><span>Agreement</span></div>
+            <div class="step done"><div class="dot">✓</div><span>Approval</span></div>
+            <div class="step done"><div class="dot">✓</div><span>Funding</span></div>
+            <div class="step done"><div class="dot">✓</div><span>Delivery</span></div>
+            <div class="step done"><div class="dot">✓</div><span>Verification</span></div>
+            <div class="step cur"><div class="dot">✓</div><span>Payout</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="aj-mrow">
+        <div class="aj-mlabel">8 · Both leave reviews</div>
+        <div class="aj-frag" style="padding:8px 16px">
+          <div class="rev-item">
+            <div class="rvtop"><span class="rev-who"><div class="pfp rev-dot" style="background:#eef2ff;color:#4338ca">B</div><b>Bloom &amp; Co.</b></span><span class="stars">★★★★★</span></div>
+            <p>Delivered exactly as agreed, would sponsor again.</p>
+          </div>
+          <div class="rev-item" style="border:none">
+            <div class="rvtop"><span class="rev-who"><div class="pfp rev-dot" style="background:#eef2ff;color:#4338ca">P</div><b>Priya N.</b></span><span class="stars">★★★★★</span></div>
+            <p>Clear brief, paid on time — great first partner.</p>
+          </div>
+        </div>
+      </div>
+      <div class="aj-mrow">
+        <div class="aj-mlabel">9 · A track record, carried forward</div>
+        <div class="aj-card" style="background:var(--card);border-radius:14px;padding:18px">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+            <div class="pfp-wrap"><div class="pfp" style="background:#d97706">TF</div><span class="ex-badge">Example</span></div>
+            <div class="who"><h4 style="margin:0">Founders Weekly</h4><div class="handle">@foundersdigest · by Priya N.</div></div>
+          </div>
+          <div class="tagrow" style="margin-bottom:10px"><span class="tag">Startups</span><span class="tag">SaaS</span></div>
+          <div class="lcard-bot" style="border:none;padding:0"><span class="stars">★ 4.8 <span class="rc">(12)</span></span><div class="price-from">From £120</div></div>
+        </div>
+      </div>
+      <p class="aj-rail-caption" style="display:block;margin-top:18px">A fictional test account, shown for illustration only. Not every listing will reach this outcome.</p>
+    </div>
   </div>
 </section>
 
