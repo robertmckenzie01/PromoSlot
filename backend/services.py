@@ -211,19 +211,27 @@ def check_instant_eligibility(stripe_account_id: str) -> dict:
 
     Never cached — Stripe can re-assess instant eligibility over time, and
     caching a stale "yes" could send an owner down a payout path that fails.
+
+    Stripe's response objects here (ListObject/StripeObject) do NOT support
+    dict-style .get() the way a plain dict does — calling .get() on them
+    falls through to their __getattr__/__getitem__ machinery and raises a
+    raw KeyError instead of returning a default. Every Stripe object is
+    converted to a plain dict via .to_dict() (recursive) immediately after
+    the API call, before anything touches it with .get().
     """
     destinations = []
     for obj_type in ("bank_account", "card"):
         try:
             accounts = stripe.Account.list_external_accounts(
                 stripe_account_id, object=obj_type, limit=10)
+            data = accounts.to_dict().get("data", [])
         except Exception:
             continue
-        for ext in accounts.get("data", []):
+        for ext in data:
             methods = ext.get("available_payout_methods") or []
             if "instant" in methods:
                 destinations.append({
-                    "id": ext["id"], "type": obj_type,
+                    "id": ext.get("id"), "type": obj_type,
                     "last4": ext.get("last4"), "brand": ext.get("brand") or ext.get("bank_name"),
                 })
     return {"eligible": bool(destinations), "destinations": destinations}
@@ -251,10 +259,11 @@ def try_instant_payout(db: Session, deal: Deal, connected_account: ConnectedAcco
         return {"ok": False, "reason": "not_eligible"}
 
     try:
-        bal = stripe.Balance.retrieve(
+        bal_obj = stripe.Balance.retrieve(
             stripe_account=connected_account.stripe_account_id,
             expand=["instant_available.net_available"],
         )
+        bal = bal_obj.to_dict()  # see check_instant_eligibility: .get() isn't safe on the raw object
     except Exception as e:
         return {"ok": False, "reason": f"balance_lookup_failed: {e}"}
 

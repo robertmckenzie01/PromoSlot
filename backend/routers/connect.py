@@ -230,6 +230,7 @@ def add_debit_card(body: DebitCardIn, user: User = Depends(get_current_user),
     try:
         ext = stripe.Account.create_external_account(
             row.stripe_account_id, external_account=body.token)
+        ext_dict = ext.to_dict()  # .get() isn't safe on the raw Stripe object — see check_instant_eligibility
     except Exception as e:
         raise _stripe_error(e)
-    return {"ok": True, "external_account_id": ext.id, "last4": ext.get("last4")}
+    return {"ok": True, "external_account_id": ext_dict.get("id"), "last4": ext_dict.get("last4")}
