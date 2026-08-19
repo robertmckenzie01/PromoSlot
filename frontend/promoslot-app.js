@@ -845,7 +845,134 @@ function goHow(){ setRoute("how"); showView("view-how"); }
 function goPricingPage(){ setRoute("pricing"); showView("view-pricing"); }
 function goProtect(){ setRoute("protect"); showView("view-protect"); }
 function goResources(){ setRoute("resources"); showView("view-resources"); }
-function goAbout(){ setRoute("about"); showView("view-about"); }
+function goAbout(){ setRoute("about"); showView("view-about"); initAboutMotion(); }
+// Scroll choreography for the About page: headline line-mask reveals, block
+// rises, ledger-pair reveals, drawn rules, beat-focus tracking and magnetic
+// buttons. Runs once per page load (guarded by data-motion-wired) since the
+// view stays in the DOM across navigations — no need to replay on revisit.
+function initAboutMotion(){
+  const root=$("view-about"); if(!root||root.dataset.motionWired) return;
+  root.dataset.motionWired="1";
+  const reduced=resVisReduced();
+
+  const lineGroups=new Map();
+  root.querySelectorAll("[data-line]").forEach(el=>{
+    const h=el.closest("h1,h2");
+    if(!lineGroups.has(h)) lineGroups.set(h,[]);
+    lineGroups.get(h).push(el);
+    if(!reduced){ el.style.transform="translateY(105%)"; el.style.transition="transform 1s cubic-bezier(.16,1,.3,1)"; }
+  });
+  const playLines=h=>(lineGroups.get(h)||[]).forEach((el,i)=>{
+    setTimeout(()=>{ el.style.transform="translateY(0)"; }, i*110);
+  });
+
+  if(reduced){
+    root.querySelectorAll("[data-rise]").forEach(el=>{ el.style.opacity="1"; el.style.transform="none"; });
+    root.querySelectorAll("[data-new]").forEach(el=>{ el.style.opacity="1"; el.style.transform="none"; });
+    root.querySelectorAll("[data-old]").forEach(el=>{ el.style.opacity=".78"; });
+    root.querySelectorAll("[data-drawline],[data-beatrule]").forEach(el=>{ el.style.transform=el.hasAttribute("data-drawline")?"scaleY(1)":"scaleX(1)"; });
+    lineGroups.forEach((_,h)=>playLines(h));
+    return;
+  }
+
+  const rises=[...root.querySelectorAll("[data-rise]")];
+  rises.forEach(el=>{
+    const d=parseFloat(el.dataset.rise)||16;
+    el.style.opacity="0"; el.style.transform="translateY("+d+"px)";
+    el.style.transition="opacity .85s cubic-bezier(.16,1,.3,1),transform .95s cubic-bezier(.16,1,.3,1)";
+  });
+
+  const pairs=[...root.querySelectorAll("[data-pair]")];
+  pairs.forEach(li=>{
+    const nw=li.querySelector("[data-new]"), old=li.querySelector("[data-old]");
+    nw.style.opacity="0"; nw.style.transform="translateX(-14px)";
+    nw.style.transition="opacity .7s ease,transform .8s cubic-bezier(.16,1,.3,1)";
+    old.style.opacity="1"; old.style.transition="opacity .9s ease .25s";
+  });
+
+  const draws=[...root.querySelectorAll("[data-drawline],[data-beatrule]")];
+  draws.forEach(el=>{
+    const vertical=el.hasAttribute("data-drawline");
+    el.style.transform=vertical?"scaleY(0)":"scaleX(0)";
+    el.style.transition="transform 1.1s cubic-bezier(.16,1,.3,1)";
+  });
+
+  const show=el=>{
+    if(el.hasAttribute("data-rise")){ el.style.opacity="1"; el.style.transform="translateY(0)"; }
+    if(el.hasAttribute("data-pair")){
+      const nw=el.querySelector("[data-new]"), old=el.querySelector("[data-old]");
+      nw.style.opacity="1"; nw.style.transform="translateX(0)"; old.style.opacity=".78";
+    }
+    if(el.hasAttribute("data-drawline")) el.style.transform="scaleY(1)";
+    if(el.hasAttribute("data-beatrule")) el.style.transform="scaleX(1)";
+    if(el.tagName==="H1"||el.tagName==="H2") playLines(el);
+  };
+
+  const pending=new Set([...lineGroups.keys(), ...rises, ...pairs, ...draws]);
+  const reveal=(el,delay)=>{
+    if(!pending.has(el)) return;
+    pending.delete(el);
+    if(delay) setTimeout(()=>show(el),delay); else show(el);
+    io.unobserve(el);
+  };
+
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      if(!e.isIntersecting) return;
+      const el=e.target;
+      reveal(el, el.hasAttribute("data-pair") ? (pairs.indexOf(el)%3)*90 : 0);
+    });
+  }, { rootMargin:"0px 0px -12% 0px", threshold:.18 });
+  pending.forEach(el=>io.observe(el));
+
+  const hero=root.querySelector("h1");
+  requestAnimationFrame(()=>reveal(hero,0));
+
+  const beats=[...root.querySelectorAll("[data-beat]")];
+  const parallaxEls=[...root.querySelectorAll("[data-parallax]")];
+  const track=()=>{
+    if(pending.size){
+      [...pending].forEach(el=>{ if(el.getBoundingClientRect().top<window.innerHeight*0.92) reveal(el,0); });
+    }
+    const line=window.innerHeight*0.46;
+    let best=null, bestD=Infinity;
+    beats.forEach(b=>{
+      const r=b.getBoundingClientRect();
+      const d=Math.abs((r.top+r.height/2)-line);
+      if(d<bestD){ bestD=d; best=b; }
+    });
+    beats.forEach(b=>{
+      const on=b===best && bestD<window.innerHeight*0.42;
+      const t=b.querySelector("[data-beattitle]"), c=b.querySelector("[data-beatcap]");
+      if(t) t.style.color=on?"#ffffff":"var(--navy-mut)";
+      if(c) c.style.opacity=on?"1":".55";
+    });
+    parallaxEls.forEach(el=>{
+      const f=parseFloat(el.dataset.parallax)||0;
+      const r=el.getBoundingClientRect();
+      const off=((r.top+r.height/2)-window.innerHeight/2)*-f;
+      el.style.transform="translate3d(0,"+off.toFixed(1)+"px,0)";
+    });
+  };
+  let queued=false;
+  const onScroll=()=>{ if(!queued){ queued=true; requestAnimationFrame(()=>{ queued=false; track(); }); } };
+  window.addEventListener("scroll", onScroll, { passive:true });
+  window.addEventListener("resize", onScroll, { passive:true });
+
+  root.querySelectorAll("[data-magnetic]").forEach(btn=>{
+    const move=e=>{
+      const r=btn.getBoundingClientRect();
+      const dx=(e.clientX-(r.left+r.width/2))/r.width;
+      const dy=(e.clientY-(r.top+r.height/2))/r.height;
+      btn.style.transform="translate("+(dx*5).toFixed(2)+"px,"+(dy*4-1).toFixed(2)+"px)";
+    };
+    const leave=()=>{ btn.style.transform="translate(0,0)"; };
+    btn.addEventListener("pointermove", move);
+    btn.addEventListener("pointerleave", leave);
+  });
+
+  track();
+}
 async function openDash(){
   if(!S.account){ authModal("login"); return; }
   if(!S.roles.includes(S.activeRole)) S.activeRole=S.roles[0];

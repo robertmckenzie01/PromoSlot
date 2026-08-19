@@ -2313,20 +2313,239 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 </div>
 
 <div class="view" id="view-about" data-screen-label="About">
-  <div class="page-head">
-    <div class="page-head-in">
-      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> About</div>
-      <div class="eyebrow">About</div>
-      <h1>About PromoSlot.</h1>
-      <p>A marketplace connecting businesses with platform owners for accountable, evidence-based promotion.</p>
+
+<!-- ============ HERO: full-bleed navy, oversized kinetic Newsreader ============ -->
+<header id="about-hero" style="position:relative;min-height:min(92vh,940px);display:flex;flex-direction:column;justify-content:space-between;gap:clamp(56px,9vh,120px);padding:clamp(56px,9vh,108px) clamp(20px,5vw,72px) clamp(40px,6vh,72px);overflow:hidden;background:var(--navy)">
+  <div data-parallax="0.05" style="position:absolute;inset:-10% 0;display:grid;grid-template-columns:repeat(6,1fr);pointer-events:none">
+    <span style="border-left:1px solid rgba(255,255,255,.045)"></span>
+    <span style="border-left:1px solid rgba(255,255,255,.045)"></span>
+    <span style="border-left:1px solid rgba(165,180,252,.10)"></span>
+    <span style="border-left:1px solid rgba(255,255,255,.045)"></span>
+    <span style="border-left:1px solid rgba(255,255,255,.045)"></span>
+    <span style="border-left:1px solid rgba(255,255,255,.045);border-right:1px solid rgba(255,255,255,.045)"></span>
+  </div>
+
+  <div style="position:relative;max-width:1320px;width:100%;margin:0 auto">
+    <div data-rise="10" style="display:flex;align-items:center;gap:14px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--navy-acc)">
+      <span style="width:clamp(28px,6vw,72px);height:1px;background:var(--navy-acc);opacity:.6"></span>About PromoSlot
+    </div>
+    <h1 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(40px,7.5vw,114px);line-height:.98;letter-spacing:-.035em;color:#fff;margin:clamp(24px,4vh,46px) 0 0;max-width:19ch">
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">Promotion is becoming</span></span>
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block"><em style="font-style:italic;font-weight:400;color:var(--navy-acc)">a marketplace</em>, not a</span></span>
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="2" style="display:block">favor economy.</span></span>
+    </h1>
+  </div>
+
+  <div style="position:relative;max-width:1320px;width:100%;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(28px,4vw,64px);align-items:end;border-top:1px solid rgba(255,255,255,.09);padding-top:clamp(24px,3vh,40px)">
+    <p data-rise="18" style="margin:0;max-width:52ch;font-size:clamp(15px,1.15vw,17.5px);line-height:1.65;color:var(--navy-sub)">The direct line between businesses and the people who move audiences — no agency in between, no cold DMs, no guessing what a partnership is actually worth.</p>
+    <div data-rise="18" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start">
+      <button class="btn btn-p btn-lg" data-magnetic="1" data-act="get-started" type="button">Start your profile</button>
+      <button class="btn btn-o btn-lg final-cta-o" data-magnetic="1" data-act="how" type="button">See how it works</button>
     </div>
   </div>
-  <section class="section" style="padding-top:36px">
-    <div class="coming-soon-box">
-      <h3>More about us is coming soon</h3>
-      <p>We're putting together the story behind PromoSlot. Meanwhile you can see <a href="#" data-act="how">how it works</a> or head to the <a href="#" data-act="market">Marketplace</a>.</p>
+</header>
+
+<!-- ============ WHAT'S CHANGING: sticky headline column + a paired ledger (old struck / new stated) ============ -->
+<section style="background:var(--bg);color:var(--ink);padding:clamp(72px,13vh,168px) clamp(20px,5vw,72px)">
+  <div style="max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:clamp(40px,5vw,88px);align-items:start">
+    <div style="position:sticky;top:88px">
+      <div data-rise="10" style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--acc2)">
+        <span style="width:34px;height:1px;background:var(--acc-border)"></span>What's changing
+      </div>
+      <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(32px,4.6vw,64px);line-height:1.02;letter-spacing:-.03em;margin:20px 0 0;max-width:16ch">
+        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">The old system</span></span>
+        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block"><em style="font-style:italic;font-weight:400;color:var(--mut)">vs.</em> the open</span></span>
+        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="2" style="display:block">marketplace</span></span>
+      </h2>
+      <p data-rise="16" style="margin:26px 0 0;max-width:44ch;font-size:15.5px;line-height:1.7;color:var(--mut)">Promotion used to happen in the gaps between a DM inbox, a rate card nobody actually charges, and a memory of who said what. None of that scales, and none of it is checkable.</p>
     </div>
-  </section>
+
+    <div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);font-size:10.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);padding-bottom:14px">
+        <span>The old system</span><span style="color:var(--acc2)">The open marketplace</span>
+      </div>
+      <ol style="list-style:none;margin:0;padding:0">
+        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
+          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">Outreach that disappears into a DM inbox</span>
+          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">A public listing with real numbers, priced and readable</span>
+        </li>
+        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
+          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">An agency fee before either side has agreed anything</span>
+          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">Direct terms, agreed in writing by both sides</span>
+        </li>
+        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
+          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">A "rate card" that isn't the actual rate</span>
+          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">Funds held the moment a deal is funded</span>
+        </li>
+        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
+          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">No record of what was promised, so nothing to point back to</span>
+          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">Evidence — a link, a screenshot, an analytics screen — not a memory</span>
+        </li>
+        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
+          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">Payment on trust, or long after delivery</span>
+          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">A profile that carries every completed deal forward</span>
+        </li>
+        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">A reputation that lives in someone's memory, not anywhere visible</span>
+          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">One place both sides can point to when something is in question</span>
+        </li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHAT YOU BUILD HERE: six beats as an escalating type scale, no dots ============ -->
+<section style="background:var(--navy);padding:clamp(72px,13vh,168px) clamp(20px,5vw,72px);border-top:1px solid var(--navy-line)">
+  <div style="max-width:1320px;margin:0 auto">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:clamp(32px,5vw,80px);align-items:end;padding-bottom:clamp(56px,8vh,104px)">
+      <div>
+        <div data-rise="10" style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--navy-acc)">
+          <span style="width:34px;height:1px;background:var(--navy-acc);opacity:.6"></span>What you build here
+        </div>
+        <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(32px,5vw,72px);line-height:1;letter-spacing:-.032em;color:#fff;margin:20px 0 0;max-width:14ch">
+          <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">Reputation</span></span>
+          <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block">becomes <em style="font-style:italic;font-weight:400;color:var(--navy-acc)">opportunity</em></span></span>
+        </h2>
+      </div>
+      <p data-rise="16" style="margin:0;max-width:50ch;font-size:15.5px;line-height:1.72;color:var(--navy-sub)">A follower count resets the moment you stop posting. A reputation doesn't. Every deal completed on PromoSlot stays attached to the profile that did it — not as a number to inflate, but as a record: delivered, on time, as agreed.</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:clamp(26px,4vh,52px)">
+      <div data-beat="0" style="margin-left:0">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span data-beatrule="1" style="display:block;width:24px;height:1px;background:var(--navy-acc);opacity:.45;transform-origin:left center"></span>
+          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(19px,2.1vw,25px);line-height:1.1;letter-spacing:-.02em;color:var(--navy-mut);margin:0;transition:color .5s ease">Profile created</h3>
+        </div>
+        <p data-beatcap="1" style="margin:8px 0 0 38px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">the starting point, nothing to prove yet</p>
+      </div>
+      <div data-beat="1" style="margin-left:clamp(0px,2.4vw,44px)">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span data-beatrule="1" style="display:block;width:44px;height:1px;background:var(--navy-acc);opacity:.5;transform-origin:left center"></span>
+          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(21px,2.6vw,31px);line-height:1.1;letter-spacing:-.022em;color:var(--navy-mut);margin:0;transition:color .5s ease">First listing live</h3>
+        </div>
+        <p data-beatcap="1" style="margin:8px 0 0 58px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">what you offer, priced and public</p>
+      </div>
+      <div data-beat="2" style="margin-left:clamp(0px,5.5vw,104px)">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span data-beatrule="1" style="display:block;width:66px;height:1px;background:var(--navy-acc);opacity:.55;transform-origin:left center"></span>
+          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(23px,3.2vw,38px);line-height:1.08;letter-spacing:-.024em;color:var(--navy-mut);margin:0;transition:color .5s ease">First deal funded</h3>
+        </div>
+        <p data-beatcap="1" style="margin:9px 0 0 80px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">terms agreed, payment held</p>
+      </div>
+      <div data-beat="3" style="margin-left:clamp(0px,9vw,168px)">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span data-beatrule="1" style="display:block;width:92px;height:1px;background:var(--navy-acc);opacity:.6;transform-origin:left center"></span>
+          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(25px,3.9vw,46px);line-height:1.06;letter-spacing:-.026em;color:var(--navy-mut);margin:0;transition:color .5s ease">Delivery verified</h3>
+        </div>
+        <p data-beatcap="1" style="margin:10px 0 0 106px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">evidence checked against the terms</p>
+      </div>
+      <div data-beat="4" style="margin-left:clamp(0px,13.5vw,246px)">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span data-beatrule="1" style="display:block;width:120px;height:1px;background:var(--navy-acc);opacity:.7;transform-origin:left center"></span>
+          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(27px,4.6vw,55px);line-height:1.04;letter-spacing:-.028em;color:var(--navy-mut);margin:0;transition:color .5s ease">Repeat partner</h3>
+        </div>
+        <p data-beatcap="1" style="margin:11px 0 0 134px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">someone comes back on purpose</p>
+      </div>
+      <div data-beat="5" style="margin-left:clamp(0px,19vw,340px)">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span data-beatrule="1" style="display:block;width:150px;height:1px;background:var(--acc);opacity:1;transform-origin:left center"></span>
+          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-style:italic;font-weight:400;font-size:clamp(30px,5.4vw,66px);line-height:1.02;letter-spacing:-.03em;color:var(--navy-mut);margin:0;transition:color .5s ease">Known in category</h3>
+        </div>
+        <p data-beatcap="1" style="margin:12px 0 0 164px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">the record speaks before you do</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHO'S ACTUALLY HERE: editorial run of three principles ============ -->
+<section style="background:var(--bg);color:var(--ink);padding:clamp(72px,13vh,168px) clamp(20px,5vw,72px)">
+  <div style="max-width:1320px;margin:0 auto">
+    <div data-rise="10" style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--acc2)">
+      <span style="width:34px;height:1px;background:var(--acc-border)"></span>Who's actually here
+    </div>
+    <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(34px,6vw,88px);line-height:.99;letter-spacing:-.035em;margin:clamp(18px,3vh,32px) 0 0;max-width:22ch">
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">Built by the people</span></span>
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block">who <em style="font-style:italic;font-weight:400;color:var(--acc2)">participate</em></span></span>
+    </h2>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(32px,5vw,80px);align-items:start;margin-top:clamp(44px,6vh,80px)">
+      <p data-rise="16" style="margin:0;font-family:Newsreader,serif;font-size:clamp(20px,2.2vw,28px);line-height:1.42;letter-spacing:-.015em;color:var(--ink2);max-width:34ch">PromoSlot isn't handed down to a market — it's shaped by the businesses and platform owners using it, deal by deal. Every payment model and evidence requirement exists because someone doing real promotional work needed it to.</p>
+
+      <div data-rise="24" style="display:flex;flex-direction:column;gap:10px">
+        <div data-parallax="0.04" data-img-slot="about-people" style="border:1px dashed var(--acc-border);border-radius:14px;background:repeating-linear-gradient(135deg,#fff,#fff 9px,#f6f8fc 9px,#f6f8fc 18px);aspect-ratio:4/5;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;padding:22px">
+          <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.5;letter-spacing:.02em;color:var(--acc2)">[VISUAL: The people in the market — portrait grid of real businesses and platform owners]</span>
+          <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;line-height:1.6;color:var(--mut)">Portrait 4:5. A tight, unposed grid of participants — desk-level, natural light, no stock-photo gloss. Cool navy-leaning grade so it sits with the brand. Should read as documentary evidence of who is here, not as a testimonial banner.</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:clamp(56px,9vh,120px);display:flex;flex-direction:column;gap:clamp(40px,6vh,84px)">
+      <div data-rise="20" style="max-width:46ch;border-top:1px solid var(--line);padding-top:20px">
+        <h3 style="font-family:Newsreader,serif;font-weight:600;font-size:clamp(24px,2.8vw,36px);line-height:1.1;letter-spacing:-.025em;margin:0">Terms, not guesses</h3>
+        <p style="margin:12px 0 0;font-size:15px;line-height:1.7;color:var(--mut)">What a reviewer checks is always what both sides actually agreed to, nothing assumed, nothing implied.</p>
+      </div>
+      <div data-rise="20" style="max-width:38ch;margin-left:auto;margin-right:clamp(0px,6vw,110px);border-top:1px solid var(--acc-border);padding-top:20px;text-align:left">
+        <h3 style="font-family:Newsreader,serif;font-weight:600;font-size:clamp(26px,3.4vw,46px);line-height:1.08;letter-spacing:-.028em;margin:0;color:var(--acc2)">Evidence, not memory</h3>
+        <p style="margin:12px 0 0;font-size:15px;line-height:1.7;color:var(--mut)">Every figure that decides a payment is tied to a named screen it was read from.</p>
+      </div>
+      <div data-rise="20" style="max-width:60ch;margin-left:clamp(0px,10vw,190px);border-top:1px solid var(--line);padding-top:20px">
+        <h3 style="font-family:Newsreader,serif;font-style:italic;font-weight:400;font-size:clamp(28px,4.2vw,58px);line-height:1.04;letter-spacing:-.03em;margin:0">Shaped in use</h3>
+        <p style="margin:14px 0 0;font-size:15px;line-height:1.7;color:var(--mut);max-width:44ch">The fields, the models and the rules keep changing because the people relying on them keep telling us what's missing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHY NOW: navy, headline-alongside layout, three reasons on a drawn vertical rule ============ -->
+<section style="background:var(--navy);padding:clamp(72px,13vh,168px) clamp(20px,5vw,72px);border-top:1px solid var(--navy-line)">
+  <div style="max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:clamp(40px,6vw,104px);align-items:start">
+    <div>
+      <div data-rise="10" style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--navy-acc)">
+        <span style="width:34px;height:1px;background:var(--navy-acc);opacity:.6"></span>Why now
+      </div>
+      <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(32px,5vw,74px);line-height:1;letter-spacing:-.032em;color:#fff;margin:20px 0 0;max-width:15ch">
+        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">Early doesn't</span></span>
+        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block">mean lucky.</span></span>
+        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="2" style="display:block">It means <em style="font-style:italic;font-weight:400;color:var(--navy-acc)">visible.</em></span></span>
+      </h2>
+      <div data-rise="16" style="margin:clamp(24px,4vh,40px) 0 0;max-width:48ch;font-size:15.5px;line-height:1.72;color:var(--navy-sub)"><p style="margin:0">Joining early can give you more time to establish your profile, complete deals and build a track record as the marketplace grows — but timing alone guarantees nothing. New audiences, categories and opportunities will continue to emerge, giving strong platform owners the chance to build a meaningful presence whenever they join. Starting early can create momentum; lasting success comes from what you deliver.</p></div>
+    </div>
+
+    <div style="position:relative;padding-left:clamp(20px,3vw,44px)">
+      <span data-drawline="1" style="position:absolute;left:0;top:6px;bottom:6px;width:1px;background:linear-gradient(180deg,var(--navy-acc),rgba(165,180,252,.15));transform-origin:top center"></span>
+      <div style="display:flex;flex-direction:column;gap:clamp(30px,5vh,58px)">
+        <p data-rise="18" style="margin:0;font-family:Newsreader,serif;font-weight:500;font-size:clamp(21px,2.5vw,32px);line-height:1.22;letter-spacing:-.022em;color:#fff;max-width:26ch">A profile with room to be first in your niche</p>
+        <p data-rise="18" style="margin:0;font-family:Newsreader,serif;font-weight:500;font-size:clamp(21px,2.5vw,32px);line-height:1.22;letter-spacing:-.022em;color:#fff;max-width:26ch">A track record that starts counting from day one</p>
+        <p data-rise="18" style="margin:0;font-family:Newsreader,serif;font-weight:500;font-size:clamp(21px,2.5vw,32px);line-height:1.22;letter-spacing:-.022em;color:#fff;max-width:26ch">A direct hand in shaping how the marketplace works</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SPECULATIVE VISUAL: full-bleed placeholder band ============ -->
+<section style="background:var(--navy);padding:0 clamp(20px,5vw,72px) clamp(72px,12vh,150px)">
+  <div data-rise="24" data-img-slot="about-scale" style="max-width:1320px;margin:0 auto;border:1px dashed var(--navy-line);border-radius:18px;background:repeating-linear-gradient(135deg,#16293f,#16293f 10px,#182d47 10px,#182d47 20px);aspect-ratio:21/9;min-height:220px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;padding:clamp(22px,3vw,40px)">
+    <span data-parallax="0.03" style="font-family:ui-monospace,Menlo,monospace;font-size:clamp(11px,1vw,13px);line-height:1.5;letter-spacing:.02em;color:var(--navy-acc);max-width:70ch">[VISUAL: PromoSlot in ten years — an abstract representation of the marketplace at scale]</span>
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.7;color:var(--navy-mut);max-width:72ch">Ultra-wide 21:9. A speculative, abstract image of many thousands of funded deals as structure rather than data-viz — accumulated lines, held positions, weight distributed across a field. Navy ground, indigo emphasis, no glow. Should feel like an aerial plan, calm and legible, not a network-graph screensaver.</span>
+  </div>
+</section>
+
+<!-- ============ CLOSING ============ -->
+<section style="background:var(--navy3);border-top:1px solid var(--navy-line);padding:clamp(80px,15vh,190px) clamp(20px,5vw,72px)">
+  <div style="max-width:1320px;margin:0 auto">
+    <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(36px,6.6vw,98px);line-height:.99;letter-spacing:-.035em;color:#fff;margin:0;max-width:17ch">
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">The marketplace starts</span></span>
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block">with the <em style="font-style:italic;font-weight:400;color:var(--navy-acc)">people</em> in it.</span></span>
+    </h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(28px,4vw,64px);align-items:end;margin-top:clamp(40px,6vh,76px);border-top:1px solid rgba(255,255,255,.09);padding-top:clamp(24px,3vh,40px)">
+      <p data-rise="16" style="margin:0;max-width:44ch;font-size:15.5px;line-height:1.7;color:var(--navy-sub)">Create a profile, list what you offer, or post the first campaign in your category.</p>
+      <div data-rise="16" style="display:flex;flex-wrap:wrap;gap:12px">
+        <button class="btn btn-p btn-lg" data-magnetic="1" data-act="market-platforms" type="button">Find promotion</button>
+        <button class="btn btn-o btn-lg final-cta-o" data-magnetic="1" data-act="wiz-plat" type="button">Monetise your audience</button>
+      </div>
+    </div>
+  </div>
+</section>
 
   <footer class="footer-v3">
     <div class="footer-v3-in">
