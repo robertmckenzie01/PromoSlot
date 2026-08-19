@@ -4174,10 +4174,16 @@ function restrictedUserRowsHtml(rows){
       <div><div class="dr-t">${esc(u.display_name||u.email)}</div>
         <div class="dr-s">${esc(u.email)} · <b>${u.banned?"banned":"suspended"}</b>${suspensionSuffix(u)}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
       <div class="btn-row">${u.banned
-        // No unban endpoint exists, so no button rather than one that would 404.
-        ? `<span class="mut" style="font-size:12.5px">Banned — permanent</span>`
+        ? `<button class="btn btn-o btn-sm" onclick="adminUnban(${u.id})">Lift ban</button>`
         : `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Restore</button>`}</div>
     </div>`).join("");
+}
+function adminUnban(id){
+  const u=(S._restrictedUsers||[]).find(x=>x.id===id);
+  const name=u?(u.display_name||u.email):`user #${id}`;
+  const why=u&&u.suspended_reason?u.suspended_reason:"no reason on record";
+  if(!confirm(`Are you sure you want to lift the ban on "${name}"? They were banned for the following reason: "${why}"`)) return;
+  _modAction(`/admin/users/${id}/unban`, "Ban lifted — account restored", {backTo:"banned"});
 }
 function restrictedItemRowsHtml(items){
   const ls=items.listings||[], cs=items.campaigns||[];
@@ -5905,7 +5911,7 @@ authGate,closeSignupNudge,
 tourBegin,tourDismissWelcome,tourNext,tourBack,tourSkip,tourFinish,
 tourResumeClick,tourHideResume,tourRestart,syncTourResume,maybeOfferTour,tourStart,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
-acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,
+acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,adminUnban,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
 renderMarketRail,railSetRole,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
 djSetRole,djGo,djNext,djBack,djNavKey,

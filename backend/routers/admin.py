@@ -483,6 +483,59 @@ def ban_user(user_id: int, body: ReasonIn, request: Request,
     return user_admin_dict(target)
 
 
+@router.post("/users/{user_id}/unban")
+def unban_user(user_id: int, body: ReasonIn, request: Request,
+               background: BackgroundTasks,
+               actor: User = Depends(RequirePerm(Perm.USER_BAN)),
+               db: Session = Depends(get_db)):
+    """Lift a ban — the one deliberate exception to bans otherwise being
+    permanent. Mirrors ban_user's cascade in reverse: lifts the linked
+    identity's ban too, if it was banned as part of the same action, so the
+    pair stays in sync exactly the way banning them did.
+
+    Same re-authentication bar as banning (password, and an action code for
+    a Super-Admin) — lifting a ban is exactly as consequential as imposing
+    one, so it gets exactly the same protection, not a lighter one.
+    """
+    target = _target_user(db, user_id)
+    _guard_target(actor, target)
+    _reauth(actor, body, db)
+
+    if target.banned_at is None:
+        raise HTTPException(status_code=409, detail="This account is not banned.")
+
+    reason = body.reason.strip()
+    before = _user_snapshot(target)
+    target.banned_at = None
+    target.suspended_reason = None
+    db.commit()
+    db.refresh(target)
+    audit.record(db, actor=actor, action="user.unban", target_type="user",
+                 target_id=target.id, previous_state=before,
+                 new_state=_user_snapshot(target), reason=reason, request=request)
+
+    linked = db.get(User, target.linked_user_id) if target.linked_user_id else None
+    if linked is not None and linked.banned_at is not None:
+        linked_before = _user_snapshot(linked)
+        linked.banned_at = None
+        linked.suspended_reason = None
+        db.commit()
+        db.refresh(linked)
+        audit.record(db, actor=actor, action="user.unban", target_type="user",
+                     target_id=linked.id, previous_state=linked_before,
+                     new_state=_user_snapshot(linked),
+                     reason=f"{reason} (cascaded: linked to unbanned account #{target.id})",
+                     request=request)
+
+    db.add(Notification(user_id=target.id, type="account_restored",
+                        body="Your account is active again — welcome back to PromoSlot."))
+    db.commit()
+    # They're signed out (banned accounts have no session), so email is the
+    # only way this reaches them — same pattern as unsuspend_user.
+    background.add_task(_notify_account_restored, target.email, target.display_name or "")
+    return user_admin_dict(target)
+
+
 # ------------------------------ listings ------------------------------
 
 def _listing_snapshot(p: Platform) -> dict:
