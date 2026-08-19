@@ -2260,7 +2260,12 @@ async function renderRealDeal(dealId){
       <div class="proof-item ${d.verified?"got":""}"><span class="pi-ico">🔎</span>Delivery verified by a reviewer<span class="ok">${d.verified?"✓":"pending"}</span></div>
       <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.net_to_owner):"pending"}</span></div></div>
     <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
-      ${meOwner && proofs.length ? `<p class="review-thanks" style="margin-top:10px">Thank you for submitting proof of delivery, your submission will be reviewed by our team shortly</p>` : ""}
+      ${meOwner && proofs.length ? (d.paid
+        ? `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified &amp; paid — your evidence met PromoSlot's delivery conditions, and ${gbpP(d.net_to_owner)} has been sent to your connected account. Bank transfers can take up to 7 days to land, especially on newer accounts — no action needed on your end.</p>`
+        : d.verified
+          ? `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified — your evidence met PromoSlot's delivery conditions. Payout is being released to your account now.</p>`
+          : `<p class="review-thanks" style="margin-top:10px">Thank you for submitting proof of delivery, your submission will be reviewed by our team shortly</p>`
+      ) : ""}
       ${meOwner && !d.verified && !disputeOpen ? `<div class="frm" style="margin-top:10px">
         <div><label>Views delivered (optional — shown on your Past campaigns)${d.views_promised?` · ${fmtN(d.views_promised)} promised`:""}</label>
           <input type="number" id="pf-views" min="0" placeholder="e.g. 12500" value="${d.views_delivered!=null?d.views_delivered:""}"></div>
@@ -3505,7 +3510,8 @@ async function refreshPayoutStatus(){
       <div><span>Continue setup</span><button class="btn btn-p btn-sm" id="connectPayoutsBtn" onclick="connectPayouts()">Continue on Stripe</button></div>`;
   }else{
     el.innerHTML=`<div><span>Payout method</span><b style="color:var(--money)">Connected ✔</b></div>${feeRow}
-      <div><span>Stripe account</span><b class="mut" style="text-align:right;font-size:12px">${esc(s.stripe_account_id||"")}</b></div>`;
+      <div><span>Stripe account</span><b class="mut" style="text-align:right;font-size:12px">${esc(s.stripe_account_id||"")}</b></div>
+      <div><span>Payout timing</span><b class="mut" style="text-align:right;font-size:12px">Up to 7 days on new accounts</b></div>`;
   }
 }
 async function connectPayouts(){
