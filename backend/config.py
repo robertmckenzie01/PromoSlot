@@ -12,6 +12,12 @@ class Settings:
     stripe_secret_key: str = os.environ.get("STRIPE_SECRET_KEY", "")
     stripe_publishable_key: str = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
     stripe_webhook_secret: str = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    # Second signing secret for the "Connected accounts" scoped destination
+    # (payout.paid/payout.failed happen on the owner's account, not ours, and
+    # Stripe requires a separate destination + secret to receive those — see
+    # webhooks.py's dual-secret verification). Optional: blank until that
+    # destination exists.
+    stripe_webhook_secret_connect: str = os.environ.get("STRIPE_WEBHOOK_SECRET_CONNECT", "")
 
     # App
     app_base_url: str = os.environ.get("APP_BASE_URL", "http://localhost:8000")

@@ -106,19 +106,29 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
-    if not settings.stripe_webhook_secret:
+    # Two possible signing secrets: the original "Your account" destination,
+    # and the "Connected accounts" one added for payout.paid/payout.failed
+    # (Stripe requires a separate destination + secret for connected-account
+    # events — one endpoint URL, two destinations, two secrets). Try each;
+    # only reject if neither verifies.
+    secrets = [s for s in (settings.stripe_webhook_secret,
+                          settings.stripe_webhook_secret_connect) if s]
+    if not secrets:
         # We refuse to accept unverifiable events rather than trust them.
         raise HTTPException(status_code=503, detail="Webhook secret not configured")
     if not sig_header:
         raise HTTPException(status_code=400, detail="Missing Stripe-Signature header")
 
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, settings.stripe_webhook_secret
-        )
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError:  # type: ignore[attr-defined]
+    event = None
+    for secret in secrets:
+        try:
+            event = stripe.Webhook.construct_event(payload, sig_header, secret)
+            break
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid payload")
+        except stripe.error.SignatureVerificationError:  # type: ignore[attr-defined]
+            continue  # try the next secret before giving up
+    if event is None:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     event_id = event["id"]
