@@ -15,6 +15,7 @@ from ..config import settings
 from ..db import get_db
 from ..models import Deal, DealStatus, WebhookEvent
 from ..services import (close_dispute_from_event, confirm_refund_from_charge,
+                        handle_payout_event, handle_transfer_reversed,
                         mark_deal_funded_from_pi, open_dispute_from_event,
                         record_dispute_funds_event, update_dispute_from_event)
 from ..stripe_client import stripe
@@ -44,9 +45,17 @@ def _dispatch(event, db) -> str:
       payment_intent.succeeded -> mark deal funded (P3)
       charge.refunded          -> confirm deal refunded (P5)
       charge.dispute.*         -> open/update/close a chargeback dispute record
+      payout.paid/failed       -> notify + audit a real bank payout's outcome
+                                   (Connect-scoped; requires the destination to
+                                   listen to connected-account events)
+      transfer.reversed        -> notify + audit a reversed Transfer, matched by
+                                   the Transfer id stored on the deal at payout time
     Payout is executed synchronously by the release endpoint (the Transfer call
-    succeeding is the authoritative money-move). Connected-account status (v2)
-    syncs via live reads in /connect/status.
+    succeeding is the authoritative money-move for deal.paid_at/status). The
+    payout.*/transfer.reversed handlers never touch deal state — they only
+    surface what happened afterward to the real bank payout, which is a
+    separate, later fact. Connected-account status (v2) syncs via live reads
+    in /connect/status.
 
     We decide APPLIED vs RETRY from the *resulting* deal state, not from the
     event payload — so a handler that couldn't reach Stripe leaves the deal
@@ -83,6 +92,12 @@ def _dispatch(event, db) -> str:
         else:
             d = record_dispute_funds_event(db, dispute_id, deal, "reinstated")
         return APPLIED if d is not None else RETRY
+    if etype in ("payout.paid", "payout.failed"):
+        outcome = handle_payout_event(db, event, succeeded=(etype == "payout.paid"))
+        return APPLIED if outcome == "applied" else IGNORED
+    if etype == "transfer.reversed":
+        outcome = handle_transfer_reversed(db, event)
+        return APPLIED if outcome == "applied" else IGNORED
     return IGNORED
 
 

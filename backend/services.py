@@ -4,6 +4,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from . import audit
 from .deal_state import can_transition
 from .models import (
     ConnectedAccount, Deal, DealStatus, Dispute, DisputeEvent, Notification, Payment,
@@ -310,6 +311,129 @@ def try_instant_payout(db: Session, deal: Deal, connected_account: ConnectedAcco
     db.commit()
     db.refresh(deal)
     return {"ok": True, "payout_id": payout.id, "net_amount": net_amount}
+
+
+def _payout_admin_ids(db: Session):
+    """Everyone who can act on a failed/reversed payout (same permission that
+    gates releasing one in the first place)."""
+    roles = [r for r, perms in ROLE_PERMISSIONS.items() if Perm.PAYOUT_RELEASE in perms]
+    if not roles:
+        return []
+    rows = (db.query(User.id)
+            .filter(User.role.in_(roles),
+                    User.suspended_at.is_(None), User.banned_at.is_(None)).all())
+    return [r[0] for r in rows]
+
+
+def handle_payout_event(db: Session, event: dict, succeeded: bool) -> str:
+    """payout.paid / payout.failed on a connected account's real bank/card payout.
+
+    Distinct from create_deal_payout()'s Transfer: money can successfully move
+    into the owner's Connect balance (Transfer succeeds, deal marked PAID) while
+    the SEPARATE, later real-world payout to their actual bank still fails
+    (closed account, mismatched details, bank rejects it). Without this handler
+    that failure is invisible — the deal stays PAID forever and nobody is ever
+    told the owner didn't actually receive the money.
+
+    Delivered as a Connect-scoped event (has a top-level "account" field) — the
+    destination must have "listen to events on connected accounts" enabled, or
+    these never arrive at all.
+
+    Deliberately never touches deal.status/paid_at/instant_payout_id — those
+    stay true to "the Transfer into their Connect balance succeeded", a real
+    and distinct fact from "the bank payout succeeded". This only notifies +
+    audits, so a human decides what to do next. A full reconciliation/ledger
+    system is a bigger, deliberate design (see Phase 2 backlog), not this.
+    """
+    account_id = event["account"] if "account" in event else None
+    if not account_id:
+        return "ignored"  # not a Connect-scoped event we can attribute to anyone
+
+    ca = db.query(ConnectedAccount).filter_by(stripe_account_id=account_id).first()
+    if ca is None:
+        return "ignored"  # not one of our connected accounts
+
+    # Stripe's response objects don't support dict-style .get() — see the fix
+    # in check_instant_eligibility. Convert to a plain dict before touching it.
+    payout = event["data"]["object"].to_dict()
+    payout_id = payout.get("id")
+    amount = payout.get("amount") or 0
+    currency = (payout.get("currency") or "gbp").upper()
+    failure_message = payout.get("failure_message")
+    deal_id_hint = (payout.get("metadata") or {}).get("deal_id")  # only set for our own instant payouts
+
+    deal_note = ""
+    if deal_id_hint:
+        try:
+            deal = db.query(Deal).filter_by(id=int(deal_id_hint)).first()
+        except (TypeError, ValueError):
+            deal = None
+        if deal is not None:
+            deal_note = f" (deal #{deal.id})"
+
+    if succeeded:
+        # Routine/expected outcome — audit trail only, no notification noise.
+        audit.record(db, actor=None, action="payout.paid", target_type="connected_account",
+                     target_id=ca.id, new_state={"payout_id": payout_id, "amount": amount,
+                                                 "currency": currency},
+                     reason=f"Real bank payout confirmed{deal_note}.")
+        db.commit()
+        return "applied"
+
+    db.add(Notification(
+        user_id=ca.user_id, type="payout_failed",
+        body=(f"A payout of {currency} {amount/100:.2f} to your bank/card failed"
+              f"{deal_note}. Your money is safe and hasn't been lost — PromoSlot's team "
+              f"will be in touch to help resolve this."),
+        ref=str(ca.id)))
+    for uid in _payout_admin_ids(db):
+        db.add(Notification(
+            user_id=uid, type="payout_failed_admin",
+            body=(f"Payout FAILED for owner #{ca.user_id}{deal_note}: {currency} {amount/100:.2f}. "
+                  f"Stripe says: {failure_message or 'no reason given'}. Needs manual follow-up."),
+            ref=f"payout:{payout_id}"))
+    audit.record(db, actor=None, action="payout.failed", target_type="connected_account",
+                 target_id=ca.id, new_state={"payout_id": payout_id, "amount": amount,
+                                             "currency": currency, "failure_message": failure_message},
+                 reason=f"Real bank payout failed{deal_note} — needs manual review.")
+    db.commit()
+    return "applied"
+
+
+def handle_transfer_reversed(db: Session, event: dict) -> str:
+    """transfer.reversed — the platform-level Transfer that already moved money
+    into an owner's Connect balance got reversed back to us.
+
+    Platform-scoped (no "account" field needed) — matched to a deal via the
+    Transfer id stored on it at payout time. Deliberately doesn't touch
+    deal.status/paid_at; this is a rare, serious event that needs a human to
+    look at it, not an automated state change.
+    """
+    tr = event["data"]["object"].to_dict()
+    transfer_id = tr.get("id")
+    deal = db.query(Deal).filter_by(transfer_id=transfer_id).first()
+    if deal is None:
+        return "ignored"
+
+    amount_reversed = tr.get("amount_reversed") or 0
+    for uid in (deal.business_id, deal.platform_owner_id):
+        db.add(Notification(
+            user_id=uid, type="payout_reversed",
+            body=(f"A payout for deal #{deal.id} was reversed by Stripe. "
+                  f"PromoSlot's team will review and follow up with you directly."),
+            ref=str(deal.id)))
+    for uid in _payout_admin_ids(db):
+        db.add(Notification(
+            user_id=uid, type="payout_reversed_admin",
+            body=(f"Transfer reversed for deal #{deal.id} "
+                  f"({deal.currency.upper()} {amount_reversed/100:.2f}) — needs manual review."),
+            ref=str(deal.id)))
+    audit.record(db, actor=None, action="transfer.reversed", target_type="deal",
+                 target_id=deal.id,
+                 new_state={"transfer_id": transfer_id, "amount_reversed": amount_reversed},
+                 reason="Stripe transfer.reversed webhook — needs manual review, deal status left untouched.")
+    db.commit()
+    return "applied"
 
 
 def refund_deal(db: Session, deal: Deal, reason: str = "requested_by_customer"):
