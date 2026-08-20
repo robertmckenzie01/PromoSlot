@@ -15,6 +15,7 @@ at all, while an edited file is picked up immediately without a restart.
 """
 import hashlib
 import html as _html
+import json
 import os
 import re
 
@@ -132,6 +133,40 @@ PAGE_META = {
 }
 
 
+def _org_jsonld(base: str) -> str:
+    """Site identity structured data, injected on every page.
+
+    Deliberately typed as Organization, not LocalBusiness: LocalBusiness
+    requires a real street address (and ideally a phone number) to be
+    honest, non-spammy structured data — PromoSlot has neither anywhere in
+    this codebase (no registered office is published on the site), and
+    Google's own guidance is that fabricating one is worse than omitting
+    it, since it can trigger a manual action. PromoSlot is a national
+    online marketplace with no storefront, so Organization is also the
+    factually correct type regardless of what's on file. Same reasoning
+    for omitting `logo` (no dedicated logo image file exists yet — the
+    real logo is a CSS-rendered mark, not an image) and `sameAs` (no social
+    profiles exist yet to link). Add both for real once they exist; a wrong
+    logo URL or fake profile link is worse than no markup at all.
+    """
+    data = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "PromoSlot",
+        "url": base + "/",
+        "description": PAGE_META[""]["description"],
+        "email": "support@usepromoslot.com",
+    }
+    # json.dumps can legally emit "</script>" inside a string value, which
+    # would close the tag early in an HTML document — escape "/" as "\/"
+    # the same way most JSON-LD generators do.
+    return (
+        '<script type="application/ld+json">'
+        + json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+        + "</script>\n"
+    )
+
+
 def _meta_html(path: str) -> str:
     key = path.strip("/")
     meta = PAGE_META.get(key, PAGE_META[""])
@@ -157,6 +192,7 @@ def _meta_html(path: str) -> str:
         f'<meta name="twitter:title" content="{title}">\n'
         f'<meta name="twitter:description" content="{desc}">\n'
         f'<meta name="twitter:image" content="{og_image}">\n'
+        + _org_jsonld(base)
     )
 
 
