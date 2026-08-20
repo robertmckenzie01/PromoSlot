@@ -88,27 +88,55 @@ def api_info():
     }
 
 
+# Public/marketing routes get their own real URL, not just "/". Before this,
+# the whole site was client-side-routed and never touched the URL bar, so
+# only "/" was ever a real, crawlable, refreshable, shareable address —
+# hitting /pricing or /about directly 404'd. Each of these now serves the
+# same SPA shell (the client-side router still shows the right view once JS
+# boots — see promoslot-app.js's popstate handling), but with the correct
+# per-page <title>/description/canonical baked in server-side (assets.py's
+# PAGE_META) so it's there unconditionally, not dependent on the app's JS
+# finishing its boot. Keep this list in sync with PAGE_META's keys and with
+# promoslot-app.js's ROUTE_PATHS. Authenticated app views (dashboard, a
+# specific deal, account, admin, …) deliberately do NOT get a path here —
+# they're behind a login wall and were never meant to be indexed.
+PUBLIC_PAGES = ["", "marketplace", "how-it-works", "pricing",
+                "payment-protection", "resources", "about"]
+
 # Serve the front end same-origin as the API (so session cookies just work).
 # Mounted LAST so all explicit API routes above take precedence; everything else
 # (index.html, JS, assets) is served from the frontend/ directory.
 if os.path.isdir(FRONTEND_DIR):
 
-    # HEAD as well as GET: without it a HEAD would fall through to the mount
-    # below and answer with the un-versioned file and a misleading ETag.
-    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
-    @app.api_route("/index.html", methods=["GET", "HEAD"], include_in_schema=False)
-    def index():
-        """index.html with a content hash injected on every script tag.
+    def _index_response(path: str = "") -> HTMLResponse:
+        """index.html with a content hash injected on every script tag, plus
+        this path's <title>/meta baked in (see assets.render_index).
 
-        Declared before the StaticFiles mount so it wins for these two paths.
         The HTML itself must never be served from cache without revalidating —
         it is what carries the current hashes, so a stale copy would keep
         pointing at the previous build's JavaScript and defeat the whole thing.
         The hashed asset URLs underneath are then safe to cache normally.
         """
         return HTMLResponse(
-            render_index(FRONTEND_DIR),
+            render_index(FRONTEND_DIR, path),
             headers={"Cache-Control": "no-cache, must-revalidate"},
         )
+
+    def _make_page_route(path: str):
+        # Bind `path` per-iteration (a closure over the loop variable would
+        # otherwise have every route serve the LAST page's meta tags).
+        def _route():
+            return _index_response(path)
+        return _route
+
+    # HEAD as well as GET: without it a HEAD would fall through to the mount
+    # below and answer with the un-versioned file and a misleading ETag.
+    # Declared before the StaticFiles mount so these paths win over it.
+    app.add_api_route("/", _make_page_route(""), methods=["GET", "HEAD"], include_in_schema=False)
+    app.add_api_route("/index.html", _make_page_route(""), methods=["GET", "HEAD"], include_in_schema=False)
+    for _page in PUBLIC_PAGES:
+        if _page:  # "" (home) is already registered above at "/"
+            app.add_api_route(f"/{_page}", _make_page_route(_page),
+                              methods=["GET", "HEAD"], include_in_schema=False)
 
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

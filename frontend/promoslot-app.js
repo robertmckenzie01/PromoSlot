@@ -5401,12 +5401,55 @@ const ROUTE_KEY="ps_route";
 const PUBLIC_ROUTES=new Set(["home","market","how","pricing","protect","resources","about"]);
 let _routeReady=false;                 // don't record routes during restore
 
+/* ---------- Real URLs for the public/marketing routes ----------
+   Until now setRoute() only ever wrote to sessionStorage — the address bar
+   stayed on "/" no matter which view was open, so nothing but the homepage
+   was ever a real, bookmarkable, shareable, crawlable URL (the backend
+   route for each of these paths, added alongside this, is what actually
+   makes them crawlable; this is what keeps the address bar honest once
+   someone is already on the site and clicks around in it).
+
+   Deliberately scoped to the same 7 public routes above — authenticated
+   app views (dashboard, a deal, account, admin, …) are behind a login
+   wall and stay exactly as they were, sessionStorage-only, no URL change.
+   "market" always maps to /marketplace regardless of which tab is active;
+   the tab itself isn't part of the URL, same as before. */
+const ROUTE_PATHS={home:"/",market:"/marketplace",how:"/how-it-works",
+                   pricing:"/pricing",protect:"/payment-protection",
+                   resources:"/resources",about:"/about"};
+const PATH_ROUTES=Object.fromEntries(Object.entries(ROUTE_PATHS).map(([k,v])=>[v,k]));
+let _fromPopstate=false;               // true while replaying a back/forward nav
+
 function setRoute(name, arg){
   if(!_routeReady) return;
   try{ sessionStorage.setItem(ROUTE_KEY, JSON.stringify(arg==null?{name}:{name,arg})); }
   catch(e){}                            // private mode / storage disabled
+  // Keep the address bar honest for the public routes — but never while
+  // replaying a browser back/forward (that already changed the URL; pushing
+  // again here would break the back button by adding a duplicate entry).
+  const path=ROUTE_PATHS[name];
+  if(path && !_fromPopstate && location.pathname!==path){
+    try{ history.pushState({},"",path); }catch(e){}
+  }
 }
 function clearRoute(){ try{ sessionStorage.removeItem(ROUTE_KEY); }catch(e){} }
+// Back/forward between the public routes. Anything else (an authenticated
+// view, or a path this app doesn't know) is left alone rather than guessed
+// at — a real page navigation is a perfectly fine fallback for those.
+window.addEventListener("popstate", ()=>{
+  const name=PATH_ROUTES[location.pathname];
+  if(!name) return;
+  _fromPopstate=true;
+  try{
+    if(name==="home") goHome();
+    else if(name==="market") openMarket();
+    else if(name==="how") goHow();
+    else if(name==="pricing") goPricingPage();
+    else if(name==="protect") goProtect();
+    else if(name==="resources") goResources();
+    else if(name==="about") goAbout();
+  } finally { _fromPopstate=false; }
+});
 function readRoute(){
   try{
     const r=JSON.parse(sessionStorage.getItem(ROUTE_KEY)||"null");
@@ -5519,7 +5562,24 @@ function PSBoot(){
   psRender(true);
   psBindControls();
   syncNav();
-  restoreSession().then(restoreRoute);
+  // A direct load of one of the real public URLs (someone followed a link
+  // to /pricing, or refreshed while on /about) takes priority over the
+  // sessionStorage-remembered route — that's what makes these real,
+  // shareable addresses rather than ones that only work if you navigated
+  // here from within the app. Home ("/") falls through to the normal
+  // sessionStorage-based restore unchanged, same as any authenticated view.
+  const _initialRoute=PATH_ROUTES[location.pathname];
+  if(_initialRoute && _initialRoute!=="home"){
+    if(_initialRoute==="market") openMarket();
+    else if(_initialRoute==="how") goHow();
+    else if(_initialRoute==="pricing") goPricingPage();
+    else if(_initialRoute==="protect") goProtect();
+    else if(_initialRoute==="resources") goResources();
+    else if(_initialRoute==="about") goAbout();
+    restoreSession();          // still establishes real auth state for the nav
+  } else {
+    restoreSession().then(restoreRoute);
+  }
   startAttnPolling();
   // A real reset link (emailed) lands as /?reset=<token> — open the set-password step.
   // A real verification link lands as /?verify=<token> - verifyEmailFromLink()

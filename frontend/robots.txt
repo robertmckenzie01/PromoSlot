@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /account
+Disallow: /admin
+Disallow: /messages
+
+Sitemap: https://usepromoslot.com/sitemap.xml
