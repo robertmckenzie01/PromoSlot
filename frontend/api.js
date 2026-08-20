@@ -1,7 +1,19 @@
 /* PromoSlot API client — same-origin, cookie-based sessions. */
 (function () {
+  // Double-submit CSRF: the backend sets a readable (non-httpOnly) ps_csrf
+  // cookie on first visit; every mutating request must echo its value back
+  // in a header so a forged cross-site request (which can't read our
+  // cookies) gets rejected. See backend/csrf.py for the full explanation.
+  function csrfCookie() {
+    const m = document.cookie.match(/(?:^|;\s*)ps_csrf=([^;]*)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
   async function req(method, path, body, isForm) {
     const opts = { method, credentials: "include", headers: {} };
+    if (method !== "GET" && method !== "HEAD") {
+      const csrf = csrfCookie();
+      if (csrf) opts.headers["X-CSRF-Token"] = csrf;
+    }
     if (body !== undefined && body !== null) {
       if (isForm) {
         opts.body = body; // FormData; browser sets multipart headers

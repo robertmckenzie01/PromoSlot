@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from . import models  # noqa: F401  (ensure models are registered on Base)
 from .assets import render_index
 from .config import settings
+from .csrf import CSRFMiddleware
 from .routers import (
     admin, auth, campaigns, connect, deals, disputes, health, messages, notifications,
     inbound, platforms, profiles, proofs, review, reviews, support, webhooks,
@@ -31,6 +32,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Double-submit CSRF check for every mutating request (see csrf.py). Runs on
+# every route uniformly, including ones added later — nothing to remember to
+# wire per-endpoint the way rate limiting is.
+app.add_middleware(CSRFMiddleware)
 
 app.include_router(health.router)
 app.include_router(webhooks.router)
