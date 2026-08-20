@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
 
 from . import models  # noqa: F401  (ensure models are registered on Base)
 from .assets import render_404, render_index
@@ -38,6 +39,32 @@ app.add_middleware(
 # every route uniformly, including ones added later — nothing to remember to
 # wire per-endpoint the way rate limiting is.
 app.add_middleware(CSRFMiddleware)
+# Compress every text response over 1KB (JSON API responses, HTML pages, and
+# critically promoslot-app.js/index.html, which were being served completely
+# uncompressed — ~425KB and ~230KB respectively on every single page load, no
+# exceptions). This alone cuts that by roughly 70-80%, the single biggest
+# page-weight win available without touching any actual content.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+@app.middleware("http")
+async def cache_versioned_assets(request: Request, call_next):
+    """Let the browser skip the request entirely for unchanged assets.
+
+    Every local <script src> in index.html carries a content hash query
+    param (assets.py's versioned_html — "?v=<hash of the file's bytes>"),
+    so a URL with a "v=" query param is only ever reachable while its
+    content is exactly what it was when that HTML was rendered: any real
+    change produces a different hash and thus a different URL. That makes
+    it safe to tell the browser to cache the response forever rather than
+    re-checking with the server on every load, unlike index.html itself,
+    which correctly keeps its own no-cache header (see render_index) since
+    it's what carries the current hash and must always be revalidated.
+    """
+    response = await call_next(request)
+    if "v" in request.query_params:
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
 
 
 @app.middleware("http")
