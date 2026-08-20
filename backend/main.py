@@ -1,9 +1,9 @@
 """PromoSlot API — application entry point."""
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  (ensure models are registered on Base)
@@ -36,6 +36,28 @@ app.add_middleware(
 # every route uniformly, including ones added later — nothing to remember to
 # wire per-endpoint the way rate limiting is.
 app.add_middleware(CSRFMiddleware)
+
+
+@app.middleware("http")
+async def force_https(request: Request, call_next):
+    """Redirect http:// to https:// in production, safely.
+
+    Deliberately checks the X-Forwarded-Proto header directly rather than
+    request.url.scheme. Render (like most PaaS front doors) terminates TLS
+    at its edge and forwards to this process over plain HTTP internally, so
+    request.url.scheme reads "http" here regardless of what the browser
+    actually used — trusting it would either never redirect anything, or
+    (if uvicorn is told to trust the proxy) risk a redirect loop if that
+    trust is ever misconfigured. Reading the header ourselves avoids both
+    failure modes: if Render is already forcing HTTPS at the edge, this
+    header will simply already say "https" and the redirect never fires —
+    a harmless no-op backstop rather than a live requirement. Skipped
+    entirely in dev (APP_BASE_URL not https), so localhost is unaffected.
+    """
+    if (settings.app_base_url.startswith("https")
+            and request.headers.get("x-forwarded-proto") == "http"):
+        return RedirectResponse(str(request.url.replace(scheme="https")), status_code=308)
+    return await call_next(request)
 
 app.include_router(health.router)
 app.include_router(webhooks.router)
