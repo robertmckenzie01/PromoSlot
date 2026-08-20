@@ -6,7 +6,7 @@
 
 ## 1. Who we are
 
-PromoSlot is operated by **PromoSlot Ltd** ("PromoSlot," "we," "us"), a company registered in `[England & Wales / jurisdiction to confirm]` under company number `[COMPANY NUMBER]`, registered office at `[ADDRESS]`.
+PromoSlot is operated by `[legal entity name — confirm whether this is a registered company yet, and if so its jurisdiction, company number and registered office; if not yet incorporated, this section needs different wording entirely]` ("PromoSlot," "we," "us").
 
 PromoSlot is a marketplace connecting businesses ("Business," "Business Owner") with platform owners and content creators ("Platform Owner") for promotional campaigns, and holds funds pending verification until agreed work is delivered and confirmed.
 
@@ -50,7 +50,7 @@ PromoSlot is a marketplace that holds funds pending verification on behalf of bo
 
 - The specific deliverables, timelines, and approval requirements for each deal are set out in the campaign or listing terms agreed by both parties.
 - Delivery evidence is submitted through the platform and reviewed before payout is released.
-- `[Confirm: who performs verification — PromoSlot staff, automated checks, or the Business Owner themselves? This affects liability language significantly.]`
+- Verification is a deliberate, human decision made by a PromoSlot reviewer looking at the submitted evidence against the agreed terms — never automatic, and never made by either party to the deal themselves. A reviewer approves the delivery (releasing funds), rejects it, or requests changes.
 
 ## 9. Cancellations
 
@@ -59,9 +59,9 @@ PromoSlot is a marketplace that holds funds pending verification on behalf of bo
 
 ## 10. Disputes
 
-If a Business Owner and Platform Owner disagree about whether a deliverable meets the agreed terms, either party can raise a dispute through the platform. PromoSlot will review the submitted evidence and agreed deliverables to determine whether funds are released, partially released, or refunded, per our Refund Policy.
+If a Business Owner and Platform Owner disagree about whether a deliverable meets the agreed terms, that disagreement is resolved through the verification step in Section 8: a PromoSlot reviewer examines the submitted evidence against the agreed terms and decides whether to approve it (releasing funds), reject it, or request changes — this decision is final within the platform. `[Confirm: is there any appeal step beyond this, or is the reviewer's decision genuinely final? Needs a real answer, not a guess.]`
 
-`[This section needs real definition: what's the actual dispute process, timelines, and who makes the final call? Right now this is the vaguest and most legally important part of the whole document.]`
+Separately, if a Business Owner disputes a charge directly with their card issuer (a chargeback) rather than through PromoSlot, that follows Stripe's own dispute process, and the deal is flagged and tracked internally until it's resolved.
 
 ## 11. Prohibited conduct
 
@@ -82,7 +82,7 @@ You retain ownership of content you submit (listings, campaigns, messages, deliv
 
 ## 14. Account suspension and termination
 
-PromoSlot may suspend or terminate an account for violating these terms, suspected fraud, or legal requirement. You may close your account at any time; deals in progress must be resolved first.
+PromoSlot may suspend or terminate an account for violating these terms, suspected fraud, or legal requirement. You may delete your own account at any time from your account settings, which immediately anonymises your profile and revokes access — see our Privacy Policy for exactly what that does and doesn't remove. `[Confirm: should deals still in progress block self-service deletion, or is anonymising mid-deal acceptable? Not currently enforced either way.]`
 
 ## 15. Governing law
 

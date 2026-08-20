@@ -6,7 +6,7 @@
 
 ## 1. Who this applies to
 
-This policy explains how PromoSlot Ltd ("PromoSlot," "we," "us") collects, uses, and protects personal data when you use promoslot.[tld], whether as a Business Owner, Platform Owner, or visitor.
+This policy explains how PromoSlot (`[legal entity name, company number and registered office to confirm before publishing — see Terms of Service Section 1 for the same]`, "we," "us") collects, uses, and protects personal data when you use usepromoslot.com, whether as a Business Owner, Platform Owner, or visitor.
 
 ## 2. What we collect
 
@@ -53,14 +53,14 @@ PromoSlot's infrastructure is hosted in the EU (Ireland for the application, Fra
 
 - Account data: kept while your account is active, and for a period after closure for legal/accounting reasons (`[typically 6 years for financial records in the UK — confirm]`).
 - Deal and payment records: retained as required for accounting, tax, and dispute-resolution purposes.
-- You can request deletion of your account; some data may be retained where we have a legal obligation to do so.
+- **You can delete your account yourself at any time**, from My Account, or ask us to do it for you. This anonymises your account immediately (email, name, bio, avatar and any uploaded files are permanently removed, and every active login session is revoked) rather than removing the row outright — deal, review and message records that reference it stay intact for the other party and for our accounting/legal obligations, exactly as described above, but they're no longer linked to anything identifying you.
 
 ## 8. Your rights
 
 Depending on your location, you may have the right to:
 - Access the personal data we hold about you.
 - Correct inaccurate data.
-- Request deletion of your data (subject to legal retention requirements).
+- Request deletion of your data (subject to legal retention requirements) — see Section 7; this is also self-service from your account settings.
 - Object to or restrict certain processing.
 - Request a copy of your data in a portable format.
 - Withdraw consent where processing is based on consent.
@@ -69,7 +69,11 @@ To exercise these rights, contact `[privacy/support email]`. If you're not satis
 
 ## 9. Cookies
 
-`[Confirm what cookies/tracking are actually in use — session/auth cookies at minimum. If any analytics or marketing cookies are added later, this section needs a proper cookie policy and consent banner.]`
+PromoSlot currently uses exactly two cookies, both strictly necessary to make the service work and neither used for tracking, analytics, or advertising:
+- **`ps_session`** — keeps you signed in. Expires after 30 days, or immediately on logout or account deletion.
+- **`ps_csrf`** — a security token that confirms a request actually came from this site, not a forged one from elsewhere.
+
+Because both are strictly necessary, UK/EU cookie law doesn't require a consent banner for them. If analytics or marketing cookies are added later, this section and a consent banner both need to be added at the same time, not after the fact.
 
 ## 10. Children
 
