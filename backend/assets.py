@@ -205,3 +205,15 @@ def render_index(root: str, path: str = "") -> str:
     if "</head>" in html:
         html = html.replace("</head>", _meta_html(path) + "</head>", 1)
     return html
+
+
+def render_404(root: str) -> str:
+    """The standalone branded 404 page (frontend/404.html).
+
+    Not the SPA shell — it has no dependency on the app's JS boot sequence
+    at all (no React fetch, no router), so it renders correctly even if
+    that boot fails, which is exactly the situation a broken/old link is
+    likely to be in already.
+    """
+    with open(os.path.join(root, "404.html"), "r", encoding="utf-8") as fh:
+        return fh.read()

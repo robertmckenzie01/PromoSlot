@@ -3,11 +3,13 @@ import os
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
 from . import models  # noqa: F401  (ensure models are registered on Base)
-from .assets import render_index
+from .assets import render_404, render_index
 from .config import settings
 from .csrf import CSRFMiddleware
 from .routers import (
@@ -58,6 +60,39 @@ async def force_https(request: Request, call_next):
             and request.headers.get("x-forwarded-proto") == "http"):
         return RedirectResponse(str(request.url.replace(scheme="https")), status_code=308)
     return await call_next(request)
+
+@app.exception_handler(StarletteHTTPException)
+async def custom_404_handler(request: Request, exc: StarletteHTTPException):
+    """Branded 404 page for a real API 404 reached by direct browser
+    navigation; JSON left untouched everywhere else.
+
+    A GET to a completely unmatched path (dead/old/mistyped link, no route
+    for it at all) never reaches this handler — Starlette's StaticFiles
+    mount below is in `html=True` mode, which already auto-serves
+    frontend/404.html for any path it can't resolve, before an exception
+    even propagates this far. This handler covers the narrower remaining
+    case: a route that DOES exist raising a real 404 (e.g. "Campaign not
+    found" for a removed listing), reached by someone's browser navigating
+    there directly rather than the app's own JS calling it. Real browser
+    navigations send "text/html" in Accept; frontend/api.js's fetch() calls
+    never do (default */*), so only that direct-navigation case gets the
+    HTML page — every real API 404 read by the app's own JS keeps its
+    plain JSON body untouched, since it parses `data.detail` from it to
+    show the right message.
+    """
+    if (exc.status_code == 404
+            and "text/html" in request.headers.get("accept", "")
+            and os.path.isdir(FRONTEND_DIR)):
+        try:
+            return HTMLResponse(render_404(FRONTEND_DIR), status_code=404)
+        except OSError:
+            pass  # fall through to the plain JSON body below
+    return JSONResponse(
+        {"detail": exc.detail},
+        status_code=exc.status_code,
+        headers=getattr(exc, "headers", None),
+    )
+
 
 app.include_router(health.router)
 app.include_router(webhooks.router)
