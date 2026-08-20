@@ -22,6 +22,7 @@ from ..mailer import (send_email, support_reply_email, support_ticket_email)
 from ..models import (Conversation, Message, Notification, SupportTicket,
                       SupportTicketEvent, User)
 from ..permissions import ROLE_PERMISSIONS, Perm, has_permission
+from ..ratelimit import limit_support_ticket
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ def _clean(v):
     return (v or "").strip() or None
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[Depends(limit_support_ticket)])
 def create_ticket(body: TicketIn, request: Request, background: BackgroundTasks,
                   db: Session = Depends(get_db),
                   user: Optional[User] = Depends(get_current_user_optional)):

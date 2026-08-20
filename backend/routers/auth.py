@@ -16,6 +16,9 @@ from ..deps import COOKIE_NAME, assert_active, get_current_user
 from ..mailer import password_reset_email, send_email, welcome_email
 from ..models import (EmailVerificationToken, PasswordResetToken,
                       Session as AuthSession, User)
+from ..ratelimit import (limit_login, limit_password_reset_request,
+                         limit_password_reset_submit, limit_signup,
+                         limit_verification_resend)
 from ..schemas import (ChangePasswordIn, ForgotPasswordIn, LinkProfileIn, LoginIn,
                        ResetPasswordIn, SignupIn, TourIn, VerifyEmailIn, UserOut)
 from ..security import hash_password, new_session_token, verify_password
@@ -61,7 +64,8 @@ def find_by_email(db: Session, email: str):
 
 # No response_model: signup no longer returns a logged-in user, it returns a
 # "check your email" acknowledgement.
-@router.post("/signup", status_code=status.HTTP_201_CREATED)
+@router.post("/signup", status_code=status.HTTP_201_CREATED,
+            dependencies=[Depends(limit_signup)])
 def signup(body: SignupIn, response: Response, background: BackgroundTasks,
            db: Session = Depends(get_db)):
     email = body.email.strip().lower()
@@ -142,7 +146,7 @@ def _send_welcome(email: str, display_name: str, is_business: bool,
         log.warning("welcome email not sent to %s: %s", email, detail)
 
 
-@router.post("/login", response_model=UserOut)
+@router.post("/login", response_model=UserOut, dependencies=[Depends(limit_login)])
 def login(body: LoginIn, response: Response, db: Session = Depends(get_db)):
     user = find_by_email(db, body.email)
     # Constant-ish response: verify even if user is missing to reduce enumeration.
@@ -362,7 +366,7 @@ def switch_account(request: Request, response: Response,
     return linked
 
 
-@router.post("/resend-verification")
+@router.post("/resend-verification", dependencies=[Depends(limit_verification_resend)])
 def resend_verification(body: ForgotPasswordIn, db: Session = Depends(get_db)):
     """Send a fresh verification link.
 
@@ -390,7 +394,7 @@ def resend_verification(body: ForgotPasswordIn, db: Session = Depends(get_db)):
 RESET_TTL_MIN = 60
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", dependencies=[Depends(limit_password_reset_request)])
 def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
     """Email a real, single-use reset link to a real address.
 
@@ -417,7 +421,7 @@ def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
     return {"ok": True, "message": "If that email is registered, a reset link is on its way."}
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", dependencies=[Depends(limit_password_reset_submit)])
 def reset_password(body: ResetPasswordIn, db: Session = Depends(get_db)):
     """Set a new password from a valid, unused, unexpired token."""
     t = db.get(PasswordResetToken, body.token)
