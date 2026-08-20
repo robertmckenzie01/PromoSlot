@@ -101,34 +101,40 @@ PAGE_META = {
         "description": "Browse platform listings and business campaigns on PromoSlot. "
                        "Find audiences, find paid opportunities — every deal covered by "
                        "Payment Protection.",
+        "crumb": "Marketplace",
     },
     "how-it-works": {
         "title": "How it works — PromoSlot",
         "description": "From agreement to payout, every step stays clear. Set the terms, "
                        "fund the deal and follow delivery, evidence and payment in one "
                        "place.",
+        "crumb": "How it works",
     },
     "pricing": {
         "title": "Pricing — PromoSlot",
         "description": "No subscription. No listing fee. See exactly what you'll fund or "
                        "receive before a deal begins.",
+        "crumb": "Pricing",
     },
     "payment-protection": {
         "title": "Payment Protection — PromoSlot",
         "description": "Funds are held from the moment a deal is agreed, and only "
                        "released once a reviewer has checked the submitted evidence "
                        "against the accepted terms.",
+        "crumb": "Payment Protection",
     },
     "resources": {
         "title": "Resources — PromoSlot",
         "description": "A growing library of practical guidance on choosing platforms, "
                        "agreeing deliverables, payment models and evidence.",
+        "crumb": "Resources",
     },
     "about": {
         "title": "About — PromoSlot",
         "description": "Promotion is becoming a marketplace, not a favor economy — the "
                        "direct line between businesses and the people who move "
                        "audiences, with no agency in between.",
+        "crumb": "About",
     },
 }
 
@@ -167,6 +173,33 @@ def _org_jsonld(base: str) -> str:
     )
 
 
+def _breadcrumb_jsonld(key: str, base: str) -> str:
+    """BreadcrumbList structured data — the "Home > Page" trail search
+    results show under a listing. Home itself is omitted (a 1-item trail
+    on the root page is meaningless); every other public page gets a real
+    2-item Home > <page> trail, matching what's already visually on the
+    page for how-it-works/pricing/payment-protection/resources via the
+    existing .page-crumb element in index.html — this is the crawler-
+    readable counterpart of that, not a duplicate feature.
+    """
+    meta = PAGE_META.get(key)
+    if not key or not meta or "crumb" not in meta:
+        return ""
+    data = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Home", "item": base + "/"},
+            {"@type": "ListItem", "position": 2, "name": meta["crumb"], "item": f"{base}/{key}"},
+        ],
+    }
+    return (
+        '<script type="application/ld+json">'
+        + json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+        + "</script>\n"
+    )
+
+
 def _meta_html(path: str) -> str:
     key = path.strip("/")
     meta = PAGE_META.get(key, PAGE_META[""])
@@ -193,6 +226,7 @@ def _meta_html(path: str) -> str:
         f'<meta name="twitter:description" content="{desc}">\n'
         f'<meta name="twitter:image" content="{og_image}">\n'
         + _org_jsonld(base)
+        + _breadcrumb_jsonld(key, base)
     )
 
 

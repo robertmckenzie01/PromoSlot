@@ -83,6 +83,23 @@ b,strong{font-weight:700}
 .nav-link:hover{background:rgba(79,70,229,.06);color:var(--ink)}
 .nav-link.active{color:var(--acc-ink);background:var(--acc-soft)}
 .nav-right{margin-left:auto;display:flex;align-items:center;gap:10px;position:relative}
+/* Mobile-only sticky signup CTA — hidden entirely above 620px (nav-cta in
+   the header already covers desktop/tablet). Floats above content rather
+   than reserving layout space, same trade-off most sites make for this;
+   env(safe-area-inset-bottom) keeps it clear of the home-indicator bar on
+   notched phones. */
+.mobile-sticky-cta{display:none}
+@media (max-width:620px){
+  .mobile-sticky-cta{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    position:fixed;left:0;right:0;bottom:0;z-index:45;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    background:rgba(255,255,255,.96);backdrop-filter:blur(14px);
+    border-top:1px solid var(--line);box-shadow:0 -6px 22px rgba(20,39,63,.08);
+  }
+  .mobile-sticky-cta .msc-txt{font-size:13px;font-weight:600;color:var(--ink2)}
+  .mobile-sticky-cta .btn{flex-shrink:0}
+}
 .nav-bell{position:relative;width:36px;height:36px;border-radius:11px;border:1px solid var(--line);background:var(--card);font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .18s var(--ease);flex-shrink:0}
 .nav-bell:hover{border-color:var(--acc-border);background:var(--acc-soft);transform:translateY(-1px)}
 .bell-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;border-radius:99px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--card)}
@@ -1115,8 +1132,12 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 #signupNudge .nudge-x{background:transparent;border:none;color:rgba(241,245,249,.6);
   font-size:13px;padding:2px 4px;flex-shrink:0;line-height:1;transition:color .15s}
 #signupNudge .nudge-x:hover{color:#f1f5f9}
-@media (max-width:600px){
-  #signupNudge{left:12px;right:12px;bottom:12px;max-width:none}
+@media (max-width:620px){
+  /* The mobile sticky CTA (below) now covers this same "guests, sign up"
+     role full-width at the bottom of the screen on phones — showing both
+     at once would stack two competing signup prompts in the same corner.
+     Nudge stays for desktop/tablet, where there's no sticky bar. */
+  #signupNudge{display:none!important}
 }
 
 /* ---------- Guided product tour ----------
@@ -1621,6 +1642,15 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     </div>
   </div>
 </nav>
+<!-- Mobile-only sticky signup CTA. Hidden by default (desktop/tablet);
+     shown under 620px, and only for guests — mirrors nav-cta's own
+     visibility exactly, toggled in the same place (syncNav()) so the two
+     never disagree. Persistent top-level element (sibling of the views,
+     not inside one) so switching views never wipes or duplicates it. -->
+<div class="mobile-sticky-cta hide" id="mobileStickyCta">
+  <span class="msc-txt">Ready to get started?</span>
+  <button class="btn btn-p btn-sm" data-act="get-started">Get started</button>
+</div>
 
 <div class="view active view-anim" id="view-landing" data-screen-label="Landing">
   <!-- Shown the instant the page paints, before we know whether you're signed

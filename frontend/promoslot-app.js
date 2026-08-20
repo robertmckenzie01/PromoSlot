@@ -1049,6 +1049,7 @@ function syncNav(){
   $("nl-dash").classList.toggle("hide",!has);
   $("userChip").classList.toggle("hide",!has);
   $("nav-cta").classList.toggle("hide",has);
+  $("mobileStickyCta").classList.toggle("hide",has);
   $("roleSwitch").classList.toggle("hide",S.roles.length===0);
   setTheme();
   if(has){
