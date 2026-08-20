@@ -32,6 +32,13 @@ def _user_from_request(request: Request, db: DBSession) -> Optional[User]:
 def assert_active(user: User) -> None:
     """Reject an account that has lost access. Shared by the per-request gate and
     the login gate so the two can never disagree about who is allowed in."""
+    # Belt-and-braces: a deletion already revokes every session and scrambles
+    # the email/password so this path shouldn't normally be reachable at all,
+    # but a request already in flight (or a lingering session row that
+    # somehow survived) must still be turned away rather than silently served.
+    if user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="This account has been deleted.")
     if user.banned_at is not None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="This account has been banned from PromoSlot.")

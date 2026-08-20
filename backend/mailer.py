@@ -388,3 +388,46 @@ def account_restored_email(display_name: str = "") -> tuple:
             "It's good to have you back. If anything looks off when you sign in, "
             f"{settings.support_email} will sort it out.")
     return title, html, text
+
+
+def account_deleted_email(reason: str = "") -> tuple:
+    """(subject, html, text) confirming an account's personal data was deleted.
+
+    Sent to the address on file BEFORE it gets scrambled — this is the one
+    chance to reach the person, so it goes out synchronously as part of the
+    deletion, not best-effort afterwards. Deliberately its own function
+    rather than a third _account_action_email "kind": that helper's
+    ban/suspend copy ("can no longer be used", appeals language) doesn't fit
+    a deletion, which is either the person's own request or an admin acting
+    on one — not a moderation call.
+    """
+    title = "Your PromoSlot account has been deleted"
+    reason_block = (f'''
+        <p style="color:#334155;margin-bottom:6px"><b>Note</b></p>
+        <div style="border-left:3px solid #4f46e5;padding:2px 0 2px 14px;color:#334155;
+                    white-space:pre-wrap;font-size:14px">{_esc(reason)}</div>'''
+        if reason else "")
+
+    html = f"""
+      <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
+        <h2 style="color:#0f172a">{title}</h2>
+        <p style="color:#334155">Your profile, bio, photo, intro video and any files
+           you'd uploaded have been removed from PromoSlot, and your email address
+           has been disconnected from the account.</p>
+        {reason_block}
+        <p style="color:#334155;margin-top:22px">Records of any completed deals stay
+           in our system, as our Privacy Policy explains, for accounting and dispute
+           purposes — but they're no longer linked to your name or this email address.</p>
+        <p style="color:#64748b;font-size:13px">Didn't request this? Contact
+           {settings.support_email} straight away.</p>
+      </div>"""
+    text = (f"{title}\n\n"
+            "Your profile, bio, photo, intro video and any files you'd uploaded have "
+            "been removed from PromoSlot, and your email address has been "
+            "disconnected from the account.\n\n"
+            + (f"Note:\n{reason}\n\n" if reason else "")
+            + "Records of any completed deals stay in our system, as our Privacy "
+              "Policy explains, for accounting and dispute purposes — but they're no "
+              "longer linked to your name or this email address.\n\n"
+              f"Didn't request this? Contact {settings.support_email} straight away.")
+    return title, html, text

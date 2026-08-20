@@ -38,6 +38,7 @@ class Perm:
     # Member moderation
     USER_SUSPEND = "user.suspend"
     USER_BAN = "user.ban"
+    USER_DELETE = "user.delete"        # wipe personal data (right-to-erasure requests)
 
     # Listing moderation
     LISTING_REQUEST_CHANGES = "listing.request_changes"
@@ -62,7 +63,7 @@ _ADMIN_PERMS = frozenset({
 
 _SUPER_ADMIN_PERMS = frozenset(_ADMIN_PERMS | {
     Perm.ADMIN_VIEW, Perm.ADMIN_CREATE, Perm.ADMIN_SUSPEND, Perm.ADMIN_REMOVE,
-    Perm.USER_SUSPEND, Perm.USER_BAN,
+    Perm.USER_SUSPEND, Perm.USER_BAN, Perm.USER_DELETE,
     Perm.LISTING_REQUEST_CHANGES, Perm.LISTING_SUSPEND, Perm.LISTING_REMOVE,
     Perm.CAMPAIGN_REQUEST_CHANGES, Perm.CAMPAIGN_SUSPEND, Perm.CAMPAIGN_REMOVE,
 })

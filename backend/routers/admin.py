@@ -23,11 +23,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import audit
+from ..account_deletion import delete_account_cascade
 from ..config import settings
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
-from ..mailer import (account_banned_email, account_restored_email,
-                      account_suspended_email, send_email)
+from ..mailer import (account_banned_email, account_deleted_email,
+                      account_restored_email, account_suspended_email, send_email)
 from ..models import (Campaign, Deal, DealStatus, Notification, Platform, PlatformMedia,
                       Session as AuthSession, User)
 from ..permissions import Perm, Role, is_super_admin, permissions_for, require_permission
@@ -184,6 +185,15 @@ def _notify_account_action(email: str, kind: str, reason: str) -> None:
                             reply_to=settings.support_email)
     if not ok:
         log.warning("%s notice not sent to %s: %s", kind, email, detail)
+
+
+def _notify_deleted(email: str, reason: str) -> None:
+    """Tell someone their account's personal data was wiped by an admin, and
+    why. Same fire-and-forget-but-logged posture as _notify_account_action."""
+    subject, html, text = account_deleted_email(reason)
+    ok, detail = send_email(email, subject, html, text, reply_to=settings.support_email)
+    if not ok:
+        log.warning("deletion notice not sent to %s: %s", email, detail)
 
 
 def user_admin_dict(u: User) -> dict:
@@ -534,6 +544,58 @@ def unban_user(user_id: int, body: ReasonIn, request: Request,
     # only way this reaches them — same pattern as unsuspend_user.
     background.add_task(_notify_account_restored, target.email, target.display_name or "")
     return user_admin_dict(target)
+
+
+@router.post("/users/{user_id}/delete")
+def delete_user(user_id: int, body: ReasonIn, request: Request,
+                background: BackgroundTasks,
+                actor: User = Depends(RequirePerm(Perm.USER_DELETE)),
+                db: Session = Depends(get_db)):
+    """Wipe a user's personal data — the admin side of the same right-to-
+    erasure request self-service deletion serves (routers/profiles.py). For
+    when someone asks support to delete their account rather than (or
+    because they can't) do it themselves — a locked-out or suspended account
+    included, which self-service can't reach since it requires signing in.
+
+    Same re-authentication bar as banning, and the same cascade to a linked
+    identity: one person, one login, one request. Unlike a ban, this is not
+    reversible — anonymised data is gone, not restorable — so it stays
+    behind USER_DELETE specifically rather than reusing USER_BAN's grant,
+    even though both currently land on Super-Admin only.
+    """
+    target = _target_user(db, user_id)
+    _guard_target(actor, target)
+    _protect_last_super_admin(db, target)
+    _reauth(actor, body, db)
+
+    linked = db.get(User, target.linked_user_id) if target.linked_user_id else None
+    if linked is not None:
+        _protect_last_super_admin(db, linked)
+
+    if target.deleted_at is not None:
+        raise HTTPException(status_code=409, detail="This account has already been deleted.")
+
+    reason = body.reason.strip()
+    # Capture real addresses before anonymize_user() scrambles them.
+    to_notify = [(target.id, target.email)] + (
+        [(linked.id, linked.email)] if linked is not None and linked.deleted_at is None else [])
+
+    touched = delete_account_cascade(db, target)
+    for row, summary in touched:
+        cascaded = row.id != target.id
+        audit.record(db, actor=actor, action="user.delete", target_type="user",
+                     target_id=row.id, previous_state=summary["before"],
+                     new_state={"deleted_at": row.deleted_at.isoformat(),
+                               "sessions_revoked": summary["sessions_revoked"],
+                               "assets_removed": summary["assets_removed"]},
+                     reason=(f"{reason} (cascaded: linked to account #{target.id})"
+                             if cascaded else reason),
+                     request=request)
+
+    for row_id, email in to_notify:
+        background.add_task(_notify_deleted, email, reason)
+
+    return {"ok": True, "accounts_deleted": len(touched)}
 
 
 # ------------------------------ listings ------------------------------

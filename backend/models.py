@@ -70,6 +70,16 @@ class User(Base):
     # Cleared automatically by scripts/expire_suspensions.py.
     suspended_until = Column(DateTime)
     banned_at = Column(DateTime)
+    # Set once this account's personal data has been wiped (self-service or by
+    # a Super-Admin) — see routers/profiles.py:delete_my_account /
+    # routers/admin.py:delete_user. Distinct from banned_at: a ban is a
+    # misconduct call the person can't undo; deletion is the person's own
+    # right to erasure (or an admin acting on their request). The row is
+    # never removed — deals/reviews/messages that reference this id must keep
+    # working for the other party and for accounting/dispute retention — so
+    # this flag is what marks "treat as gone" everywhere the account would
+    # otherwise be displayed or allowed to log in.
+    deleted_at = Column(DateTime)
     # Static 8-digit action code, required alongside the password on every
     # dangerous action (mandatory for SUPER_ADMIN). Null = not set up yet, which
     # gates privileged actions without affecting normal login.
