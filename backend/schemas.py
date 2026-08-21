@@ -17,6 +17,10 @@ class SignupIn(BaseModel):
     # second identity's own name. display_name is always the business
     # identity's name when both roles are chosen together (see signup()).
     second_display_name: Optional[str] = Field(default=None, max_length=120)
+    # Cloudflare Turnstile solution from the signup form widget. See
+    # backend/turnstile.py — blank/invalid is rejected only once a secret key
+    # is actually configured (settings.turnstile_configured).
+    turnstile_token: Optional[str] = None
 
 
 class LinkProfileIn(BaseModel):

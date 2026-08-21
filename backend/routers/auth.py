@@ -16,12 +16,13 @@ from ..deps import COOKIE_NAME, assert_active, get_current_user
 from ..mailer import password_reset_email, send_email, welcome_email
 from ..models import (EmailVerificationToken, PasswordResetToken,
                       Session as AuthSession, User)
-from ..ratelimit import (limit_login, limit_password_reset_request,
+from ..ratelimit import (client_ip, limit_login, limit_password_reset_request,
                          limit_password_reset_submit, limit_signup,
                          limit_verification_resend)
 from ..schemas import (ChangePasswordIn, ForgotPasswordIn, LinkProfileIn, LoginIn,
                        ResetPasswordIn, SignupIn, TourIn, VerifyEmailIn, UserOut)
 from ..security import hash_password, new_session_token, verify_password
+from ..turnstile import verify_turnstile
 
 log = logging.getLogger(__name__)
 
@@ -66,8 +67,11 @@ def find_by_email(db: Session, email: str):
 # "check your email" acknowledgement.
 @router.post("/signup", status_code=status.HTTP_201_CREATED,
             dependencies=[Depends(limit_signup)])
-def signup(body: SignupIn, response: Response, background: BackgroundTasks,
+def signup(body: SignupIn, request: Request, response: Response, background: BackgroundTasks,
            db: Session = Depends(get_db)):
+    if not verify_turnstile(body.turnstile_token or "", client_ip(request)):
+        raise HTTPException(status_code=400,
+                            detail="Could not verify you're not a bot. Please try again.")
     email = body.email.strip().lower()
     if not body.is_business and not body.is_platform_owner:
         raise HTTPException(status_code=422, detail="Select at least one role")

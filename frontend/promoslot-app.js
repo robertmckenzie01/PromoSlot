@@ -4707,6 +4707,7 @@ function authModal(mode){
             <button type="button" class="chip" id="au-r-biz" onclick="this.classList.toggle('on');_authSyncNameFields()">🏢 Business</button>
             <button type="button" class="chip" id="au-r-plat" onclick="this.classList.toggle('on');_authSyncNameFields()">📣 Platform owner</button>
           </div></div>`:""}
+          ${isSignup?`<div id="au-turnstile" style="margin-top:2px"></div>`:""}
           <div class="hint-err hide" id="au-err"></div>
           ${isSignup?"":`<p class="mut" style="font-size:12.5px;margin-top:2px">Signed up but never got the verification email?
             <a href="#" class="party-link" onclick="event.preventDefault();resendVerification(($('au-email')||{}).value||'')">Send it again</a></p>`}
@@ -4723,6 +4724,27 @@ function authModal(mode){
       </div>
     </div>
   </div>`,"wide");
+  if(isSignup) _authRenderTurnstile();
+}
+// PUBLIC_SITE_KEY is safe to hardcode: Turnstile's site key is meant to be
+// embedded client-side (only the secret key, held server-side, is sensitive).
+const TURNSTILE_SITE_KEY="0x4AAAAAAEXhXW3-WtoKdSE0";
+S._turnstileToken=null;
+function _authRenderTurnstile(attempt){
+  const el=$("au-turnstile"); if(!el) return;
+  if(!(window.turnstile && window.turnstile.render)){
+    // The script loads async; a modal opened in the first instant of a page
+    // load can beat it. Retry briefly rather than leaving the widget blank.
+    if((attempt||0) < 20) setTimeout(()=>_authRenderTurnstile((attempt||0)+1), 250);
+    return;
+  }
+  S._turnstileToken=null;
+  window.turnstile.render(el, {
+    sitekey: TURNSTILE_SITE_KEY,
+    callback: (token)=>{ S._turnstileToken=token; },
+    "expired-callback": ()=>{ S._turnstileToken=null; },
+    "error-callback": ()=>{ S._turnstileToken=null; },
+  });
 }
 function _authErr(msg){ const e=$("au-err"); if(e){ e.textContent=msg; e.classList.remove("hide"); } }
 async function doSignup(){
@@ -4740,11 +4762,19 @@ async function doSignup(){
       _authErr("Your business and platform-owner profiles need different names."); return;
     }
   }
+  if(TURNSTILE_SITE_KEY && !S._turnstileToken){ _authErr("Please complete the verification check."); return; }
   const btn=$("au-submit"); btn.disabled=true; btn.textContent="Creating…";
   let res;
   try{
-    res=await PSApi.signup({email,password,display_name:display_name||null,is_business,is_platform_owner,second_display_name});
-  }catch(err){ btn.disabled=false; btn.textContent="Create account"; _authErr(err.message||"Signup failed"); return; }
+    res=await PSApi.signup({email,password,display_name:display_name||null,is_business,is_platform_owner,
+      second_display_name,turnstile_token:S._turnstileToken});
+  }catch(err){
+    btn.disabled=false; btn.textContent="Create account"; _authErr(err.message||"Signup failed");
+    // The token is single-use regardless of why signup failed — force a fresh
+    // widget rather than letting a retry silently send an already-spent one.
+    _authRenderTurnstile();
+    return;
+  }
   // The account exists but cannot be used until the emailed link is clicked, so
   // there is no session to reflect — say what happens next instead.
   checkYourEmailModal(res && res.email || email);

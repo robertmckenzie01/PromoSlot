@@ -1588,6 +1588,10 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   .toast{width:100%;justify-content:flex-start}
 }
 </style>
+<!-- Cloudflare Turnstile (bot protection on signup) — external, so it's
+     exempt from the local ?v= hashing below; loaded async so it never blocks
+     first paint. See promoslot-app.js's _authRenderTurnstile(). -->
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <!-- The ?v= cache-busting hash is injected from each file's contents when
      this page is served (backend/assets.py). Leave these srcs plain. -->
 <script src="api.js"></script>

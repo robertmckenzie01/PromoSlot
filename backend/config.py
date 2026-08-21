@@ -56,6 +56,11 @@ class Settings:
     reply_domain: str = os.environ.get("REPLY_DOMAIN", "reply.usepromoslot.com")
     resend_webhook_secret: str = os.environ.get("RESEND_WEBHOOK_SECRET", "")
 
+    # Cloudflare Turnstile (bot protection on signup). Blank in local dev ->
+    # verify_turnstile() short-circuits to "pass" so nobody is blocked without
+    # a key configured; real enforcement only turns on once this is set.
+    turnstile_secret_key: str = os.environ.get("TURNSTILE_SECRET_KEY", "")
+
     @property
     def inbound_configured(self) -> bool:
         return bool(self.resend_webhook_secret and self.reply_domain)
@@ -72,6 +77,10 @@ class Settings:
     @property
     def email_configured(self) -> bool:
         return self.resend_api_key.startswith("re_")
+
+    @property
+    def turnstile_configured(self) -> bool:
+        return bool(self.turnstile_secret_key)
 
 
 settings = Settings()
