@@ -580,6 +580,28 @@ class AdminAuditLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
+class BannedEmail(Base):
+    """A currently-banned email address, kept independently of the users row.
+
+    Closes a real gap: account deletion (self-service or admin) scrubs the
+    users row's email to a placeholder, so a ban recorded only as
+    User.banned_at is silently lost the moment that account is deleted — the
+    person could just sign up again with the same address. This table is the
+    actual enforcement record: written when ban_user() runs (before the real
+    email can ever be scrambled), checked at signup regardless of whether the
+    original account still exists, and removed again by unban_user() so
+    lifting a ban actually lifts it. Deliberately not populated by deletion
+    or suspension — suspension is meant to be recoverable and time-limited on
+    its own, and a never-banned account's email must stay free to re-signup
+    after deletion, exactly as it does today.
+    """
+    __tablename__ = "banned_emails"
+    id = Column(Integer, primary_key=True)
+    email = Column(String, nullable=False, unique=True, index=True)  # normalized lowercase
+    banned_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    reason = Column(String)
+
+
 class ProfileAsset(Base):
     """A file/image a member adds to their public profile ("who we are")."""
     __tablename__ = "profile_assets"

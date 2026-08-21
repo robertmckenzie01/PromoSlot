@@ -15,7 +15,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import COOKIE_NAME, assert_active, get_current_user
 from ..mailer import password_reset_email, send_email, welcome_email
-from ..models import (EmailVerificationToken, PasswordResetToken,
+from ..models import (BannedEmail, EmailVerificationToken, PasswordResetToken,
                       Session as AuthSession, User)
 from ..ratelimit import (client_ip, limit_login, limit_password_reset_request,
                          limit_password_reset_submit, limit_signup,
@@ -76,10 +76,24 @@ def signup(body: SignupIn, request: Request, response: Response, background: Bac
     email = body.email.strip().lower()
     if not body.is_business and not body.is_platform_owner:
         raise HTTPException(status_code=422, detail="Select at least one role")
+    # Checked independently of whatever row (if any) currently exists under
+    # this email: deleting a banned account scrambles its own email column
+    # to a placeholder, so `existing.banned_at` below can no longer catch a
+    # ban that survived a since-deleted account. banned_emails is the record
+    # that doesn't get erased along with it — see BannedEmail in models.py.
+    if db.query(BannedEmail).filter(BannedEmail.email == email).first() is not None:
+        raise HTTPException(
+            status_code=403,
+            detail="This email address is banned from PromoSlot and cannot be "
+                   "used to create an account. Contact support if you believe "
+                   "this is a mistake.")
+
     existing = find_by_email(db, email)
     if existing is not None:
         # A banned address is a distinct case from an ordinary duplicate — say so
         # plainly rather than implying they can just log in or reset a password.
+        # (Belt-and-braces alongside the banned_emails check above: this still
+        # catches a banned account that hasn't been deleted.)
         if existing.banned_at is not None:
             raise HTTPException(
                 status_code=403,

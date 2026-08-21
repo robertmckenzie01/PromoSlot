@@ -29,8 +29,8 @@ from ..db import get_db
 from ..deps import RequirePerm, get_current_user
 from ..mailer import (account_banned_email, account_deleted_email,
                       account_restored_email, account_suspended_email, send_email)
-from ..models import (Campaign, Deal, DealStatus, Notification, Platform, PlatformMedia,
-                      Session as AuthSession, User)
+from ..models import (AdminAuditLog, BannedEmail, Campaign, Deal, DealStatus, Notification,
+                      Platform, PlatformMedia, Session as AuthSession, User)
 from ..permissions import Perm, Role, is_super_admin, permissions_for, require_permission
 from ..security import hash_password, verify_password
 from ..storage import delete_stored
@@ -205,6 +205,7 @@ def user_admin_dict(u: User) -> dict:
         "suspended": u.suspended_at is not None,
         "suspended_reason": u.suspended_reason,
         "banned": u.banned_at is not None,
+        "deactivated": u.deactivated_at is not None,
         "action_code_set": bool(u.action_code_hash),
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }
@@ -297,14 +298,23 @@ def moderation_members(limit: int = 200,
                     User.deleted_at.is_(None))
             .order_by(User.id.desc())
             .limit(limit).all())
-    active, restricted = [], []
+    active, restricted, deactivated = [], [], []
     for u in rows:
         d = {**user_admin_dict(u),
              "banned_at": u.banned_at.isoformat() if u.banned_at else None,
              "suspended_at": u.suspended_at.isoformat() if u.suspended_at else None,
-             "suspended_until": u.suspended_until.isoformat() if u.suspended_until else None}
-        (restricted if (u.suspended_at or u.banned_at) else active).append(d)
-    return {"active": active, "restricted": restricted,
+             "suspended_until": u.suspended_until.isoformat() if u.suspended_until else None,
+             "deactivated_at": u.deactivated_at.isoformat() if u.deactivated_at else None}
+        # Banned/suspended (an admin's call) takes the bucket over a
+        # self-deactivation, in the rare case both are true at once — see
+        # deactivated below for the third state this was missing entirely.
+        if u.suspended_at or u.banned_at:
+            restricted.append(d)
+        elif u.deactivated_at is not None:
+            deactivated.append(d)
+        else:
+            active.append(d)
+    return {"active": active, "restricted": restricted, "deactivated": deactivated,
             "limit": limit, "truncated": len(rows) == limit}
 
 
@@ -438,6 +448,49 @@ def unsuspend_user(user_id: int, body: ReasonIn, request: Request,
     return user_admin_dict(target)
 
 
+def _real_email_for(db: Session, user: User) -> str:
+    """The real email for `user`, even if deletion has since scrambled the
+    live row to a placeholder — resolved from the audit trail's captured
+    snapshot (anonymize_user() records the pre-scrub email in
+    previous_state before rewriting it). Falls back to the live value
+    (possibly the placeholder) if no matching entry is found."""
+    if user.deleted_at is None:
+        return user.email
+    log = (db.query(AdminAuditLog)
+           .filter(AdminAuditLog.target_type == "user", AdminAuditLog.target_id == str(user.id),
+                   AdminAuditLog.action.in_(["user.delete", "user.self_delete"]))
+           .order_by(AdminAuditLog.id.desc()).first())
+    if log and isinstance(log.previous_state, dict) and log.previous_state.get("email"):
+        return log.previous_state["email"]
+    return user.email
+
+
+def _record_banned_email(db: Session, email: str, reason: str) -> None:
+    """Upsert a banned_emails row for the real email — the record that
+    survives even if the account behind it is later deleted (see
+    BannedEmail's docstring in models.py). Commits on its own."""
+    norm = (email or "").strip().lower()
+    if not norm:
+        return
+    row = db.query(BannedEmail).filter(BannedEmail.email == norm).first()
+    if row is None:
+        row = BannedEmail(email=norm)
+        db.add(row)
+    row.banned_at = datetime.utcnow()
+    row.reason = reason
+    db.commit()
+
+
+def _clear_banned_email(db: Session, email: str) -> None:
+    """Remove the banned_emails row — lifting a ban should actually lift it,
+    including the persistent signup block. Commits on its own."""
+    norm = (email or "").strip().lower()
+    if not norm:
+        return
+    db.query(BannedEmail).filter(BannedEmail.email == norm).delete(synchronize_session=False)
+    db.commit()
+
+
 @router.post("/users/{user_id}/ban")
 def ban_user(user_id: int, body: ReasonIn, request: Request,
              background: BackgroundTasks,
@@ -494,6 +547,12 @@ def ban_user(user_id: int, body: ReasonIn, request: Request,
                      reason=f"{reason} (cascaded: linked to banned account #{target.id})",
                      request=request)
 
+    # Written from the real, still-live email — the one moment it's certain
+    # not to have been scrambled by a later deletion. This is what actually
+    # stops the person signing up again if the account is ever deleted
+    # afterwards (see BannedEmail in models.py).
+    _record_banned_email(db, target.email, reason)
+
     # One inbox either way — a single notification covers both identities.
     background.add_task(_notify_account_action, target.email, "banned",
                         target.suspended_reason or "")
@@ -544,11 +603,19 @@ def unban_user(user_id: int, body: ReasonIn, request: Request,
                      reason=f"{reason} (cascaded: linked to unbanned account #{target.id})",
                      request=request)
 
+    # Resolved via the audit trail if the account was deleted while banned —
+    # the live row's email may already be a placeholder by now (see
+    # _real_email_for), but the persistent block has to be lifted from the
+    # real address or it can never actually be cleared.
+    _clear_banned_email(db, _real_email_for(db, target))
+
     db.add(Notification(user_id=target.id, type="account_restored",
                         body="Your account is active again — welcome back to PromoSlot."))
     db.commit()
     # They're signed out (banned accounts have no session), so email is the
-    # only way this reaches them — same pattern as unsuspend_user.
+    # only way this reaches them — same pattern as unsuspend_user. A no-op
+    # if the account was deleted (target.email is a placeholder by then, so
+    # nothing sends), which is correct: there's no live inbox to notify.
     background.add_task(_notify_account_restored, target.email, target.display_name or "")
     return user_admin_dict(target)
 
@@ -594,7 +661,8 @@ def delete_user(user_id: int, body: ReasonIn, request: Request,
                      target_id=row.id, previous_state=summary["before"],
                      new_state={"deleted_at": row.deleted_at.isoformat(),
                                "sessions_revoked": summary["sessions_revoked"],
-                               "assets_removed": summary["assets_removed"]},
+                               "assets_removed": summary["assets_removed"],
+                               "listings_removed": summary["listings_removed"]},
                      reason=(f"{reason} (cascaded: linked to account #{target.id})"
                              if cascaded else reason),
                      request=request)
@@ -636,6 +704,27 @@ def listing_request_changes(platform_id: int, body: ReasonIn, request: Request,
     return {"ok": True, "listing_id": p.id}
 
 
+def _owner_status_dict(db: Session, user_id: int) -> dict:
+    """Best-effort identity summary for a listing/campaign owner, even if
+    their account is now deactivated or deleted — so a suspended listing
+    isn't just a bare id with no context for what actually happened to the
+    person behind it (e.g. the other party in a deal is asking)."""
+    u = db.get(User, user_id)
+    if u is None:
+        return {"id": user_id, "display_name": None, "status": "unknown"}
+    if u.deleted_at is not None:
+        return {"id": u.id, "display_name": u.display_name, "status": "deleted",
+                "last_known_email": _real_email_for(db, u)}
+    if u.deactivated_at is not None:
+        return {"id": u.id, "display_name": u.display_name, "email": u.email,
+                "status": "deactivated"}
+    if u.banned_at is not None:
+        return {"id": u.id, "display_name": u.display_name, "email": u.email, "status": "banned"}
+    if u.suspended_at is not None:
+        return {"id": u.id, "display_name": u.display_name, "email": u.email, "status": "suspended"}
+    return {"id": u.id, "display_name": u.display_name, "email": u.email, "status": "active"}
+
+
 @router.get("/suspended")
 def list_suspended(actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
                    db: Session = Depends(get_db)):
@@ -644,11 +733,13 @@ def list_suspended(actor: User = Depends(RequirePerm(Perm.LISTING_SUSPEND)),
     cs = db.query(Campaign).filter(Campaign.suspended_at.isnot(None)).all()
     return {
         "listings": [{"id": p.id, "name": p.name, "owner_id": p.owner_id,
+                      "owner": _owner_status_dict(db, p.owner_id),
                       "suspended_reason": p.suspended_reason,
                       "suspended_at": p.suspended_at.isoformat() if p.suspended_at else None,
                       "suspended_until": p.suspended_until.isoformat() if p.suspended_until else None}
                      for p in ls],
         "campaigns": [{"id": c.id, "title": c.title, "business_id": c.business_id,
+                       "owner": _owner_status_dict(db, c.business_id),
                        "suspended_reason": c.suspended_reason,
                        "suspended_at": c.suspended_at.isoformat() if c.suspended_at else None,
                        "suspended_until": c.suspended_until.isoformat() if c.suspended_until else None}
@@ -889,7 +980,6 @@ def read_audit_log(limit: int = 200,
                    db: Session = Depends(get_db)):
     """Read-only. The table is append-only at the database level: there is no
     update or delete path here or anywhere else."""
-    from ..models import AdminAuditLog
     rows = (db.query(AdminAuditLog).order_by(AdminAuditLog.id.desc())
             .limit(min(max(limit, 1), 1000)).all())
     return [{

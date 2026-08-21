@@ -4221,14 +4221,14 @@ async function openAdmin(tab, focus){
   let admins=[], logs=[], mods={listings:[],campaigns:[]}, banned=[];
   if(tab==="admins"){ try{ admins=await PSApi.get("/admin/admins"); }catch(e){} }
   else if(tab==="banned" || tab==="upcoming"){
-    try{ mods.members=await PSApi.get("/admin/members"); }catch(e){ mods.members={active:[],restricted:[]}; }
+    try{ mods.members=await PSApi.get("/admin/members"); }catch(e){ mods.members={active:[],restricted:[],deactivated:[]}; }
     try{ mods.suspended=await PSApi.get("/admin/suspended"); }catch(e){ mods.suspended={listings:[],campaigns:[]}; }
   }
   else if(tab==="moderation"){
     try{ mods.listings=await PSApi.get("/platforms"); }catch(e){}
     try{ mods.campaigns=await PSApi.get("/campaigns"); }catch(e){}
     try{ mods.suspended=await PSApi.get("/admin/suspended"); }catch(e){ mods.suspended={listings:[],campaigns:[]}; }
-    try{ mods.members=await PSApi.get("/admin/members"); }catch(e){ mods.members={active:[],restricted:[]}; }
+    try{ mods.members=await PSApi.get("/admin/members"); }catch(e){ mods.members={active:[],restricted:[],deactivated:[]}; }
   }
   else if(tab==="audit"){ try{ logs=await PSApi.get("/admin/audit-log?limit=100"); }catch(e){} }
   let body="";
@@ -4305,7 +4305,7 @@ async function openAdmin(tab, focus){
     const urow=(u,btn)=>`<div class="deal-row" style="cursor:default" id="acp-u${u.id}">
         ${pfp(u.display_name||u.email,null)}
         <div><div class="dr-t">${esc(u.display_name||u.email)}</div>
-          <div class="dr-s">${esc(u.email)}${u.banned?" · <b>banned</b>":u.suspended?" · <b>suspended</b>":""}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
+          <div class="dr-s">${esc(u.email)}${u.banned?" · <b>banned</b>":u.suspended?" · <b>suspended</b>":u.deactivated?" · <b>deactivated</b>":""}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
         <div class="btn-row">${btn}</div></div>`;
     body=`<p class="deal-sub" style="padding:0 2px 8px">What's live right now. Suspending hides an item and blocks new bookings but keeps it intact — it moves to <b>Banned/Suspended</b>, and returns here when restored or when its period runs out. <b>Delete removes it outright and cannot be undone.</b> Both are written to the audit log.</p>
       <div class="panel"><div class="panel-h"><h4>Live listings</h4></div><div class="panel-b">
@@ -4327,6 +4327,12 @@ async function openAdmin(tab, focus){
           +`<button class="btn btn-danger btn-sm" onclick="adminDeleteUser(${u.id})">Delete</button>`)).join("")
           :`<p class="mut" style="font-size:12.5px">No active member accounts.</p>`}
         ${mem.truncated?`<p class="mut" style="font-size:12px;margin-top:8px">Showing the ${mem.limit} most recent. Use the Admins tab search to find anyone older.</p>`:""}
+      </div></div>
+      <div class="panel"><div class="panel-h"><h4>Deactivated users</h4></div><div class="panel-b">
+        <p class="mut" style="font-size:12.5px;margin-bottom:10px">Paused by the account holder themselves — reversible, they just log back in. Their listings/campaigns are hidden below with the rest.</p>
+        ${(mem.deactivated||[]).length?(mem.deactivated).map(u=>urow(u,
+          `<button class="btn btn-danger btn-sm" onclick="adminDeleteUser(${u.id})">Delete</button>`)).join("")
+          :`<p class="mut" style="font-size:12.5px">No deactivated accounts.</p>`}
       </div></div>
 `;
   } else {
@@ -4399,6 +4405,16 @@ function adminUnban(id){
   if(!confirm(`Are you sure you want to lift the ban on "${name}"? They were banned for the following reason: "${why}"`)) return;
   _modAction(`/admin/users/${id}/unban`, "Ban lifted — account restored", {backTo:"banned"});
 }
+function _ownerStatusSuffix(o){
+  // Extra context on who's actually behind a suspended listing/campaign —
+  // most useful for the deactivated/deleted/banned cases, where the reason
+  // the item is suspended has nothing to do with the item itself.
+  if(!o) return "";
+  if(o.status==="deleted") return ` · Owner: ${esc(o.display_name||"Deleted user")} — account deleted${o.last_known_email?" (was "+esc(o.last_known_email)+")":""}`;
+  if(o.status==="deactivated") return ` · Owner: ${esc(o.display_name||o.email||"")} — account deactivated`;
+  if(o.status==="banned") return ` · Owner: ${esc(o.display_name||o.email||"")} — account banned`;
+  return "";
+}
 function restrictedItemRowsHtml(items){
   const ls=items.listings||[], cs=items.campaigns||[];
   if(!ls.length && !cs.length) return `<div class="empty-state small"><div class="es-ico">🚧</div><h4>Nothing suspended</h4><p>Suspended listings and campaigns appear here.</p></div>`;
@@ -4407,10 +4423,10 @@ function restrictedItemRowsHtml(items){
       <div><div class="dr-t">${esc(title)}</div><div class="dr-s">${sub}</div></div>
       <div class="btn-row">${btn}</div></div>`;
   const until=x=>untilHtml(x.suspended_until);
-  return ls.map(l=>row(l.name,`Listing${until(l)}${l.suspended_reason?" · "+esc(l.suspended_reason):""}`,
+  return ls.map(l=>row(l.name,`Listing${until(l)}${l.suspended_reason?" · "+esc(l.suspended_reason):""}${_ownerStatusSuffix(l.owner)}`,
       `<button class="btn btn-o btn-sm" onclick="adminUnsuspendListing(${l.id})">Restore</button>`
       +`<button class="btn btn-danger btn-sm" onclick="adminRemoveListing(${l.id})">Delete</button>`, "p"+l.id)).join("")
-   + cs.map(c=>row(c.title,`Campaign${until(c)}${c.suspended_reason?" · "+esc(c.suspended_reason):""}`,
+   + cs.map(c=>row(c.title,`Campaign${until(c)}${c.suspended_reason?" · "+esc(c.suspended_reason):""}${_ownerStatusSuffix(c.owner)}`,
       `<button class="btn btn-o btn-sm" onclick="adminUnsuspendCampaign(${c.id})">Restore</button>`
       +`<button class="btn btn-danger btn-sm" onclick="adminRemoveCampaign(${c.id})">Delete</button>`, "c"+c.id)).join("");
 }
