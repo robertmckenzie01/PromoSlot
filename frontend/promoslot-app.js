@@ -4323,7 +4323,8 @@ async function openAdmin(tab, focus){
       <div class="panel"><div class="panel-h"><h4>Active users</h4></div><div class="panel-b">
         ${mem.active.length?mem.active.map(u=>urow(u,
           `<button class="btn btn-o btn-sm" onclick="adminSuspend(${u.id})">Suspend</button>`
-          +`<button class="btn btn-danger btn-sm" onclick="adminBan(${u.id})">Ban</button>`)).join("")
+          +`<button class="btn btn-danger btn-sm" onclick="adminBan(${u.id})">Ban</button>`
+          +`<button class="btn btn-danger btn-sm" onclick="adminDeleteUser(${u.id})">Delete</button>`)).join("")
           :`<p class="mut" style="font-size:12.5px">No active member accounts.</p>`}
         ${mem.truncated?`<p class="mut" style="font-size:12px;margin-top:8px">Showing the ${mem.limit} most recent. Use the Admins tab search to find anyone older.</p>`:""}
       </div></div>
@@ -4387,7 +4388,8 @@ function restrictedUserRowsHtml(rows){
         <div class="dr-s">${esc(u.email)} · <b>${u.banned?"banned":"suspended"}</b>${suspensionSuffix(u)}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
       <div class="btn-row">${u.banned
         ? `<button class="btn btn-o btn-sm" onclick="adminUnban(${u.id})">Lift ban</button>`
-        : `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Restore</button>`}</div>
+        : `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Restore</button>`}
+        <button class="btn btn-danger btn-sm" onclick="adminDeleteUser(${u.id})">Delete</button></div>
     </div>`).join("");
 }
 function adminUnban(id){
@@ -4513,6 +4515,7 @@ async function adminSearchUsers(){
           ? `<button class="btn btn-o btn-sm" onclick="adminUnsuspend(${u.id})">Unsuspend</button>`
           : `<button class="btn btn-o btn-sm" onclick="adminSuspend(${u.id})">Suspend</button>`)
         +`<button class="btn btn-danger btn-sm" onclick="adminBan(${u.id})">Ban</button>`;
+      action+=`<button class="btn btn-danger btn-sm" onclick="adminDeleteUser(${u.id})">Delete</button>`;
     }
     const what=[u.is_business?"business":null,u.is_platform_owner?"platform owner":null]
       .filter(Boolean).join(" · ")||"member";
@@ -4592,6 +4595,18 @@ async function adminBan(userId){
   try{ await PSApi.post(`/admin/users/${userId}/ban`, c); }
   catch(e){ toast(e.message||"Could not ban"); return; }
   toast("Account banned — sessions revoked",true); openAdmin("banned");
+}
+// Unlike Ban, this actually frees the email address — anonymize_user()
+// overwrites it with a placeholder, so the real address is no longer
+// attached to any account and can be used to sign up again. Irreversible:
+// there is no "undelete" the way unban/unsuspend exist, since the personal
+// data itself is gone, not just flagged.
+async function adminDeleteUser(userId){
+  if(!confirm("Permanently wipe this account's personal data? This cannot be undone — unlike a ban, there is no way to restore it afterwards. The email address will be freed up and can be used to sign up again.")) return;
+  const c=adminCreds(); if(!c) return;
+  try{ await PSApi.post(`/admin/users/${userId}/delete`, c); }
+  catch(e){ toast(e.message||"Could not delete"); return; }
+  toast("Account deleted — email can be reused",true); openAdmin("banned");
 }
 function scrollToPanel(id){
   const el=$(id); if(!el) return;
