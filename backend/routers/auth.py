@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ..account_deactivation import reactivate_account_cascade
 from ..config import settings
 from ..db import get_db
 from ..deps import COOKIE_NAME, assert_active, get_current_user
@@ -156,6 +157,13 @@ def login(body: LoginIn, response: Response, db: Session = Depends(get_db)):
     # Constant-ish response: verify even if user is missing to reduce enumeration.
     if user is None or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    # A correct password is exactly the bar deactivation was gated behind
+    # (see routers/profiles.py:deactivate_my_account), so it reactivates
+    # automatically here rather than making them find a separate "reactivate"
+    # step — the account (and its linked identity, if any) is simply usable
+    # again from this point on.
+    if user.deactivated_at is not None:
+        reactivate_account_cascade(db, user)
     # Only after the password check, so this never tells an anonymous caller
     # whether an address exists. Banned and suspended accounts are turned away
     # here rather than handed a session that 403s on every subsequent request.

@@ -143,7 +143,8 @@ def _guard_target(actor: User, target: User) -> None:
 def _active_super_admins(db: Session):
     return (db.query(User)
             .filter(User.role == Role.SUPER_ADMIN,
-                    User.suspended_at.is_(None), User.banned_at.is_(None))
+                    User.suspended_at.is_(None), User.banned_at.is_(None),
+                    User.deactivated_at.is_(None))
             .all())
 
 

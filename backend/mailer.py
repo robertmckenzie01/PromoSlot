@@ -390,6 +390,44 @@ def account_restored_email(display_name: str = "") -> tuple:
     return title, html, text
 
 
+def account_deactivated_email(reason: str = "") -> tuple:
+    """(subject, html, text) confirming a self-service deactivation.
+
+    Reversible, unlike account_deleted_email below — the whole point of the
+    copy is "log back in whenever you're ready", not a permanent goodbye.
+    Reactivation itself doesn't get its own email; logging back in with the
+    account's own password is the confirmation.
+    """
+    title = "Your PromoSlot account has been deactivated"
+    reason_block = (f'''
+        <p style="color:#334155;margin-bottom:6px"><b>Note</b></p>
+        <div style="border-left:3px solid #4f46e5;padding:2px 0 2px 14px;color:#334155;
+                    white-space:pre-wrap;font-size:14px">{_esc(reason)}</div>'''
+        if reason else "")
+
+    html = f"""
+      <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
+        <h2 style="color:#0f172a">{title}</h2>
+        <p style="color:#334155">Your profile is hidden from PromoSlot while you're
+           deactivated, and any listings or campaigns are paused, not deleted or
+           removed. Nothing about your account has been lost.</p>
+        {reason_block}
+        <p style="color:#334155;margin-top:22px">Log back in any time with your usual
+           email and password to pick up exactly where you left off.</p>
+        <p style="color:#64748b;font-size:13px">Didn't request this? Contact
+           {settings.support_email} straight away.</p>
+      </div>"""
+    text = (f"{title}\n\n"
+            "Your profile is hidden from PromoSlot while you're deactivated, and any "
+            "listings or campaigns are paused, not deleted or removed. Nothing about "
+            "your account has been lost.\n\n"
+            + (f"Note:\n{reason}\n\n" if reason else "")
+            + "Log back in any time with your usual email and password to pick up "
+              "exactly where you left off.\n\n"
+              f"Didn't request this? Contact {settings.support_email} straight away.")
+    return title, html, text
+
+
 def account_deleted_email(reason: str = "") -> tuple:
     """(subject, html, text) confirming an account's personal data was deleted.
 

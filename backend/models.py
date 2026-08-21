@@ -80,6 +80,16 @@ class User(Base):
     # this flag is what marks "treat as gone" everywhere the account would
     # otherwise be displayed or allowed to log in.
     deleted_at = Column(DateTime)
+    # Set when the person pauses their own account — reversible, unlike
+    # deleted_at above. Nothing is scrubbed: email, password, profile content
+    # and any listings/campaigns are left exactly as they are. Blocks login
+    # the same way suspended_at/banned_at do (see deps.assert_active), but a
+    # correct password at the login form clears this automatically (see
+    # routers/auth.py:login) rather than requiring a separate "reactivate"
+    # step — see account_deactivation.py for the full cascade. This identity's
+    # own Platform/Campaign rows are suspended alongside it (see
+    # account_deactivation.py) so "not live" is actually true while paused.
+    deactivated_at = Column(DateTime)
     # Static 8-digit action code, required alongside the password on every
     # dangerous action (mandatory for SUPER_ADMIN). Null = not set up yet, which
     # gates privileged actions without affecting normal login.

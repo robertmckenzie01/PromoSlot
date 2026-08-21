@@ -132,7 +132,8 @@ def _reviewer_ids(db: Session):
         return []
     rows = (db.query(User.id)
             .filter(User.role.in_(roles),
-                    User.suspended_at.is_(None), User.banned_at.is_(None)).all())
+                    User.suspended_at.is_(None), User.banned_at.is_(None),
+                    User.deactivated_at.is_(None)).all())
     return [r[0] for r in rows]
 
 

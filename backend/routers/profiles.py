@@ -13,11 +13,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from .. import audit
+from ..account_deactivation import deactivate_account_cascade
 from ..account_deletion import delete_account_cascade
 from ..config import settings
 from ..db import get_db
 from ..deps import COOKIE_NAME, get_current_user
-from ..mailer import account_deleted_email, send_email
+from ..mailer import account_deactivated_email, account_deleted_email, send_email
 from ..models import ProfileAsset, User
 from ..security import verify_password
 from ..storage import delete_stored, save_generic, serve_stored, stored_exists
@@ -165,6 +166,55 @@ def _notify_deleted(email: str, reason: str) -> None:
     ok, detail = send_email(email, subj, html, text)
     if not ok:
         log.warning("account-deleted email not sent to %s: %s", email, detail)
+
+
+class DeactivateAccountIn(BaseModel):
+    password: str = Field(min_length=1)
+
+
+@router.post("/me/deactivate")
+def deactivate_my_account(body: DeactivateAccountIn, request: Request, response: Response,
+                          background: BackgroundTasks,
+                          user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Self-service, reversible pause — the other half of the "delete or
+    deactivate" choice next to delete_my_account above.
+
+    Same password bar as deletion (a hijacked session cookie alone can't do
+    this either). Unlike deletion, nothing is scrubbed: email, password and
+    profile content are untouched, and any listings/campaigns are only
+    suspended, not removed — see account_deactivation.py. Signing back in
+    with the correct password (routers/auth.py:login) clears deactivated_at
+    automatically, no separate "reactivate" step needed.
+    """
+    if not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=403, detail="That password isn't correct.")
+
+    to_notify = [row.email for row in
+                 ([user] + ([db.get(User, user.linked_user_id)]
+                            if user.linked_user_id else []))
+                 if row is not None]
+
+    touched = deactivate_account_cascade(db, user)
+    for row, revoked in touched:
+        audit.record(db, actor=user, action="user.self_deactivate", target_type="user",
+                     target_id=row.id, previous_state={"deactivated_at": None},
+                     new_state={"deactivated_at": row.deactivated_at.isoformat(),
+                               "sessions_revoked": revoked},
+                     reason="Self-service account deactivation", request=request)
+
+    for email in to_notify:
+        background.add_task(_notify_deactivated, email,
+                            "Requested from your PromoSlot account settings.")
+
+    response.delete_cookie(COOKIE_NAME, path="/")
+    return {"ok": True, "accounts_deactivated": len(touched)}
+
+
+def _notify_deactivated(email: str, reason: str) -> None:
+    subj, html, text = account_deactivated_email(reason)
+    ok, detail = send_email(email, subj, html, text)
+    if not ok:
+        log.warning("account-deactivated email not sent to %s: %s", email, detail)
 
 
 @router.post("/me/assets", status_code=201)

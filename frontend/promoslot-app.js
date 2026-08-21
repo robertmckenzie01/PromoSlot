@@ -5191,8 +5191,22 @@ function openAccount(){
 
       <section class="acct2-zone">
         <div class="acct2-zone-kicker muted">04 — Danger zone</div>
-        <h2 class="acct2-zone-title" style="margin-top:14px">Delete your account.</h2>
-        <div class="acct2-mini" style="max-width:520px;margin-top:22px;border-color:var(--red-border)">
+        <h2 class="acct2-zone-title" style="margin-top:14px">Deactivate or delete your account.</h2>
+
+        <div class="acct2-mini" style="max-width:520px;margin-top:22px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px">Deactivate my account</div>
+          <p style="font-size:13px;color:var(--mut);margin-bottom:14px">
+            Hides your profile and pauses your listings or campaigns — nobody can find or contact you on
+            PromoSlot while deactivated. Signs you out everywhere, but nothing is deleted: log back in with
+            your usual email and password any time to pick up exactly where you left off.${a.linked_account?`
+            Since your business and platform-owner profiles share this one login, <b>both are paused
+            together</b>.`:""} Deals already funded or in progress aren't affected.
+          </p>
+          <button class="btn btn-ghost btn-sm" onclick="deactivateAccountModal()">Deactivate my account</button>
+        </div>
+
+        <div class="acct2-mini" style="max-width:520px;margin-top:16px;border-color:var(--red-border)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px">Delete my account</div>
           <p style="font-size:13px;color:var(--mut);margin-bottom:14px">
             This permanently removes your profile — name, bio, photo, intro video — and signs you out
             everywhere. It cannot be undone.${a.linked_account?` Since your business and platform-owner
@@ -5209,6 +5223,44 @@ function openAccount(){
     </div>`;
   renderWhoWeAre();
   renderActionCodePanel();
+}
+function deactivateAccountModal(){
+  openModal(`<div class="m-pad" style="max-width:440px">
+    <h3 class="m-title">Deactivate your PromoSlot account?</h3>
+    <p class="m-sub">Enter your password to confirm. You can reactivate any time just by logging back in.</p>
+    <div class="frm" style="margin-top:16px">
+      <div><label>Password</label><input type="password" id="dea-pass" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doDeactivateAccount()"></div>
+      <div class="hint-err hide" id="dea-err"></div>
+    </div>
+    <div class="m-actions" style="margin-top:18px">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn" id="dea-submit" onclick="doDeactivateAccount()">Yes, deactivate my account</button>
+    </div>
+  </div>`);
+}
+async function doDeactivateAccount(){
+  const password=$("dea-pass").value||"";
+  const err=$("dea-err");
+  if(err) err.classList.add("hide");
+  if(!password){ if(err){ err.textContent="Enter your password to confirm."; err.classList.remove("hide"); } return; }
+  const btn=$("dea-submit"); btn.disabled=true; btn.textContent="Deactivating…";
+  try{
+    await PSApi.post("/me/deactivate", {password});
+  }catch(e){
+    btn.disabled=false; btn.textContent="Yes, deactivate my account";
+    if(err){ err.textContent=e.message||"Could not deactivate your account"; err.classList.remove("hide"); }
+    return;
+  }
+  closeModal();
+  clearRoute();
+  S.account=null; S.perms=[]; S.myRole="USER";
+  ["dealWrap","accountWrap","msgsWrap","bizDash","platDash"].forEach(id=>{
+    const el=$(id); if(el) el.innerHTML="";
+  });
+  S.convos=[]; S.activeThread=null; S.realDeals=[]; S.realNotifs=[]; S._who=null;
+  authReflect(); goHome();
+  toast("Your account is deactivated — log back in any time to reactivate it",true);
 }
 function deleteAccountModal(){
   openModal(`<div class="m-pad" style="max-width:440px">
@@ -5232,7 +5284,7 @@ async function doDeleteAccount(){
   if(!password){ if(err){ err.textContent="Enter your password to confirm."; err.classList.remove("hide"); } return; }
   const btn=$("da-submit"); btn.disabled=true; btn.textContent="Deleting…";
   try{
-    await PSApi.post("/profiles/me/delete", {password});
+    await PSApi.post("/me/delete", {password});
   }catch(e){
     btn.disabled=false; btn.textContent="Yes, delete my account";
     if(err){ err.textContent=e.message||"Could not delete your account"; err.classList.remove("hide"); }
@@ -6409,6 +6461,7 @@ tourResumeClick,tourHideResume,tourRestart,syncTourResume,maybeOfferTour,tourSta
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,adminUnban,adminDeleteUser,
 deleteAccountModal,doDeleteAccount,
+deactivateAccountModal,doDeactivateAccount,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
 renderMarketRail,railSetRole,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
 djSetRole,djGo,djNext,djBack,djNavKey,

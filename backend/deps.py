@@ -45,6 +45,13 @@ def assert_active(user: User) -> None:
     if user.suspended_at is not None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="This account is suspended.")
+    # Same belt-and-braces reasoning as deleted_at above: a correct password at
+    # login clears this before a session is ever issued (see routers/auth.py),
+    # so a live session should never carry a deactivated user — but if one
+    # somehow does, it's turned away here rather than served.
+    if user.deactivated_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="This account is deactivated.")
     if user.verified_at is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Please verify your email before logging in. "
