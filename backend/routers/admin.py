@@ -287,7 +287,13 @@ def moderation_members(limit: int = 200,
             .filter(User.role == Role.USER, User.id != actor.id,
                     # The "PromoSlot Support" system account is not a member and
                     # must not be offered up for suspension in a moderation queue.
-                    func.lower(User.email) != settings.support_email.lower())
+                    func.lower(User.email) != settings.support_email.lower(),
+                    # A deleted account has nothing left to moderate — its ban/
+                    # suspend state, if any, is historical only (see the audit
+                    # log), and re-showing it here just invites clicking Delete
+                    # again on a row that already 409s. Excluded from both the
+                    # active and restricted buckets below, not just one.
+                    User.deleted_at.is_(None))
             .order_by(User.id.desc())
             .limit(limit).all())
     active, restricted = [], []
@@ -309,7 +315,7 @@ def banned_users(actor: User = Depends(RequirePerm(Perm.ADMIN_VIEW)),
     A plain list the Super-Admin can scan — no similarity detection, no
     inference. Sourced straight from users with banned_at set.
     """
-    rows = (db.query(User).filter(User.banned_at.isnot(None))
+    rows = (db.query(User).filter(User.banned_at.isnot(None), User.deleted_at.is_(None))
             .order_by(User.banned_at.desc()).all())
     return [{**user_admin_dict(u),
              "banned_at": u.banned_at.isoformat() if u.banned_at else None}
