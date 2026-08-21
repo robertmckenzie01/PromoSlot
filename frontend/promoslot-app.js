@@ -5200,7 +5200,9 @@ function openAccount(){
             PromoSlot while deactivated. Signs you out everywhere, but nothing is deleted: log back in with
             your usual email and password any time to pick up exactly where you left off.${a.linked_account?`
             Since your business and platform-owner profiles share this one login, <b>both are paused
-            together</b>.`:""} Deals already funded or in progress aren't affected.
+            together</b>.`:""} Deals that are funded or in progress aren't cancelled by this, but you
+            won't be able to act on them — approve, message, or submit delivery proof — until you log
+            back in. Worth wrapping up or checking in on anything active first.
           </p>
           <button class="btn btn-ghost btn-sm" onclick="deactivateAccountModal()">Deactivate my account</button>
         </div>
@@ -5224,6 +5226,35 @@ function openAccount(){
   renderWhoWeAre();
   renderActionCodePanel();
 }
+function _reasonChecklistHtml(cls, otherTextareaId, label){
+  const opts=["Just taking a break","Switching to a different platform or strategy",
+    "Wasn't getting good results","Too complicated to use","Privacy or data concerns"];
+  const boxes=opts.map(o=>`<label style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:400">
+      <input type="checkbox" class="${cls}" value="${esc(o)}"> ${esc(o)}</label>`).join("");
+  return `<div class="frm" style="margin-top:14px">
+    <label style="font-size:12px;color:var(--mut);display:block;margin-bottom:6px">${esc(label)} (optional)</label>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${boxes}
+      <label style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:400">
+        <input type="checkbox" class="${cls}" value="Other"
+          onchange="document.getElementById('${otherTextareaId}').style.display=this.checked?'block':'none'"> Other</label>
+    </div>
+    <textarea id="${otherTextareaId}" placeholder="Tell us more (optional)"
+      style="display:none;margin-top:8px;width:100%;min-height:56px;padding:8px;border-radius:8px;
+        border:1px solid var(--line2);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+  </div>`;
+}
+function _collectAccountActionReason(cls, otherTextareaId){
+  const boxes=[...document.querySelectorAll("."+cls+":checked")];
+  const parts=[];
+  for(const b of boxes){
+    if(b.value==="Other"){
+      const t=(($(otherTextareaId)||{}).value||"").trim();
+      parts.push(t?`Other: ${t}`:"Other");
+    } else parts.push(b.value);
+  }
+  return parts.join("; ");
+}
 function deactivateAccountModal(){
   openModal(`<div class="m-pad" style="max-width:440px">
     <h3 class="m-title">Deactivate your PromoSlot account?</h3>
@@ -5233,6 +5264,7 @@ function deactivateAccountModal(){
         onkeydown="if(event.key==='Enter')doDeactivateAccount()"></div>
       <div class="hint-err hide" id="dea-err"></div>
     </div>
+    ${_reasonChecklistHtml("dea-reason-cb","dea-reason-other","Why are you deactivating?")}
     <div class="m-actions" style="margin-top:18px">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn" id="dea-submit" onclick="doDeactivateAccount()">Yes, deactivate my account</button>
@@ -5244,9 +5276,10 @@ async function doDeactivateAccount(){
   const err=$("dea-err");
   if(err) err.classList.add("hide");
   if(!password){ if(err){ err.textContent="Enter your password to confirm."; err.classList.remove("hide"); } return; }
+  const reason=_collectAccountActionReason("dea-reason-cb","dea-reason-other");
   const btn=$("dea-submit"); btn.disabled=true; btn.textContent="Deactivating…";
   try{
-    await PSApi.post("/me/deactivate", {password});
+    await PSApi.post("/me/deactivate", {password, reason});
   }catch(e){
     btn.disabled=false; btn.textContent="Yes, deactivate my account";
     if(err){ err.textContent=e.message||"Could not deactivate your account"; err.classList.remove("hide"); }
@@ -5271,6 +5304,7 @@ function deleteAccountModal(){
         onkeydown="if(event.key==='Enter')doDeleteAccount()"></div>
       <div class="hint-err hide" id="da-err"></div>
     </div>
+    ${_reasonChecklistHtml("da-reason-cb","da-reason-other","Why are you deleting your account?")}
     <div class="m-actions" style="margin-top:18px">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-danger" id="da-submit" onclick="doDeleteAccount()">Yes, delete my account</button>
@@ -5282,9 +5316,10 @@ async function doDeleteAccount(){
   const err=$("da-err");
   if(err) err.classList.add("hide");
   if(!password){ if(err){ err.textContent="Enter your password to confirm."; err.classList.remove("hide"); } return; }
+  const reason=_collectAccountActionReason("da-reason-cb","da-reason-other");
   const btn=$("da-submit"); btn.disabled=true; btn.textContent="Deleting…";
   try{
-    await PSApi.post("/me/delete", {password});
+    await PSApi.post("/me/delete", {password, reason});
   }catch(e){
     btn.disabled=false; btn.textContent="Yes, delete my account";
     if(err){ err.textContent=e.message||"Could not delete your account"; err.classList.remove("hide"); }

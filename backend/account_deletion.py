@@ -25,8 +25,10 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from .models import (EmailVerificationToken, PasswordResetToken, ProfileAsset,
-                     Session as AuthSession, User)
+from .models import (Campaign, EmailVerificationToken, PasswordResetToken, Platform,
+                     ProfileAsset, Session as AuthSession, User)
+from .routers.campaigns import remove_campaign_row
+from .routers.platforms import remove_platform_row
 from .storage import delete_stored
 
 PLACEHOLDER_NAME = "Deleted user"
@@ -56,6 +58,23 @@ def anonymize_user(db: Session, user: User) -> dict:
         delete_stored(a.path)
         db.delete(a)
 
+    # This identity's own listings/campaigns must stop showing up too — a
+    # deleted account previously left its marketplace listing live and
+    # visible, which is exactly the kind of "still tied to a gone account"
+    # state deletion is supposed to prevent. Same archive-or-hard-delete
+    # logic as the owner clicking "remove listing" themselves (see
+    # routers/platforms.py / routers/campaigns.py) — kept, not removed
+    # outright, if a real deal was ever built on it.
+    listings_removed = []
+    if user.is_platform_owner:
+        for p in (db.query(Platform)
+                  .filter(Platform.owner_id == user.id, Platform.removed_at.is_(None)).all()):
+            listings_removed.append(remove_platform_row(db, p))
+    if user.is_business:
+        for c in (db.query(Campaign)
+                  .filter(Campaign.business_id == user.id, Campaign.removed_at.is_(None)).all()):
+            listings_removed.append(remove_campaign_row(db, c))
+
     user.email = _placeholder_email(user.id)
     user.password_hash = "!deleted"          # never matches the pbkdf2 format -> unusable
     user.display_name = PLACEHOLDER_NAME
@@ -75,7 +94,8 @@ def anonymize_user(db: Session, user: User) -> dict:
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete(synchronize_session=False)
     db.query(EmailVerificationToken).filter(EmailVerificationToken.user_id == user.id).delete(synchronize_session=False)
 
-    return {"before": before, "sessions_revoked": revoked, "assets_removed": len(assets)}
+    return {"before": before, "sessions_revoked": revoked, "assets_removed": len(assets),
+            "listings_removed": listings_removed}
 
 
 def delete_account_cascade(db: Session, target: User) -> list:

@@ -118,6 +118,10 @@ def update_profile(body: ProfileIn, user: User = Depends(get_current_user),
 
 class DeleteAccountIn(BaseModel):
     password: str = Field(min_length=1)
+    # User-picked checklist reasons joined into one string by the frontend
+    # (plus free text under "Other"). Purely informational — never gates
+    # the deletion itself.
+    reason: Optional[str] = Field(default=None, max_length=1000)
 
 
 @router.post("/me/delete")
@@ -144,18 +148,24 @@ def delete_my_account(body: DeleteAccountIn, request: Request, response: Respons
                             if user.linked_user_id else []))
                  if row is not None]
 
+    given_reason = (body.reason or "").strip()
+    audit_reason = ("Self-service account deletion. User-selected reason: " + given_reason
+                    if given_reason else "Self-service account deletion. No reason given.")
+    email_note = (given_reason if given_reason
+                 else "Requested from your PromoSlot account settings.")
+
     touched = delete_account_cascade(db, user)
     for row, summary in touched:
         audit.record(db, actor=user, action="user.self_delete", target_type="user",
                      target_id=row.id, previous_state=summary["before"],
                      new_state={"deleted_at": row.deleted_at.isoformat(),
                                "sessions_revoked": summary["sessions_revoked"],
-                               "assets_removed": summary["assets_removed"]},
-                     reason="Self-service account deletion", request=request)
+                               "assets_removed": summary["assets_removed"],
+                               "listings_removed": summary["listings_removed"]},
+                     reason=audit_reason, request=request)
 
     for row_id, email in to_notify:
-        background.add_task(_notify_deleted, email,
-                            "Requested from your PromoSlot account settings.")
+        background.add_task(_notify_deleted, email, email_note)
 
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"ok": True, "accounts_deleted": len(touched)}
@@ -170,6 +180,7 @@ def _notify_deleted(email: str, reason: str) -> None:
 
 class DeactivateAccountIn(BaseModel):
     password: str = Field(min_length=1)
+    reason: Optional[str] = Field(default=None, max_length=1000)
 
 
 @router.post("/me/deactivate")
@@ -194,17 +205,22 @@ def deactivate_my_account(body: DeactivateAccountIn, request: Request, response:
                             if user.linked_user_id else []))
                  if row is not None]
 
+    given_reason = (body.reason or "").strip()
+    audit_reason = ("Self-service account deactivation. User-selected reason: " + given_reason
+                    if given_reason else "Self-service account deactivation. No reason given.")
+    email_note = (given_reason if given_reason
+                 else "Requested from your PromoSlot account settings.")
+
     touched = deactivate_account_cascade(db, user)
     for row, revoked in touched:
         audit.record(db, actor=user, action="user.self_deactivate", target_type="user",
                      target_id=row.id, previous_state={"deactivated_at": None},
                      new_state={"deactivated_at": row.deactivated_at.isoformat(),
                                "sessions_revoked": revoked},
-                     reason="Self-service account deactivation", request=request)
+                     reason=audit_reason, request=request)
 
     for email in to_notify:
-        background.add_task(_notify_deactivated, email,
-                            "Requested from your PromoSlot account settings.")
+        background.add_task(_notify_deactivated, email, email_note)
 
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"ok": True, "accounts_deactivated": len(touched)}

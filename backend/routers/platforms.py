@@ -478,18 +478,17 @@ def preview_removal(platform_id: int, user: User = Depends(get_current_user),
             "mode": "archive" if total else "delete"}
 
 
-@router.delete("/{platform_id:int}")
-def remove_platform(platform_id: int, user: User = Depends(get_current_user),
-                    db: Session = Depends(get_db)):
-    p = _own_platform(db, platform_id, user)
-    if p.removed_at is not None:
-        raise HTTPException(status_code=409, detail="This listing has already been removed")
-    # Recomputed here rather than trusted from the preview call.
+def remove_platform_row(db: Session, p: Platform) -> dict:
+    """The actual archive-or-delete logic, shared by the owner-initiated
+    DELETE route below and account_deletion.py's cascade (a deleted user's
+    own listings must stop showing up on the marketplace too — see the bug
+    this closed: they were staying visible after account deletion).
+    Does not commit; caller controls the transaction.
+    """
     total, active = _deal_counts(db, p.id)
 
     if total:
         p.removed_at = datetime.utcnow()
-        db.commit()
         return {"id": f"p{p.id}", "mode": "archived", "deals_total": total,
                 "deals_active": active}
 
@@ -504,5 +503,15 @@ def remove_platform(platform_id: int, user: User = Depends(get_current_user),
     db.flush()
     delete_stored(p.image_path)
     db.delete(p)
+    return {"id": f"p{p.id}", "mode": "deleted", "deals_total": 0, "deals_active": 0}
+
+
+@router.delete("/{platform_id:int}")
+def remove_platform(platform_id: int, user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    p = _own_platform(db, platform_id, user)
+    if p.removed_at is not None:
+        raise HTTPException(status_code=409, detail="This listing has already been removed")
+    result = remove_platform_row(db, p)
     db.commit()
-    return {"id": f"p{platform_id}", "mode": "deleted", "deals_total": 0, "deals_active": 0}
+    return result

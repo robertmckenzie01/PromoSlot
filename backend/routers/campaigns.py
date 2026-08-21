@@ -390,21 +390,28 @@ def preview_campaign_removal(campaign_id: int, user: User = Depends(get_current_
             "mode": "archive" if total else "delete"}
 
 
+def remove_campaign_row(db: Session, c: Campaign) -> dict:
+    """The actual archive-or-delete logic, shared by the owner-initiated
+    DELETE route below and account_deletion.py's cascade. Does not commit;
+    caller controls the transaction."""
+    total, active = _campaign_deal_counts(db, c.id)
+
+    if total:
+        c.removed_at = datetime.utcnow()
+        return {"id": f"c{c.id}", "mode": "archived", "deals_total": total,
+                "deals_active": active}
+
+    delete_stored(c.image_path)
+    db.delete(c)
+    return {"id": f"c{c.id}", "mode": "deleted", "deals_total": 0, "deals_active": 0}
+
+
 @router.delete("/{campaign_id:int}")
 def remove_campaign(campaign_id: int, user: User = Depends(get_current_user),
                     db: Session = Depends(get_db)):
     c = _own_campaign(db, campaign_id, user)
     if c.removed_at is not None:
         raise HTTPException(status_code=409, detail="This campaign has already been removed")
-    total, active = _campaign_deal_counts(db, c.id)
-
-    if total:
-        c.removed_at = datetime.utcnow()
-        db.commit()
-        return {"id": f"c{c.id}", "mode": "archived", "deals_total": total,
-                "deals_active": active}
-
-    delete_stored(c.image_path)
-    db.delete(c)
+    result = remove_campaign_row(db, c)
     db.commit()
-    return {"id": f"c{campaign_id}", "mode": "deleted", "deals_total": 0, "deals_active": 0}
+    return result
