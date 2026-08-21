@@ -5188,9 +5188,64 @@ function openAccount(){
           <div id="supportPanel">${supportFormHtml()}</div>
         </div>
       </section>
+
+      <section class="acct2-zone">
+        <div class="acct2-zone-kicker muted">04 — Danger zone</div>
+        <h2 class="acct2-zone-title" style="margin-top:14px">Delete your account.</h2>
+        <div class="acct2-mini" style="max-width:520px;margin-top:22px;border-color:var(--red-border)">
+          <p style="font-size:13px;color:var(--mut);margin-bottom:14px">
+            This permanently removes your profile — name, bio, photo, intro video — and signs you out
+            everywhere. It cannot be undone.${a.linked_account?` Since your business and platform-owner
+            profiles share this one login, <b>both are deleted together</b>.`:""}
+            Deals, reviews and messages you're already part of stay on record for the other party and for
+            accounting/dispute purposes, just no longer linked to your name — and a deal that's currently
+            funded isn't cancelled by this; payment still completes normally, including your payout if
+            you're the one receiving it. Once deleted, this email address is free again if you ever want
+            to sign up fresh.
+          </p>
+          <button class="btn btn-danger btn-sm" onclick="deleteAccountModal()">Delete my account</button>
+        </div>
+      </section>
     </div>`;
   renderWhoWeAre();
   renderActionCodePanel();
+}
+function deleteAccountModal(){
+  openModal(`<div class="m-pad" style="max-width:440px">
+    <h3 class="m-title">Delete your PromoSlot account?</h3>
+    <p class="m-sub">Enter your password to confirm. This cannot be undone.</p>
+    <div class="frm" style="margin-top:16px">
+      <div><label>Password</label><input type="password" id="da-pass" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doDeleteAccount()"></div>
+      <div class="hint-err hide" id="da-err"></div>
+    </div>
+    <div class="m-actions" style="margin-top:18px">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger" id="da-submit" onclick="doDeleteAccount()">Yes, delete my account</button>
+    </div>
+  </div>`);
+}
+async function doDeleteAccount(){
+  const password=$("da-pass").value||"";
+  const err=$("da-err");
+  if(err) err.classList.add("hide");
+  if(!password){ if(err){ err.textContent="Enter your password to confirm."; err.classList.remove("hide"); } return; }
+  const btn=$("da-submit"); btn.disabled=true; btn.textContent="Deleting…";
+  try{
+    await PSApi.post("/profiles/me/delete", {password});
+  }catch(e){
+    btn.disabled=false; btn.textContent="Yes, delete my account";
+    if(err){ err.textContent=e.message||"Could not delete your account"; err.classList.remove("hide"); }
+    return;
+  }
+  closeModal();
+  clearRoute();
+  S.account=null; S.perms=[]; S.myRole="USER";
+  ["dealWrap","accountWrap","msgsWrap","bizDash","platDash"].forEach(id=>{
+    const el=$(id); if(el) el.innerHTML="";
+  });
+  S.convos=[]; S.activeThread=null; S.realDeals=[]; S.realNotifs=[]; S._who=null;
+  authReflect(); goHome(); toast("Your account has been deleted",true);
 }
 /* ---------- Action code ----------
    A single static 8-digit code, required alongside the password on every
@@ -6353,6 +6408,7 @@ tourBegin,tourDismissWelcome,tourNext,tourBack,tourSkip,tourFinish,
 tourResumeClick,tourHideResume,tourRestart,syncTourResume,maybeOfferTour,tourStart,
 openSupportQueue,openSupportTicket,claimSupportTicket,sendSupportReply,addSupportNote,transferSupportTicket,
 acpLinkHtml,acpAccountLinkHtml,openAcpAccount,openAcpItem,adminBan,adminUnban,adminDeleteUser,
+deleteAccountModal,doDeleteAccount,
 restrictedUserRowsHtml,restrictedItemRowsHtml,filterRestrictedUsers,filterRestrictedItems,adminRemoveListing,adminRemoveCampaign,
 renderMarketRail,railSetRole,heroSearchGo,heroPlatformGo,renderHeroChips,renderPlatBrowseChips,toggleAccRow,setHeroDirection,smoothTo,
 djSetRole,djGo,djNext,djBack,djNavKey,
