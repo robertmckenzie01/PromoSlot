@@ -2,7 +2,9 @@
 
 **⚠️ This is a starting draft, not a finished legal document.** Flagging one important thing up front: this policy describes how refunds are *meant* to work, but part of it — automatically cancelling the Stripe payment when a listing/campaign is removed post-funding — isn't built yet (that's tracked as task #24, currently optional/pending). Until that's built, any refund on an already-funded, cancelled deal would need to be issued manually rather than automatically. Either build #24 before publishing this, or word the policy to say refunds are "processed by our team" rather than implying instant automatic reversal — your call, but the two need to match reality.
 
-*Last updated: [DATE]*
+*Last updated: 22 August 2026*
+
+Operated by **PromoSlot Ltd** (company number SC899931, registered office 8B Drumsheugh Gardens, Edinburgh — see the Terms of Service, Section 1).
 
 ## 1. Overview
 
@@ -32,7 +34,7 @@ If a Business Owner believes a submitted deliverable doesn't meet the agreed ter
 
 ## 6. How to request a refund or raise a dispute
 
-Refund and dispute requests are made through the deal page on PromoSlot, or by contacting `[support email]` with the deal reference. `[Confirm actual in-app mechanism — is there a "Raise a dispute" button, or is this support-ticket-only for now?]`
+There's no separate "raise a dispute" button today — a disagreement over whether a deliverable meets the agreed terms is handled through the verification step itself (a PromoSlot reviewer checks submitted evidence against the agreed terms before releasing funds, per Section 4). A genuine card-issuer chargeback (raised with your bank, not through PromoSlot) is tracked separately and automatically. For anything else — including asking for a refund on a cancelled, funded deal per Section 3 — contact support@usepromoslot.com with the deal reference.
 
 ## 7. Timeframes
 
@@ -40,4 +42,4 @@ Refund and dispute requests are made through the deal page on PromoSlot, or by c
 
 ## 8. Contact
 
-Questions about a specific deal or refund: `[support email]`, including your deal reference number.
+Questions about a specific deal or refund: support@usepromoslot.com, including your deal reference number.

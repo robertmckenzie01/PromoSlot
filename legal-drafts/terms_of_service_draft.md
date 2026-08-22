@@ -2,11 +2,11 @@
 
 **⚠️ This is a starting draft, not a finished legal document.** It's built from how PromoSlot actually works based on the product itself, not legal counsel. Items in `[brackets]` need your input. Get this reviewed by a solicitor before treating it as binding — you're processing real payments held pending verification, which raises real liability questions a draft like this can't resolve on its own.
 
-*Last updated: [DATE] · Effective from: [DATE]*
+*Last updated: 22 August 2026 · Effective from: [DATE — set to the day you actually publish this]*
 
 ## 1. Who we are
 
-PromoSlot is operated by `[legal entity name — confirm whether this is a registered company yet, and if so its jurisdiction, company number and registered office; if not yet incorporated, this section needs different wording entirely]` ("PromoSlot," "we," "us").
+PromoSlot is operated by **PromoSlot Ltd**, a company registered in Scotland under company number **SC899931**, with its registered office at **8B Drumsheugh Gardens, Edinburgh** (`[registered office is expected to change later in 2026 — update this line, and re-file the change with Companies House, before or as soon as the move happens]`) ("PromoSlot," "we," "us").
 
 PromoSlot is a marketplace connecting businesses ("Business," "Business Owner") with platform owners and content creators ("Platform Owner") for promotional campaigns, and holds funds pending verification until agreed work is delivered and confirmed.
 
@@ -59,7 +59,7 @@ PromoSlot is a marketplace that holds funds pending verification on behalf of bo
 
 ## 10. Disputes
 
-If a Business Owner and Platform Owner disagree about whether a deliverable meets the agreed terms, that disagreement is resolved through the verification step in Section 8: a PromoSlot reviewer examines the submitted evidence against the agreed terms and decides whether to approve it (releasing funds), reject it, or request changes — this decision is final within the platform. `[Confirm: is there any appeal step beyond this, or is the reviewer's decision genuinely final? Needs a real answer, not a guess.]`
+If a Business Owner and Platform Owner disagree about whether a deliverable meets the agreed terms, that disagreement is resolved through the verification step in Section 8: a PromoSlot reviewer examines the submitted evidence against the agreed terms and decides whether to approve it (releasing funds), reject it, or request changes — this decision is final within the platform. There is currently no separate appeal step beyond the reviewer's decision (this reflects what's actually built today, not a policy choice set in stone — `[flag here if you want an appeal step added later]`).
 
 Separately, if a Business Owner disputes a charge directly with their card issuer (a chargeback) rather than through PromoSlot, that follows Stripe's own dispute process, and the deal is flagged and tracked internally until it's resolved.
 
@@ -78,20 +78,20 @@ You retain ownership of content you submit (listings, campaigns, messages, deliv
 
 ## 13. Limitation of liability
 
-`[This is the section most in need of real legal drafting. A starting shape:]` To the maximum extent permitted by law, PromoSlot's liability to you is limited to the fees you've paid PromoSlot in the `[3/6/12]` months before the claim arose. PromoSlot is not liable for the quality, legality, or outcome of the promotional work itself, which remains the responsibility of the Business Owner and Platform Owner.
+`[This is the section most in need of real legal drafting — get a solicitor's eyes on this one specifically before publishing.]` To the maximum extent permitted by law, PromoSlot's liability to you is limited to the fees you've paid PromoSlot in the 12 months before the claim arose. PromoSlot is not liable for the quality, legality, or outcome of the promotional work itself, which remains the responsibility of the Business Owner and Platform Owner.
 
 ## 14. Account suspension and termination
 
-PromoSlot may suspend or terminate an account for violating these terms, suspected fraud, or legal requirement. You may delete your own account at any time from your account settings, which immediately anonymises your profile and revokes access — see our Privacy Policy for exactly what that does and doesn't remove. `[Confirm: should deals still in progress block self-service deletion, or is anonymising mid-deal acceptable? Not currently enforced either way.]`
+PromoSlot may suspend or terminate an account for violating these terms, suspected fraud, or legal requirement. You may also deactivate your account instead of deleting it — a reversible pause that hides your profile and listings and signs you out, with everything restored automatically the next time you log back in. Deleting your account is permanent: it immediately anonymises your profile and revokes access — see our Privacy Policy for exactly what that does and doesn't remove. Deletion is not currently blocked by a deal still in progress; a deal that's already funded continues to completion as described in Section 9, and any payout you're owed is still paid out, even after your profile itself has been anonymised.
 
 ## 15. Governing law
 
-These terms are governed by the laws of `[England and Wales — confirm]`, and disputes are subject to the exclusive jurisdiction of `[the courts of England and Wales — confirm]`.
+These terms are governed by the laws of **Scotland** (matching PromoSlot Ltd's registered jurisdiction), and disputes are subject to the exclusive jurisdiction of the Scottish courts. `[This is a real decision, not just a blank to fill — some UK platforms serving customers across England/Wales/Scotland choose England & Wales governing law instead regardless of where the company is registered, since it's a more commonly litigated jurisdiction. Scots law is the more natural default given the company itself, but worth a solicitor's confirmation either way, especially once you have users across the UK.]`
 
 ## 16. Changes to these terms
 
-We may update these terms from time to time. Material changes will be notified via `[email / in-app notice]` before taking effect.
+We may update these terms from time to time. Material changes will be notified via email and an in-app notification before taking effect.
 
 ## 17. Contact
 
-Questions about these terms: `[support email]`.
+Questions about these terms: support@usepromoslot.com.

@@ -2,11 +2,11 @@
 
 **⚠️ This is a starting draft, not a finished legal document.** Get this reviewed before publishing — data protection law (UK GDPR / EU GDPR depending on your users) has specific requirements a draft can't fully satisfy on its own, and getting it wrong carries real regulatory risk once you have real users' data.
 
-*Last updated: [DATE]*
+*Last updated: 22 August 2026*
 
 ## 1. Who this applies to
 
-This policy explains how PromoSlot (`[legal entity name, company number and registered office to confirm before publishing — see Terms of Service Section 1 for the same]`, "we," "us") collects, uses, and protects personal data when you use usepromoslot.com, whether as a Business Owner, Platform Owner, or visitor.
+This policy explains how PromoSlot (**PromoSlot Ltd**, a company registered in Scotland under company number **SC899931**, registered office **8B Drumsheugh Gardens, Edinburgh** — `[due to change later in 2026; update this line when it does]` — "we," "us") collects, uses, and protects personal data when you use usepromoslot.com, whether as a Business Owner, Platform Owner, or visitor.
 
 ## 2. What we collect
 
@@ -28,11 +28,16 @@ We use your data to:
 - Maintain platform security and prevent fraud.
 - Meet legal and accounting obligations.
 
-`[Confirm: do you do any marketing emails beyond transactional? If so, this needs its own section and consent mechanism.]`
+PromoSlot currently sends transactional emails only (account, verification, deal, and support-related, as listed above) — there is no marketing or newsletter list today. If that changes, this section and a separate consent mechanism both need to be added at the same time, not after the fact — the same rule Section 9 applies to cookies.
 
 ## 4. Legal basis for processing
 
-`[If serving UK/EU users, list the applicable basis per activity — e.g. contract necessity for account/deal processing, legitimate interest for fraud prevention, legal obligation for financial recordkeeping. This needs a lawyer's sign-off, not a draft's guess.]`
+`[Starting shape below — this needs a lawyer's sign-off before publishing, not a draft's guess, but it reflects how the platform actually works today:]`
+
+- **Performance of a contract** — creating and managing your account, operating the marketplace, processing deals and messaging, and paying out funds once verified: all necessary to provide the service you signed up for.
+- **Legal obligation** — accounting, tax, and financial recordkeeping (see Section 7); responding to law enforcement or regulatory requests.
+- **Legitimate interests** — preventing fraud and abuse, maintaining platform security, resolving disputes between users, and retaining a minimal record of banned accounts (just the email address and reason) to stop a ban being evaded by deleting the account and re-registering — balanced against your rights by keeping this record as narrow as possible and only for as long as the ban stands.
+- **Consent** — not currently used for anything beyond the strictly necessary cookies in Section 9, since there's no marketing processing today.
 
 ## 5. Who we share data with
 
@@ -47,13 +52,15 @@ We don't sell personal data. We may disclose data if required by law or to prote
 
 ## 6. Where your data is stored
 
-PromoSlot's infrastructure is hosted in the EU (Ireland for the application, Frankfurt for the database). `[Confirm current regions before publishing, as these can change.]` Any transfers outside the EU/UK (e.g. via a sub-processor) are made under appropriate safeguards.
+PromoSlot's infrastructure is hosted in the EU (Ireland for the application, Frankfurt for the database) — fact-checked against the live hosting configuration as of this draft; re-check before publishing if you've changed hosting regions since. Any transfers outside the EU/UK (e.g. via a sub-processor) are made under appropriate safeguards.
 
 ## 7. How long we keep it
 
-- Account data: kept while your account is active, and for a period after closure for legal/accounting reasons (`[typically 6 years for financial records in the UK — confirm]`).
+- Account data: kept while your account is active, and for a period after closure for legal/accounting reasons (financial records are kept for 6 years, the standard UK requirement).
 - Deal and payment records: retained as required for accounting, tax, and dispute-resolution purposes.
 - **You can delete your account yourself at any time**, from My Account, or ask us to do it for you. This anonymises your account immediately (email, name, bio, avatar and any uploaded files are permanently removed, and every active login session is revoked) rather than removing the row outright — deal, review and message records that reference it stay intact for the other party and for our accounting/legal obligations, exactly as described above, but they're no longer linked to anything identifying you.
+- **You can also deactivate your account instead** — a reversible pause, not a deletion. Your data isn't touched at all; your profile and listings are just hidden until you log back in, which un-hides everything automatically.
+- If your account is banned, we keep a minimal record (your email address, the date, and the reason) even if the account is later deleted, so the same email can't simply be used to sign up again. This record is removed if the ban is lifted.
 
 ## 8. Your rights
 
@@ -65,7 +72,7 @@ Depending on your location, you may have the right to:
 - Request a copy of your data in a portable format.
 - Withdraw consent where processing is based on consent.
 
-To exercise these rights, contact `[privacy/support email]`. If you're not satisfied with our response, you can complain to `[the ICO, if UK-based — confirm]`.
+To exercise these rights, contact support@usepromoslot.com. If you're not satisfied with our response, you can complain to the UK's Information Commissioner's Office (ICO) at ico.org.uk.
 
 ## 9. Cookies
 
@@ -81,8 +88,8 @@ PromoSlot is not intended for anyone under 18. We don't knowingly collect data f
 
 ## 11. Changes to this policy
 
-We may update this policy from time to time. Material changes will be notified via `[email / in-app notice]`.
+We may update this policy from time to time. Material changes will be notified via email and an in-app notification.
 
 ## 12. Contact
 
-Questions about this policy or your data: `[privacy/support email]`.
+Questions about this policy or your data: support@usepromoslot.com.
