@@ -3103,8 +3103,8 @@ function wizStepHtml(step){
       valid:()=>d.intentsB.size||d.intentsP.size?null:"Select at least one goal."};
     case "x-order": return {t:"Which profile first?",s:"You'll set up one now — we'll offer the other right after.",h:
       `<div class="sel-cards">
-        <div class="sel-card ${W.d.order==='biz'?'on':''}" onclick="W.d.order='biz';renderWiz()"><span class="sc-ico">🏢</span><div><b>Business profile first</b><small>Post campaigns & buy promotion</small></div><span class="sc-check">✓</span></div>
-        <div class="sel-card ${W.d.order==='plat'?'on':''}" onclick="W.d.order='plat';renderWiz()"><span class="sc-ico">📣</span><div><b>Platform profile first</b><small>List your audience & get paid</small></div><span class="sc-check">✓</span></div>
+        <div class="sel-card ${W.d.order==='biz'?'on':''}" onclick="W.d.order='biz';renderWiz()"><div><b>Business profile first</b><small>Post campaigns & buy promotion</small></div><span class="sc-check">✓</span></div>
+        <div class="sel-card ${W.d.order==='plat'?'on':''}" onclick="W.d.order='plat';renderWiz()"><div><b>Platform profile first</b><small>List your audience & get paid</small></div><span class="sc-check">✓</span></div>
       </div>`,
       valid:()=>W.d.order?null:"Pick one to start with."};
     case "b-intent": return {t:"What brings you to PromoSlot?",s:"Select everything that applies — this shapes the questions we ask next.",h:selCardsHtml("intentsB",BIZ_INTENTS),
@@ -3568,7 +3568,7 @@ function renderBizDash(){
   const applicants=S.myCampaigns.reduce((a,c)=>a+c.applicants,0);
   $("bizDash").innerHTML=`
     <div class="dash-head"><div class="avatar-dot dash-avatar">${initials(b.company)}</div>
-      <div><h2>${esc(b.company)}</h2><div class="sub"><span class="mode-tag">🏢 Business</span> ${esc(b.industry)} · ${b.countries.join(", ")}</div></div>
+      <div><h2>${esc(b.company)}</h2><div class="sub"><span class="mode-tag">Business</span> ${esc(b.industry)} · ${b.countries.join(", ")}</div></div>
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('platforms')">Browse platform listings</button>
         <button class="btn btn-p" onclick="openNewCampaign()">＋ New campaign</button></div></div>
@@ -3576,7 +3576,7 @@ function renderBizDash(){
     <div class="panel"><div class="panel-h"><h4>Account growth · spend over time</h4></div><div class="panel-b" id="bizGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel" id="yourCampaigns"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>
-        <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i,true)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📢</div><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay — platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
+        <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i,true)).join("")}</div>`:`<div class="empty-state"><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay — platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Start a deal</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
       <div class="panel"><div class="panel-h"><h4>Activity</h4></div><div class="panel-b">${notifRows()}</div></div>
@@ -3608,7 +3608,7 @@ function renderPlatDash(){
   const matches=allCampaigns().filter(c=>!c.id.startsWith("my-")&&(c.niches.some(n=>myNiches.includes(n))||!myNiches.length)).slice(0,3);
   $("platDash").innerHTML=`
     <div class="dash-head"><div class="avatar-dot dash-avatar">${initials(brand)}</div>
-      <div><h2>${esc(brand)}</h2><div class="sub"><span class="mode-tag">📣 Platform owner</span> ${S.myPlatforms.length} listing${S.myPlatforms.length===1?"":"s"} live</div></div>
+      <div><h2>${esc(brand)}</h2><div class="sub"><span class="mode-tag">Platform owner</span> ${S.myPlatforms.length} listing${S.myPlatforms.length===1?"":"s"} live</div></div>
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('campaigns')">Browse campaigns</button>
         <button class="btn btn-p" onclick="openRegisterPlatform()">＋ Register another platform</button></div></div>
@@ -3616,7 +3616,7 @@ function renderPlatDash(){
     <div class="panel"><div class="panel-h"><h4>Account growth · earnings over time</h4></div><div class="panel-b" id="platGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel" id="yourListings"><div class="panel-h"><h4>Your platform listings</h4><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add platform</button></div>
-        <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i,true)).join("")}</div>`:`<div class="empty-state"><div class="es-ico">📣</div><h4>No listings yet</h4><p>Register each platform you control — its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
+        <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i,true)).join("")}</div>`:`<div class="empty-state"><h4>No listings yet</h4><p>Register each platform you control — its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
         ${S.myPlatforms.length&&S.myPlatforms.length<3?`<div class="note blue" style="margin-top:14px">💡 Owners with multiple listings get seen by more campaigns — list each platform you own separately, each with its own audience and prices. <a href="#" onclick="openRegisterPlatform();return false">Register another platform →</a></div>`:""}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">Find campaigns</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
@@ -3750,8 +3750,8 @@ function openNewCampaign(){
 /* ==================== NOTIFICATIONS ==================== */
 const NOTIF_FEED=[
  {ico:"🚀",tag:"Founding cohort",txt:"PromoSlot is now open to its founding cohort — real listings and campaigns appear here as members join."},
- {ico:"📣",tag:"New offer",txt:"See how a complete platform-owner listing looks — open the Example Creator profile.",ref:"px-ex"},
- {ico:"🏢",tag:"New campaign",txt:"See how a complete business campaign looks — open the Example Campaign.",ref:"cx-ex"}
+ {ico:"✨",tag:"New offer",txt:"See how a complete platform-owner listing looks — open the Example Creator profile.",ref:"px-ex"},
+ {ico:"✨",tag:"New campaign",txt:"See how a complete business campaign looks — open the Example Campaign.",ref:"cx-ex"}
 ];
 let notifOpen=false;
 const NOTIF_ICON={deal_funded:"🔒",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️",message:"💬",campaign_application:"📩",deal_declined:"🚫",deal_approved:"🤝",review_received:"⭐",listing_removed:"🗑️",campaign_removed:"🗑️",account_restored:"👋",
@@ -4738,8 +4738,8 @@ function authModal(mode){
           <div><label>Email</label><input type="text" id="au-email" placeholder="you@example.com"></div>
           <div><label>Password</label><input type="password" id="au-pass" placeholder="${isSignup?"At least 8 characters":"Your password"}" onkeydown="if(event.key==='Enter'){${isSignup?"doSignup":"doLogin"}()}"></div>
           ${isSignup?`<div><label>I am a…</label><div class="chips-lg">
-            <button type="button" class="chip" id="au-r-biz" onclick="this.classList.toggle('on');_authSyncNameFields()">🏢 Business</button>
-            <button type="button" class="chip" id="au-r-plat" onclick="this.classList.toggle('on');_authSyncNameFields()">📣 Platform owner</button>
+            <button type="button" class="chip" id="au-r-biz" onclick="this.classList.toggle('on');_authSyncNameFields()">Business</button>
+            <button type="button" class="chip" id="au-r-plat" onclick="this.classList.toggle('on');_authSyncNameFields()">Platform owner</button>
           </div></div>`:""}
           ${isSignup?`<div id="au-turnstile" style="margin-top:2px"></div>`:""}
           <div class="hint-err hide" id="au-err"></div>
