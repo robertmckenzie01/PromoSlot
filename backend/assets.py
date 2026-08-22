@@ -136,6 +136,24 @@ PAGE_META = {
                        "audiences, with no agency in between.",
         "crumb": "About",
     },
+    "terms": {
+        "title": "Terms of Service — PromoSlot",
+        "description": "The terms that govern creating an account and using PromoSlot, "
+                       "operated by PromoSlot Ltd (company number SC899931).",
+        "crumb": "Terms of Service",
+    },
+    "privacy": {
+        "title": "Privacy Policy — PromoSlot",
+        "description": "How PromoSlot collects, uses and protects your personal data as "
+                       "a Business Owner, Platform Owner or visitor.",
+        "crumb": "Privacy Policy",
+    },
+    "refund-policy": {
+        "title": "Refund Policy — PromoSlot",
+        "description": "What happens to funds when a deal is cancelled, disputed, or "
+                       "doesn't complete as planned.",
+        "crumb": "Refund Policy",
+    },
 }
 
 

@@ -1261,6 +1261,16 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 .pricing-side .tile-light{padding:26px}
 .page-head h1{font-family:var(--font-d);color:#fff;font-size:clamp(28px,4vw,40px);margin:0 0 12px;letter-spacing:-.02em;font-weight:600}
 .page-head p{color:var(--navy-sub);font-size:16px;max-width:640px;line-height:1.65;margin:0}
+.legal{max-width:760px}
+.legal-meta{color:var(--mut);font-size:13px;margin:0 0 8px}
+.legal h2{font-family:var(--font-d);font-size:21px;font-weight:700;letter-spacing:-.01em;margin:40px 0 14px;padding-top:26px;border-top:1px solid var(--line)}
+.legal h2:first-of-type{margin-top:0;padding-top:0;border-top:0}
+.legal h3{font-size:15.5px;font-weight:700;margin:20px 0 8px;color:var(--ink)}
+.legal p{margin:0 0 14px;color:var(--ink2);font-size:15px;line-height:1.7}
+.legal ul{margin:0 0 14px;padding-left:20px;color:var(--ink2);font-size:15px;line-height:1.7}
+.legal li{margin-bottom:6px}
+.legal strong{color:var(--ink)}
+.legal a{font-weight:600}
 
 .two-list{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:8px}
 .two-list h4{font-size:14px;margin:0 0 12px}
@@ -1902,8 +1912,9 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <button type="button" data-act="about">About</button>
             <a href="mailto:support@usepromoslot.com">Support</a>
             <a href="#" data-act="toast-fees">Fees</a>
-            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
-            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+            <button type="button" data-act="terms">Terms</button>
+            <button type="button" data-act="privacy">Privacy</button>
+            <button type="button" data-act="refund-policy">Refund policy</button>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -2033,8 +2044,9 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <button type="button" data-act="about">About</button>
             <a href="mailto:support@usepromoslot.com">Support</a>
             <a href="#" data-act="toast-fees">Fees</a>
-            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
-            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+            <button type="button" data-act="terms">Terms</button>
+            <button type="button" data-act="privacy">Privacy</button>
+            <button type="button" data-act="refund-policy">Refund policy</button>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -2162,8 +2174,9 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <button type="button" data-act="about">About</button>
             <a href="mailto:support@usepromoslot.com">Support</a>
             <a href="#" data-act="toast-fees">Fees</a>
-            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
-            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+            <button type="button" data-act="terms">Terms</button>
+            <button type="button" data-act="privacy">Privacy</button>
+            <button type="button" data-act="refund-policy">Refund policy</button>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -2256,8 +2269,9 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <button type="button" data-act="about">About</button>
             <a href="mailto:support@usepromoslot.com">Support</a>
             <a href="#" data-act="toast-fees">Fees</a>
-            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
-            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+            <button type="button" data-act="terms">Terms</button>
+            <button type="button" data-act="privacy">Privacy</button>
+            <button type="button" data-act="refund-policy">Refund policy</button>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -2501,8 +2515,9 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <button type="button" data-act="about">About</button>
             <a href="mailto:support@usepromoslot.com">Support</a>
             <a href="#" data-act="toast-fees">Fees</a>
-            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
-            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+            <button type="button" data-act="terms">Terms</button>
+            <button type="button" data-act="privacy">Privacy</button>
+            <button type="button" data-act="refund-policy">Refund policy</button>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -3017,8 +3032,366 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <button type="button" data-act="about">About</button>
             <a href="mailto:support@usepromoslot.com">Support</a>
             <a href="#" data-act="toast-fees">Fees</a>
-            <a href="#" data-act="toast-terms">Terms <span style="opacity:.6">(coming soon)</span></a>
-            <a href="#" data-act="toast-privacy">Privacy <span style="opacity:.6">(coming soon)</span></a>
+            <button type="button" data-act="terms">Terms</button>
+            <button type="button" data-act="privacy">Privacy</button>
+            <button type="button" data-act="refund-policy">Refund policy</button>
+          </div>
+          <div class="footer-support"></div>
+        </div>
+      </div>
+      <div class="footer-v3-bottom">
+        <span>© 2026 PromoSlot Ltd</span>
+        <span>All amounts shown in GBP.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div class="view" id="view-terms" data-screen-label="Terms of Service">
+  <div class="page-head">
+    <div class="page-head-in">
+      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Terms of Service</div>
+      <div class="eyebrow">Terms of Service</div>
+      <h1>The terms that govern using PromoSlot.</h1>
+      <p>Last updated 22 August 2026. By creating an account or using PromoSlot, you agree to these terms, our Privacy Policy and our Refund Policy.</p>
+    </div>
+  </div>
+  <section class="section">
+    <div class="legal">
+      <h2>1. Who we are</h2>
+      <p>PromoSlot is operated by <strong>PromoSlot Ltd</strong>, a company registered in Scotland under company number <strong>SC899931</strong>, with its registered office at 8B Drumsheugh Gardens, Edinburgh, EH3 7QJ ("PromoSlot," "we," "us"). This address is expected to change later in 2026 — this page will be updated when it does.</p>
+      <p>PromoSlot is a marketplace connecting businesses ("Business," "Business Owner") with platform owners and content creators ("Platform Owner") for promotional campaigns, and holds funds pending verification until agreed work is delivered and confirmed.</p>
+
+      <h2>2. Acceptance of these terms</h2>
+      <p>By creating an account or using PromoSlot, you agree to these Terms of Service, our Privacy Policy, and our Refund Policy. If you don't agree, don't use the platform. We may update these terms from time to time (see Section 16).</p>
+
+      <h2>3. Eligibility</h2>
+      <p>You must be at least 18 years old and able to form a binding contract to use PromoSlot. If you're using PromoSlot on behalf of a company, you confirm you have authority to bind that company to these terms.</p>
+
+      <h2>4. Accounts</h2>
+      <ul>
+        <li>You're responsible for keeping your login credentials secure and for all activity under your account.</li>
+        <li>You must provide accurate information when registering and keep it up to date.</li>
+        <li>PromoSlot may suspend or terminate accounts that provide false information, violate these terms, or are used fraudulently.</li>
+      </ul>
+
+      <h2>5. How PromoSlot works</h2>
+      <ul>
+        <li><strong>Business Owners</strong> create campaigns describing what they want promoted, the deliverables expected, and the payment terms offered.</li>
+        <li><strong>Platform Owners</strong> list their platforms/audiences and apply to campaigns, or respond to direct quote requests.</li>
+        <li>When both parties agree on a deal, the Business Owner pays the agreed amount, which PromoSlot holds pending verification via our payment processor (Stripe) until the deliverable is submitted and verified.</li>
+        <li>Once delivery is verified, funds are released to the Platform Owner, minus PromoSlot's fee.</li>
+      </ul>
+      <p>PromoSlot is a marketplace that holds funds pending verification on behalf of both parties. We are not a party to the underlying agreement between Business Owner and Platform Owner regarding the promotional work itself, except as set out in our fund-holding, verification, and dispute processes below.</p>
+
+      <h2>6. Fees</h2>
+      <ul>
+        <li><strong>Seller fee:</strong> PromoSlot deducts a <strong>10%</strong> fee from the amount paid out to the Platform Owner upon successful completion of a deal.</li>
+        <li><strong>Buyer protection fee:</strong> PromoSlot adds a <strong>5%</strong> fee on top of the agreed price, charged to the Business Owner at the time of funding.</li>
+        <li>Fees are only charged when a deal completes and funds move. Creating an account, publishing a listing, or publishing a campaign is free.</li>
+        <li>If a deal is refunded rather than completed, the Business Owner is refunded in full, including the buyer protection fee — PromoSlot does not retain any fee on a refunded deal. There is currently no partial completion or partial payout: a deal's delivery is either verified and paid out in full, or refunded in full (see Section 8).</li>
+      </ul>
+
+      <h2>7. Payments and funds held pending verification</h2>
+      <ul>
+        <li>All payments are processed by Stripe. PromoSlot does not store your card details.</li>
+        <li>Funds paid by a Business Owner are held pending verification until the deliverable is confirmed as complete, or until a refund is issued under our Refund Policy.</li>
+        <li>PromoSlot is not a bank and does not pay interest on funds held pending verification.</li>
+      </ul>
+
+      <h2>8. Deliverables and verification</h2>
+      <ul>
+        <li>The specific deliverables, timelines, and approval requirements for each deal are set out in the campaign or listing terms agreed by both parties.</li>
+        <li>Delivery evidence is submitted through the platform and reviewed before payout is released.</li>
+        <li>Verification is a deliberate, human decision made by a PromoSlot reviewer looking at the submitted evidence against the agreed terms — never automatic, and never made by either party to the deal themselves. A reviewer either approves the delivery in full (releasing the full payout) or refunds the Business Owner in full. There is no partial release today.</li>
+      </ul>
+
+      <h2>9. Cancellations</h2>
+      <ul>
+        <li>A deal may be cancelled by either party before the deal is funded, at no cost to either side, since no funds have moved.</li>
+        <li>Cancellation after the deal has been funded is handled under our <strong>Refund Policy</strong> — see that document for how funds are treated in that case.</li>
+      </ul>
+
+      <h2>10. Disputes</h2>
+      <p>If a Business Owner and Platform Owner disagree about whether a deliverable meets the agreed terms, that disagreement is resolved through the verification step in Section 8: a PromoSlot reviewer examines the submitted evidence against the agreed terms and decides whether to release the funds or refund the Business Owner — this decision is final within the platform. There is currently no separate appeal step beyond the reviewer's decision.</p>
+      <p>Separately, if a Business Owner disputes a charge directly with their card issuer (a chargeback) rather than through PromoSlot, that follows Stripe's own dispute process, and the deal is flagged and tracked internally until it's resolved.</p>
+
+      <h2>11. Prohibited conduct</h2>
+      <p>You agree not to:</p>
+      <ul>
+        <li>Provide false or misleading information in a listing, campaign, or deliverable.</li>
+        <li>Attempt to complete a deal or move payment outside of PromoSlot to avoid fees.</li>
+        <li>Use the platform for unlawful, fraudulent, or infringing purposes.</li>
+        <li>Harass, abuse, or attempt to defraud other users.</li>
+        <li>Interfere with the platform's security or normal operation.</li>
+      </ul>
+
+      <h2>12. Content and messaging</h2>
+      <p>You retain ownership of content you submit (listings, campaigns, messages, deliverables), but grant PromoSlot a licence to display and process it as needed to operate the platform. You're responsible for ensuring you have rights to any content you upload or promote.</p>
+
+      <h2>13. Limitation of liability</h2>
+      <p>To the maximum extent permitted by law, PromoSlot's liability to you is limited to the fees you've paid PromoSlot in the 12 months before the claim arose. PromoSlot is not liable for the quality, legality, or outcome of the promotional work itself, which remains the responsibility of the Business Owner and Platform Owner.</p>
+
+      <h2>14. Account suspension and termination</h2>
+      <p>PromoSlot may suspend or terminate an account for violating these terms, suspected fraud, or legal requirement. You may also deactivate your account instead of deleting it — a reversible pause that hides your profile and listings and signs you out, with everything restored automatically the next time you log back in. Deleting your account is permanent: it immediately anonymises your profile and revokes access — see our Privacy Policy for exactly what that does and doesn't remove. Deletion is not currently blocked by a deal still in progress; a deal that's already funded continues to completion as described in Section 9, and any payout you're owed is still paid out, even after your profile itself has been anonymised.</p>
+
+      <h2>15. Governing law</h2>
+      <p>These terms are governed by the laws of Scotland (matching PromoSlot Ltd's registered jurisdiction), and disputes are subject to the exclusive jurisdiction of the Scottish courts.</p>
+
+      <h2>16. Changes to these terms</h2>
+      <p>We may update these terms from time to time. Material changes will be notified via email and an in-app notification before taking effect.</p>
+
+      <h2>17. Contact</h2>
+      <p>Questions about these terms: <a href="mailto:support@usepromoslot.com">support@usepromoslot.com</a>.</p>
+    </div>
+  </section>
+
+  <footer class="footer-v3">
+    <div class="footer-v3-in">
+      <div class="footer-v3-grid">
+        <div>
+          <h4>PromoSlot</h4>
+          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="market-platforms">Browse platform listings</button>
+            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
+            <button type="button" data-act="how">How it works</button>
+            <button type="button" data-act="protect">Payment Protection</button>
+            <button type="button" data-act="pricing">Pricing</button>
+            <button type="button" data-act="resources">Resources</button>
+          </div>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="about">About</button>
+            <a href="mailto:support@usepromoslot.com">Support</a>
+            <a href="#" data-act="toast-fees">Fees</a>
+            <button type="button" data-act="terms">Terms</button>
+            <button type="button" data-act="privacy">Privacy</button>
+            <button type="button" data-act="refund-policy">Refund policy</button>
+          </div>
+          <div class="footer-support"></div>
+        </div>
+      </div>
+      <div class="footer-v3-bottom">
+        <span>© 2026 PromoSlot Ltd</span>
+        <span>All amounts shown in GBP.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div class="view" id="view-privacy" data-screen-label="Privacy Policy">
+  <div class="page-head">
+    <div class="page-head-in">
+      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Privacy Policy</div>
+      <div class="eyebrow">Privacy Policy</div>
+      <h1>How we handle your data.</h1>
+      <p>Last updated 22 August 2026. This explains how PromoSlot collects, uses and protects your personal data.</p>
+    </div>
+  </div>
+  <section class="section">
+    <div class="legal">
+      <h2>1. Who this applies to</h2>
+      <p>This policy explains how PromoSlot (<strong>PromoSlot Ltd</strong>, a company registered in Scotland under company number <strong>SC899931</strong>, registered office 8B Drumsheugh Gardens, Edinburgh, EH3 7QJ — due to change later in 2026, this page will be updated when it does — "we," "us") collects, uses, and protects personal data when you use usepromoslot.com, whether as a Business Owner, Platform Owner, or visitor.</p>
+
+      <h2>2. What we collect</h2>
+      <ul>
+        <li><strong>Account data:</strong> name, email address, password (hashed, never stored in plain text), account type (business/platform owner).</li>
+        <li><strong>Profile data:</strong> business or platform profile information you choose to add, including images you upload.</li>
+        <li><strong>Deal data:</strong> listings, campaigns, applications, messages between users, deliverables and proof-of-delivery files submitted.</li>
+        <li><strong>Payment data:</strong> handled directly by Stripe. PromoSlot does not receive or store full card numbers. We retain records of transaction amounts, fees, and status for accounting and dispute purposes.</li>
+        <li><strong>Technical data:</strong> IP address, browser/device information, and usage data collected automatically for security and analytics.</li>
+        <li><strong>Communications:</strong> if you contact support, we keep a record of that correspondence.</li>
+      </ul>
+
+      <h2>3. How we use it</h2>
+      <p>We use your data to:</p>
+      <ul>
+        <li>Create and manage your account.</li>
+        <li>Operate the marketplace: matching listings/campaigns, processing deals, facilitating messaging.</li>
+        <li>Process payments and hold funds pending verification via Stripe.</li>
+        <li>Send transactional emails (welcome, notifications, deal updates) via our email provider.</li>
+        <li>Investigate and resolve disputes between users.</li>
+        <li>Maintain platform security and prevent fraud.</li>
+        <li>Meet legal and accounting obligations.</li>
+      </ul>
+      <p>PromoSlot currently sends transactional emails only (account, verification, deal, and support-related, as listed above) — there is no marketing or newsletter list today. If that changes, this section and a separate consent mechanism will both be added at the same time.</p>
+
+      <h2>4. Legal basis for processing</h2>
+      <ul>
+        <li><strong>Performance of a contract</strong> — creating and managing your account, operating the marketplace, processing deals and messaging, and paying out funds once verified: all necessary to provide the service you signed up for.</li>
+        <li><strong>Legal obligation</strong> — accounting, tax, and financial recordkeeping (see Section 7); responding to law enforcement or regulatory requests.</li>
+        <li><strong>Legitimate interests</strong> — preventing fraud and abuse, maintaining platform security, resolving disputes between users, and retaining a minimal record of banned accounts (just the email address and reason) to stop a ban being evaded by deleting the account and re-registering — balanced against your rights by keeping this record as narrow as possible and only for as long as the ban stands.</li>
+        <li><strong>Consent</strong> — not currently used for anything beyond the strictly necessary cookies in Section 9, since there's no marketing processing today.</li>
+      </ul>
+
+      <h2>5. Who we share data with</h2>
+      <p>We share data with the third parties that help us operate PromoSlot, each only with what's needed for their function:</p>
+      <ul>
+        <li><strong>Stripe</strong> — payment processing and holding funds pending verification.</li>
+        <li><strong>Resend</strong> — transactional email delivery.</li>
+        <li><strong>Cloudflare R2</strong> — file storage (proof-of-delivery uploads, images).</li>
+        <li><strong>Render</strong> and <strong>Neon</strong> — application hosting and database, hosted in the EU (Ireland / Frankfurt).</li>
+      </ul>
+      <p>We don't sell personal data. We may disclose data if required by law or to protect PromoSlot's or users' rights and safety.</p>
+
+      <h2>6. Where your data is stored</h2>
+      <p>PromoSlot's infrastructure is hosted in the EU (Ireland for the application, Frankfurt for the database). Any transfers outside the EU/UK (e.g. via a sub-processor) are made under appropriate safeguards.</p>
+
+      <h2>7. How long we keep it</h2>
+      <ul>
+        <li>Account data: kept while your account is active, and for a period after closure for legal/accounting reasons (financial records are kept for 6 years, the standard UK requirement).</li>
+        <li>Deal and payment records: retained as required for accounting, tax, and dispute-resolution purposes.</li>
+        <li><strong>You can delete your account yourself at any time,</strong> from My Account, or ask us to do it for you. This anonymises your account immediately (email, name, bio, avatar and any uploaded files are permanently removed, and every active login session is revoked) rather than removing the row outright — deal, review and message records that reference it stay intact for the other party and for our accounting/legal obligations, exactly as described above, but they're no longer linked to anything identifying you.</li>
+        <li><strong>You can also deactivate your account instead</strong> — a reversible pause, not a deletion. Your data isn't touched at all; your profile and listings are just hidden until you log back in, which un-hides everything automatically.</li>
+        <li>If your account is banned, we keep a minimal record (your email address, the date, and the reason) even if the account is later deleted, so the same email can't simply be used to sign up again. This record is removed if the ban is lifted.</li>
+      </ul>
+
+      <h2>8. Your rights</h2>
+      <p>Depending on your location, you may have the right to:</p>
+      <ul>
+        <li>Access the personal data we hold about you.</li>
+        <li>Correct inaccurate data.</li>
+        <li>Request deletion of your data (subject to legal retention requirements) — see Section 7; this is also self-service from your account settings.</li>
+        <li>Object to or restrict certain processing.</li>
+        <li>Request a copy of your data in a portable format.</li>
+        <li>Withdraw consent where processing is based on consent.</li>
+      </ul>
+      <p>To exercise these rights, contact <a href="mailto:support@usepromoslot.com">support@usepromoslot.com</a>. If you're not satisfied with our response, you can complain to the UK's Information Commissioner's Office (ICO) at <a href="https://ico.org.uk" target="_blank" rel="noopener">ico.org.uk</a>.</p>
+
+      <h2>9. Cookies</h2>
+      <p>PromoSlot currently uses exactly two cookies, both strictly necessary to make the service work and neither used for tracking, analytics, or advertising:</p>
+      <ul>
+        <li><strong>ps_session</strong> — keeps you signed in. Expires after 30 days, or immediately on logout or account deletion.</li>
+        <li><strong>ps_csrf</strong> — a security token that confirms a request actually came from this site, not a forged one from elsewhere.</li>
+      </ul>
+      <p>Because both are strictly necessary, UK/EU cookie law doesn't require a consent banner for them. If analytics or marketing cookies are added later, this section and a consent banner will both be added at the same time.</p>
+
+      <h2>10. Children</h2>
+      <p>PromoSlot is not intended for anyone under 18. We don't knowingly collect data from minors.</p>
+
+      <h2>11. Changes to this policy</h2>
+      <p>We may update this policy from time to time. Material changes will be notified via email and an in-app notification.</p>
+
+      <h2>12. Contact</h2>
+      <p>Questions about this policy or your data: <a href="mailto:support@usepromoslot.com">support@usepromoslot.com</a>.</p>
+    </div>
+  </section>
+
+  <footer class="footer-v3">
+    <div class="footer-v3-in">
+      <div class="footer-v3-grid">
+        <div>
+          <h4>PromoSlot</h4>
+          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="market-platforms">Browse platform listings</button>
+            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
+            <button type="button" data-act="how">How it works</button>
+            <button type="button" data-act="protect">Payment Protection</button>
+            <button type="button" data-act="pricing">Pricing</button>
+            <button type="button" data-act="resources">Resources</button>
+          </div>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="about">About</button>
+            <a href="mailto:support@usepromoslot.com">Support</a>
+            <a href="#" data-act="toast-fees">Fees</a>
+            <button type="button" data-act="terms">Terms</button>
+            <button type="button" data-act="privacy">Privacy</button>
+            <button type="button" data-act="refund-policy">Refund policy</button>
+          </div>
+          <div class="footer-support"></div>
+        </div>
+      </div>
+      <div class="footer-v3-bottom">
+        <span>© 2026 PromoSlot Ltd</span>
+        <span>All amounts shown in GBP.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div class="view" id="view-refund-policy" data-screen-label="Refund Policy">
+  <div class="page-head">
+    <div class="page-head-in">
+      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Refund Policy</div>
+      <div class="eyebrow">Refund Policy</div>
+      <h1>What happens to funds when a deal doesn't complete.</h1>
+      <p>Last updated 22 August 2026. Operated by PromoSlot Ltd (company number SC899931) — see the Terms of Service, Section 1.</p>
+    </div>
+  </div>
+  <section class="section">
+    <div class="legal">
+      <h2>1. Overview</h2>
+      <p>A Business Owner's payment is held by PromoSlot pending verification until the agreed deliverable is submitted and confirmed, at which point it's released to the Platform Owner (minus PromoSlot's fee). This policy explains what happens to funds when a deal doesn't complete as planned.</p>
+
+      <h2>2. Cancelled before funding</h2>
+      <p>If a deal is cancelled before it's funded, no payment has been taken, so there's nothing to refund. The deal is marked "Cancelled" and remains visible in both parties' deal history.</p>
+
+      <h2>3. Cancelled after funding, before delivery</h2>
+      <p>If the deal has been funded (funds held pending verification) and is then cancelled — by mutual agreement, or because the underlying listing/campaign is removed — the Business Owner is entitled to a full refund of the amount paid, including the buyer protection fee. PromoSlot does not retain any fee on a refunded deal.</p>
+      <p>This refund is reviewed and processed by our team rather than issued automatically — contact <a href="mailto:support@usepromoslot.com">support@usepromoslot.com</a> with your deal reference to request it (see Section 6).</p>
+
+      <h2>4. Disputed deliverables</h2>
+      <p>If a Business Owner believes a submitted deliverable doesn't meet the agreed terms, they can raise this before funds are released. PromoSlot reviews the submitted evidence against the agreed deliverables and either:</p>
+      <ul>
+        <li>Releases the funds to the Platform Owner in full, if the deliverable meets the agreed terms, or</li>
+        <li>Refunds the Business Owner in full, if it clearly wasn't provided.</li>
+      </ul>
+      <p>There is no partial release or partial refund today — every deal resolves as a full payout or a full refund, decided by a PromoSlot reviewer looking at the evidence against the agreed terms.</p>
+
+      <h2>5. Fees on refunded deals</h2>
+      <p>PromoSlot does not keep any fee on a refunded deal — the Business Owner is refunded the full amount charged, including the buyer protection fee, matching Section 6 of the Terms of Service.</p>
+
+      <h2>6. How to request a refund or raise a dispute</h2>
+      <p>There's no separate "raise a dispute" button today — a disagreement over whether a deliverable meets the agreed terms is handled through the verification step itself (a PromoSlot reviewer checks submitted evidence against the agreed terms before releasing funds, per Section 4). A genuine card-issuer chargeback (raised with your bank, not through PromoSlot) is tracked separately and automatically. For anything else — including asking for a refund on a cancelled, funded deal per Section 3 — contact <a href="mailto:support@usepromoslot.com">support@usepromoslot.com</a> with the deal reference.</p>
+
+      <h2>7. Timeframes</h2>
+      <p>Refund requests are reviewed within 5 business days of being raised. Once a refund is approved, Stripe typically returns the funds to your original payment method within 5–10 business days, depending on your bank or card issuer.</p>
+
+      <h2>8. Contact</h2>
+      <p>Questions about a specific deal or refund: <a href="mailto:support@usepromoslot.com">support@usepromoslot.com</a>, including your deal reference number.</p>
+    </div>
+  </section>
+
+  <footer class="footer-v3">
+    <div class="footer-v3-in">
+      <div class="footer-v3-grid">
+        <div>
+          <h4>PromoSlot</h4>
+          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="market-platforms">Browse platform listings</button>
+            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
+            <button type="button" data-act="how">How it works</button>
+            <button type="button" data-act="protect">Payment Protection</button>
+            <button type="button" data-act="pricing">Pricing</button>
+            <button type="button" data-act="resources">Resources</button>
+          </div>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <div class="footer-v3-links">
+            <button type="button" data-act="about">About</button>
+            <a href="mailto:support@usepromoslot.com">Support</a>
+            <a href="#" data-act="toast-fees">Fees</a>
+            <button type="button" data-act="terms">Terms</button>
+            <button type="button" data-act="privacy">Privacy</button>
+            <button type="button" data-act="refund-policy">Refund policy</button>
           </div>
           <div class="footer-support"></div>
         </div>

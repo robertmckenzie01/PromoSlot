@@ -163,7 +163,8 @@ def api_info():
 # specific deal, account, admin, …) deliberately do NOT get a path here —
 # they're behind a login wall and were never meant to be indexed.
 PUBLIC_PAGES = ["", "marketplace", "how-it-works", "pricing",
-                "payment-protection", "resources", "about"]
+                "payment-protection", "resources", "about",
+                "terms", "privacy", "refund-policy"]
 
 # Serve the front end same-origin as the API (so session cookies just work).
 # Mounted LAST so all explicit API routes above take precedence; everything else

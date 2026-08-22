@@ -846,6 +846,9 @@ function goPricingPage(){ setRoute("pricing"); showView("view-pricing"); }
 function goProtect(){ setRoute("protect"); showView("view-protect"); }
 function goResources(){ setRoute("resources"); showView("view-resources"); }
 function goAbout(){ setRoute("about"); showView("view-about"); initAboutMotion(); }
+function goTerms(){ setRoute("terms"); showView("view-terms"); }
+function goPrivacy(){ setRoute("privacy"); showView("view-privacy"); }
+function goRefundPolicy(){ setRoute("refund"); showView("view-refund-policy"); }
 // Scroll choreography for the About page: headline line-mask reveals, block
 // rises, ledger-pair reveals, drawn rules, beat-focus tracking and magnetic
 // buttons. Runs once per page load (guarded by data-motion-wired) since the
@@ -5602,7 +5605,7 @@ sessionStorage (not localStorage) so it is per-tab and dies with the tab.
 */
 const ROUTE_KEY="ps_route";
 // Routes anyone may land on. Everything else needs a live session to restore.
-const PUBLIC_ROUTES=new Set(["home","market","how","pricing","protect","resources","about"]);
+const PUBLIC_ROUTES=new Set(["home","market","how","pricing","protect","resources","about","terms","privacy","refund"]);
 let _routeReady=false;                 // don't record routes during restore
 
 /* ---------- Real URLs for the public/marketing routes ----------
@@ -5620,7 +5623,8 @@ let _routeReady=false;                 // don't record routes during restore
    the tab itself isn't part of the URL, same as before. */
 const ROUTE_PATHS={home:"/",market:"/marketplace",how:"/how-it-works",
                    pricing:"/pricing",protect:"/payment-protection",
-                   resources:"/resources",about:"/about"};
+                   resources:"/resources",about:"/about",
+                   terms:"/terms",privacy:"/privacy",refund:"/refund-policy"};
 const PATH_ROUTES=Object.fromEntries(Object.entries(ROUTE_PATHS).map(([k,v])=>[v,k]));
 let _fromPopstate=false;               // true while replaying a back/forward nav
 
@@ -5652,6 +5656,9 @@ window.addEventListener("popstate", ()=>{
     else if(name==="protect") goProtect();
     else if(name==="resources") goResources();
     else if(name==="about") goAbout();
+    else if(name==="terms") goTerms();
+    else if(name==="privacy") goPrivacy();
+    else if(name==="refund") goRefundPolicy();
   } finally { _fromPopstate=false; }
 });
 function readRoute(){
@@ -5712,6 +5719,9 @@ async function applyRoute(r){
     case "protect":     goProtect(); return true;
     case "resources":   goResources(); return true;
     case "about":       goAbout(); return true;
+    case "terms":       goTerms(); return true;
+    case "privacy":     goPrivacy(); return true;
+    case "refund":      goRefundPolicy(); return true;
   }
   return false;
 }
@@ -5749,8 +5759,9 @@ const NAV_ACTIONS={
   "market-cta":()=>marketCtaClick(),
   "rail-plat":()=>railSetRole("plat"),
   "rail-biz":()=>railSetRole("biz"),
-  "toast-terms":()=>toast("Terms of Service — demo link"),
-  "toast-privacy":()=>toast("Privacy Policy — demo link"),
+  "terms":()=>goTerms(),
+  "privacy":()=>goPrivacy(),
+  "refund-policy":()=>goRefundPolicy(),
   "toast-fees":()=>toast("Fees: 10% seller fee + 5% buyer protection fee, on the agreed price. No listing fees.")
 };
 function PSBoot(){
@@ -5780,6 +5791,9 @@ function PSBoot(){
     else if(_initialRoute==="protect") goProtect();
     else if(_initialRoute==="resources") goResources();
     else if(_initialRoute==="about") goAbout();
+    else if(_initialRoute==="terms") goTerms();
+    else if(_initialRoute==="privacy") goPrivacy();
+    else if(_initialRoute==="refund") goRefundPolicy();
     restoreSession();          // still establishes real auth state for the nav
   } else {
     restoreSession().then(restoreRoute);
