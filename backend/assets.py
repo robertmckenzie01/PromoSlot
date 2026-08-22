@@ -167,17 +167,20 @@ def _org_jsonld(base: str) -> str:
     Google's own guidance is that fabricating one is worse than omitting
     it, since it can trigger a manual action. PromoSlot is a national
     online marketplace with no storefront, so Organization is also the
-    factually correct type regardless of what's on file. Same reasoning
-    for omitting `logo` (no dedicated logo image file exists yet — the
-    real logo is a CSS-rendered mark, not an image) and `sameAs` (no social
-    profiles exist yet to link). Add both for real once they exist; a wrong
-    logo URL or fake profile link is worse than no markup at all.
+    factually correct type regardless of what's on file. `sameAs` is still
+    omitted (no social profiles exist yet to link) — add it for real once
+    they exist; a fake profile link is worse than no markup at all. `logo`
+    is no longer omitted: frontend/img/icon-512.png is a real, on-brand
+    square PNG of the site's actual "P" mark (matching the CSS logo-mark's
+    colour/shape), not a placeholder — this is what Google uses for the
+    site icon shown next to search results, replacing the generic default.
     """
     data = {
         "@context": "https://schema.org",
         "@type": "Organization",
         "name": "PromoSlot",
         "url": base + "/",
+        "logo": base + "/img/icon-512.png",
         "description": PAGE_META[""]["description"],
         "email": "support@usepromoslot.com",
     }
