@@ -5030,7 +5030,18 @@ async function doLogin(){
   }
 }
 /* ---------- Password reset (real email via Resend) ---------- */
+// Cross-tab verification sync: BroadcastChannel only reaches other tabs in
+// the same browser on the same origin. It can't bridge a link opened on a
+// different device (checking email on your phone after signing up on
+// desktop) — that case lands the phone's tab on its own dashboard, exactly
+// as it does today. This just saves a manual refresh for the common case of
+// the link being clicked in the same browser as the waiting tab.
+const VERIFY_CHANNEL_NAME = "ps-verify";
+function _verifyChannel(){
+  try{ return new BroadcastChannel(VERIFY_CHANNEL_NAME); }catch(e){ return null; }  // unsupported browser: sync just doesn't happen, the link itself still works
+}
 function checkYourEmailModal(email){
+  if(S._verifyBc){ S._verifyBc.close(); S._verifyBc=null; }
   openModal(`<div class="m-pad"><h3 class="m-title">Check your email</h3>
     <p class="m-sub">We've sent a link to <b>${esc(email||"your inbox")}</b>. Click it to confirm
        your address, you'll be signed in straight away. The link works once and expires in 24 hours.</p>
@@ -5038,7 +5049,23 @@ function checkYourEmailModal(email){
     <div class="hint-err hide" id="vr-err"></div>
     <div class="m-actions">
       <button class="btn btn-o" id="vr-resend" onclick="resendVerification('${esc(email||"")}')">Send it again</button>
-      <button class="btn btn-p" onclick="closeModal()">Got it</button></div></div>`,"narrow");
+      <button class="btn btn-p" onclick="closeVerifyWait()">Got it</button></div></div>`,"narrow");
+  const bc=_verifyChannel();
+  if(!bc) return;
+  S._verifyBc=bc;
+  bc.onmessage=async (e)=>{
+    if(!e.data || e.data.type!=="verified" || S.account) return;   // already signed in here: nothing to do
+    closeVerifyWait();
+    await restoreSession();
+    toast("Email verified, you're signed in ✓",true);
+    _resumeAfterAuth();
+  };
+}
+// "Got it" (or any other path away from the waiting screen) stops listening —
+// no point reacting to a verification that happened after the person moved on.
+function closeVerifyWait(){
+  if(S._verifyBc){ S._verifyBc.close(); S._verifyBc=null; }
+  closeModal();
 }
 
 // Reachable from the login screen for anyone who never got (or lost) the email.
@@ -5078,6 +5105,10 @@ async function verifyEmailFromLink(token){
   await loadPerms(); await loadMine(); await loadNotifications();
   closeModal(); authReflect();
   toast("Email verified, you're signed in ✓",true);
+  // Tell any other same-browser tab still showing "Check your email" (see
+  // checkYourEmailModal) so it updates itself instead of sitting stale.
+  const bc=_verifyChannel();
+  if(bc){ bc.postMessage({type:"verified"}); bc.close(); }
   _resumeAfterAuth();   // homepage, same as a normal login
 }
 
@@ -6772,7 +6803,7 @@ function resRender(){ resRenderPlaybooks(); resRenderModels(); }
 
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
-checkYourEmailModal,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
+checkYourEmailModal,closeVerifyWait,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
 openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,wAddCustomChip,eAddCustomChip,
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
