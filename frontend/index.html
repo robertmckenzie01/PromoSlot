@@ -1041,17 +1041,32 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 .work-link-card img{width:100%;display:block;max-height:340px;object-fit:cover}
 .work-link-ph{display:flex;align-items:center;justify-content:center;height:130px;font-size:34px}
 .work-link-go{position:absolute;bottom:6px;right:6px;background:rgba(15,23,42,.78);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px}
-.growth{padding:2px}
-.g-readout{font-size:13.5px;color:var(--ink2);margin-bottom:8px;min-height:20px}
-.g-readout b{color:var(--ink)}
-.growth-svg{width:100%;height:auto;display:block;touch-action:none;cursor:ew-resize;user-select:none}
-.g-axis{stroke:var(--line);stroke-width:1}
-.g-area{fill:var(--acc);opacity:.10}
-.g-line{fill:none;stroke:var(--acc);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+/* Growth timeline (dashboard "Account growth" chart) — redesigned for a
+   Stripe-like feel: gradient fill, softly rounded step corners, £ reference
+   gridlines, a floating tooltip that follows the scrub position, and an
+   entrance animation on render. Prototyped and approved against real deal
+   data in growth-chart-test.html (a standalone comparison file, not part of
+   the shipped app) before landing here — see renderGrowthTimeline() in
+   promoslot-app.js for the full rationale. */
+.growth{padding:2px;position:relative}
+.g-headline{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.g-amt{font-family:var(--font-d);font-size:26px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.g-amt-sub{font-size:12.5px;color:var(--mut)}
+.growth-svg{width:100%;height:auto;display:block;touch-action:none;cursor:ew-resize;user-select:none;overflow:visible}
+.g-grid{stroke:var(--line2);stroke-width:1}
+.g-grid-label{font:600 10.5px var(--font-b);fill:var(--faint)}
+.g-area{fill-opacity:1}
+.g-area.drawing{transition:opacity .7s ease .35s}
+.g-line{fill:none;stroke:var(--acc);stroke-width:2.75;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 2px 4px rgba(79,70,229,.18))}
+.g-line.drawing{transition:stroke-dashoffset 1.1s var(--ease)}
 .g-dot{fill:var(--card);stroke:var(--acc);stroke-width:2}
-.g-scrub-line{stroke:var(--acc2);stroke-width:1;stroke-dasharray:3 3}
-.g-scrub{fill:var(--acc);stroke:var(--card);stroke-width:2.5;cursor:ew-resize}
-.g-scale{display:flex;justify-content:space-between;font-size:11.5px;color:var(--faint);margin-top:4px}
+.g-scrub-line{stroke:var(--acc-border);stroke-width:1.5}
+.g-scrub{fill:var(--acc);stroke:var(--card);stroke-width:3;cursor:ew-resize}
+.g-scrub-glow{fill:var(--acc);opacity:.16}
+.g-scale{display:flex;justify-content:space-between;font-size:11.5px;color:var(--faint);margin-top:6px}
+.g-tip{position:absolute;top:-6px;transform:translate(-50%,-100%);background:var(--ink);color:#ffffff;border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:600;white-space:nowrap;box-shadow:var(--shadow-lg);pointer-events:none;transition:left .12s var(--ease),opacity .15s;z-index:5}
+.g-tip-d{font-weight:500;color:#c9cde8;font-size:11.5px;margin-top:2px}
+.g-tip:after{content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--ink)}
 .pfp.has-img{background-size:cover;background-position:center;background-repeat:no-repeat;color:transparent}
 .avatar-dot.has-img{background-size:cover;background-position:center;background-repeat:no-repeat;color:transparent}
 .footer-support{font-size:12.5px;line-height:1.8}

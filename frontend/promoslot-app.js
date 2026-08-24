@@ -3600,6 +3600,23 @@ function animateKpis(){
 }
 // Draggable-scrubber growth timeline (real deal events only). x = time,
 // y = cumulative £. A single draggable dot scrubs time; event dots are fixed.
+//
+// Redesigned per Rob's "make it feel as smooth as Stripe's dashboard" note —
+// prototyped and approved against real deal data in growth-chart-test.html
+// (a standalone comparison file, not part of the shipped app) before landing
+// here. Deliberately still a real step function, not a smoothed curve: money
+// jumps the instant a deal settles, it doesn't trickle in, so faking a curve
+// between points would misrepresent the data. What changed is the visual
+// treatment around that honest shape — gradient fill instead of a flat
+// tint, softly rounded step corners instead of hard right angles, £
+// reference gridlines so a value can be read without dragging, a floating
+// tooltip that follows the scrub position instead of a static text line
+// above the chart, and a line/fill entrance animation on render instead of
+// the chart just snapping into existence.
+function niceGrowthStep(max){
+  const raw=max/4, mag=Math.pow(10,Math.floor(Math.log10(raw||1))), norm=raw/mag;
+  return (norm>=5?5:norm>=2?2:1)*mag||1;
+}
 function renderGrowthTimeline(hostId, events, cfg){
   const host=document.getElementById(hostId); if(!host) return;
   cfg=cfg||{}; const verb=cfg.verb||"earned";
@@ -3609,50 +3626,94 @@ function renderGrowthTimeline(hostId, events, cfg){
     return;
   }
   let cum=0; const pts=events.map(e=>({t:+e.t, v:(cum+=e.amount), amount:e.amount, dealId:e.dealId}));
-  const W=640,H=210,padL=52,padR=16,padT=16,padB=26, plotW=W-padL-padR, plotH=H-padT-padB;
+  const W=640,H=230,padL=54,padR=16,padT=18,padB=26, plotW=W-padL-padR, plotH=H-padT-padB;
   let tStart=pts[0].t, tEnd=Math.max(pts[pts.length-1].t, Date.now());
   if(tEnd<=tStart) tEnd=tStart+864e5;
-  const span=tEnd-tStart, yMax=Math.max(...pts.map(p=>p.v))*1.15||1;
+  const span=tEnd-tStart, rawMax=Math.max(...pts.map(p=>p.v)),
+        gridStep=niceGrowthStep(rawMax), yMax=Math.ceil((rawMax*1.15)/gridStep)*gridStep||1;
   const xs=t=>padL+(t-tStart)/span*plotW, ys=v=>(padT+plotH)-(v/yMax)*plotH;
-  // stepped cumulative path + area
+
+  // Stepped cumulative path with softly rounded corners — still a real step
+  // function (value only changes exactly AT each deal date), just visually
+  // softened at the elbow rather than a hard right angle.
+  const RAD=5;
   let d=`M ${xs(tStart).toFixed(1)} ${ys(0).toFixed(1)}`, prev=0;
   const poly=[`${xs(tStart).toFixed(1)},${ys(0).toFixed(1)}`];
   pts.forEach(p=>{
-    d+=` L ${xs(p.t).toFixed(1)} ${ys(prev).toFixed(1)} L ${xs(p.t).toFixed(1)} ${ys(p.v).toFixed(1)}`;
-    poly.push(`${xs(p.t).toFixed(1)},${ys(prev).toFixed(1)}`,`${xs(p.t).toFixed(1)},${ys(p.v).toFixed(1)}`);
+    const cx=xs(p.t), cyPrev=ys(prev), cyNew=ys(p.v);
+    const r=Math.min(RAD, Math.abs(cyNew-cyPrev)/2, plotW*0.03);
+    d+=` L ${(cx-r).toFixed(1)} ${cyPrev.toFixed(1)} Q ${cx.toFixed(1)} ${cyPrev.toFixed(1)} ${cx.toFixed(1)} ${(cyPrev+(cyNew>cyPrev?r:-r)).toFixed(1)}`;
+    d+=` L ${cx.toFixed(1)} ${(cyNew-(cyNew>cyPrev?r:-r)).toFixed(1)} Q ${cx.toFixed(1)} ${cyNew.toFixed(1)} ${(cx+r).toFixed(1)} ${cyNew.toFixed(1)}`;
+    poly.push(`${cx.toFixed(1)},${cyPrev.toFixed(1)}`,`${cx.toFixed(1)},${cyNew.toFixed(1)}`);
     prev=p.v;
   });
   d+=` L ${xs(tEnd).toFixed(1)} ${ys(prev).toFixed(1)}`;
-  poly.push(`${xs(tEnd).toFixed(1)},${ys(prev).toFixed(1)}`,
-            `${xs(tEnd).toFixed(1)},${ys(0).toFixed(1)}`);
+  poly.push(`${xs(tEnd).toFixed(1)},${ys(prev).toFixed(1)}`, `${xs(tEnd).toFixed(1)},${ys(0).toFixed(1)}`);
   const areaPts=poly.join(" ");
-  const dots=pts.map(p=>`<circle class="g-dot" cx="${xs(p.t).toFixed(1)}" cy="${ys(p.v).toFixed(1)}" r="4"><title>Deal ${p.dealId} · +£${p.amount.toFixed(2)} · ${new Date(p.t).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</title></circle>`).join("");
+
+  // Reference gridlines at nice round £ values, so a value can be read at a
+  // glance without dragging — the old version had no way to judge magnitude
+  // except the one scrub readout.
+  let gridLines="";
+  for(let g=gridStep; g<yMax; g+=gridStep){
+    const gy=ys(g);
+    gridLines+=`<line class="g-grid" x1="${padL}" y1="${gy.toFixed(1)}" x2="${W-padR}" y2="${gy.toFixed(1)}"/><text class="g-grid-label" x="${padL-8}" y="${(gy+3.5).toFixed(1)}" text-anchor="end">£${g>=1000?(g/1000)+"k":g}</text>`;
+  }
+
+  const dots=pts.map(p=>`<circle class="g-dot" cx="${xs(p.t).toFixed(1)}" cy="${ys(p.v).toFixed(1)}" r="3.5"><title>Deal ${p.dealId} · +£${p.amount.toFixed(2)} · ${new Date(p.t).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</title></circle>`).join("");
   const sx0=xs(tEnd), sy0=ys(pts[pts.length-1].v);
+  const gradId="g-grad-"+hostId;
+  const total=pts[pts.length-1].v;
+  const verbLabel = verb==="earned" ? "earned" : "spent";
+
   host.innerHTML=`<div class="growth">
-    <div class="g-readout" id="${hostId}-ro"></div>
+    <div class="g-headline"><span class="g-amt">£${total.toFixed(2)}</span><span class="g-amt-sub">total ${verbLabel}, ${pts.length} deal${pts.length===1?"":"s"}</span></div>
+    <div class="g-tip" id="${hostId}-tip" style="opacity:0;left:0"></div>
     <svg class="growth-svg" viewBox="0 0 ${W} ${H}" role="img">
-      <line class="g-axis" x1="${padL}" y1="${padT+plotH}" x2="${W-padR}" y2="${padT+plotH}"/>
-      <polygon class="g-area" points="${areaPts}"/>
-      <path class="g-line" d="${d}"/>
+      <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--acc)" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="var(--acc)" stop-opacity="0"/>
+      </linearGradient></defs>
+      ${gridLines}
+      <polygon class="g-area drawing" points="${areaPts}" fill="url(#${gradId})" style="opacity:0"/>
+      <path class="g-line drawing" d="${d}" style="stroke-dasharray:2000;stroke-dashoffset:2000"/>
       ${dots}
+      <circle class="g-scrub-glow" id="${hostId}-glow" cx="${sx0.toFixed(1)}" cy="${sy0.toFixed(1)}" r="12"/>
       <line class="g-scrub-line" x1="${sx0.toFixed(1)}" y1="${padT}" x2="${sx0.toFixed(1)}" y2="${padT+plotH}"/>
-      <circle class="g-scrub" cx="${sx0.toFixed(1)}" cy="${sy0.toFixed(1)}" r="7"/>
+      <circle class="g-scrub" id="${hostId}-scrub" cx="${sx0.toFixed(1)}" cy="${sy0.toFixed(1)}" r="6"/>
     </svg>
-    <div class="g-scale"><span>${new Date(tStart).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span><span>drag the dot to scrub ↔</span><span>${new Date(tEnd).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span></div>
+    <div class="g-scale"><span>${new Date(tStart).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span><span>drag to scrub ↔</span><span>${new Date(tEnd).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span></div>
   </div>`;
-  const svg=host.querySelector(".growth-svg"), scrub=host.querySelector(".g-scrub"),
-        sline=host.querySelector(".g-scrub-line"), ro=document.getElementById(hostId+"-ro");
+
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const line=host.querySelector(".g-line"), area=host.querySelector(".g-area");
+    if(line) line.style.strokeDashoffset="0";
+    if(area) area.style.opacity="1";
+  }));
+
+  const svg=host.querySelector(".growth-svg"), scrub=document.getElementById(hostId+"-scrub"),
+        glow=document.getElementById(hostId+"-glow"), sline=host.querySelector(".g-scrub-line"),
+        tip=document.getElementById(hostId+"-tip");
   const cumAt=tms=>{ let v=0,n=0; pts.forEach(p=>{ if(p.t<=tms){ v=p.v; n++; } }); return {v,n}; };
-  const setScrub=tms=>{ if(!isFinite(tms)) return; tms=Math.max(tStart,Math.min(tEnd,tms)); const {v,n}=cumAt(tms);
-    const sx=xs(tms), sy=ys(v); scrub.setAttribute("cx",sx.toFixed(1)); scrub.setAttribute("cy",sy.toFixed(1));
+  const setScrub=(tms, animate)=>{
+    if(!isFinite(tms)) return; tms=Math.max(tStart,Math.min(tEnd,tms));
+    const {v,n}=cumAt(tms); const sx=xs(tms), sy=ys(v);
+    [scrub,glow].forEach(el=>{ el.style.transition = animate ? "cx .35s var(--ease), cy .35s var(--ease)" : "none"; });
+    scrub.setAttribute("cx",sx.toFixed(1)); scrub.setAttribute("cy",sy.toFixed(1));
+    glow.setAttribute("cx",sx.toFixed(1)); glow.setAttribute("cy",sy.toFixed(1));
+    sline.style.transition = animate ? "x1 .35s var(--ease), x2 .35s var(--ease)" : "none";
     sline.setAttribute("x1",sx.toFixed(1)); sline.setAttribute("x2",sx.toFixed(1));
-    ro.innerHTML=`<b>By ${new Date(tms).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</b> · £${v.toFixed(2)} ${verb} · ${n} deal${n===1?"":"s"}`; };
+    tip.style.left=(sx/W*100)+"%";
+    tip.style.opacity="1";
+    tip.innerHTML=`£${v.toFixed(2)} <div class="g-tip-d">${new Date(tms).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})} · ${n} deal${n===1?"":"s"}</div>`;
+  };
   const cxToT=cx=>{ const r=svg.getBoundingClientRect(); if(!r.width||!isFinite(cx)) return tEnd; const px=(cx-r.left)/r.width*W; return tStart+Math.max(0,Math.min(1,(px-padL)/plotW))*span; };
   let dragging=false;
-  svg.addEventListener("pointerdown",e=>{ dragging=true; try{svg.setPointerCapture(e.pointerId);}catch(_){}; setScrub(cxToT(e.clientX)); e.preventDefault(); });
-  svg.addEventListener("pointermove",e=>{ if(dragging) setScrub(cxToT(e.clientX)); });
+  svg.addEventListener("pointerdown",e=>{ dragging=true; try{svg.setPointerCapture(e.pointerId);}catch(_){}; setScrub(cxToT(e.clientX), false); e.preventDefault(); });
+  svg.addEventListener("pointermove",e=>{ if(dragging) setScrub(cxToT(e.clientX), false); });
   svg.addEventListener("pointerup",e=>{ dragging=false; try{svg.releasePointerCapture(e.pointerId);}catch(_){} });
-  setScrub(tEnd);  // start showing "today" (full total)
+  svg.addEventListener("mouseleave",()=>{ if(!dragging) setScrub(tEnd, true); });
+  setScrub(tEnd, true);  // start showing "today" (full total), eased in
 }
 function kpiText(to,pre,suf,dec){
   return pre+(dec?Number(to).toFixed(dec):Math.round(to).toLocaleString("en-GB"))+suf;
