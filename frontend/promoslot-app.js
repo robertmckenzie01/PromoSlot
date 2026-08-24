@@ -1111,7 +1111,7 @@ function syncNav(){
   setTheme();
   if(has){
     const nm = S.activeRole==="biz" && S.biz ? S.biz.company : (S.myPlatforms[0]?S.myPlatforms[0].brand:(S.biz?S.biz.company:"You"));
-    $("userName").textContent=nm; $("userInit").textContent=initials(nm||"You");
+    $("userName").textContent=nm; $("userName").title=nm||""; $("userInit").textContent=initials(nm||"You");
     $("rs-biz").classList.toggle("on",S.activeRole==="biz");
     $("rs-plat").classList.toggle("on",S.activeRole==="plat");
   }
@@ -3981,6 +3981,7 @@ function authReflect(){
     if(a.avatar_url){ ui.textContent=""; ui.classList.add("has-img"); ui.style.backgroundImage=`url('${a.avatar_url}')`; }
     else { ui.classList.remove("has-img"); ui.style.backgroundImage=""; ui.textContent=(a.display_name||a.email||"?").slice(0,1).toUpperCase(); }
     $("userName").textContent=a.display_name||a.email;
+    $("userName").title=a.display_name||a.email||""; // full name on hover — see #userName's ellipsis rule in index.html
   }
   updateDots();
 }
