@@ -1037,7 +1037,61 @@ async function confirmLinkProfile(r){
   }
   await loadPerms(); authReflect(); closeModal();
   S.activeRole=r; setTheme(); syncNav();
-  startWizard(r);
+  // requireRole() (below) stashes what the person was actually trying to do
+  // before this profile existed — resume that instead of always opening the
+  // role's default wizard, so e.g. "buy this offer" -> create business
+  // profile -> lands back on buying the offer, not on the campaign wizard.
+  const resume=_roleGateResume; _roleGateResume=null;
+  if(resume) resume(); else startWizard(r);
+}
+// Gates an action that only makes sense for one identity (business vs
+// platform-owner) behind the account's ACTIVE identity. S.roles reflects
+// only the identity currently in use (see authReflect()), not everything the
+// underlying account can do — a business-active account has S.roles=["biz"]
+// even if a linked platform-owner profile exists. Without this, entry points
+// reachable regardless of which dashboard is open (marketplace CTAs, buying
+// an offer, applying to a campaign) either silently proceeded with the wrong
+// role or dead-ended in a plain toast. Reuses the exact switch/create
+// machinery switchRole() already uses for the nav role switcher, so "already
+// linked" vs "needs creating" is detected the same way in both places.
+let _roleGateResume=null;
+function requireRole(role, resumeFn){
+  if(S.roles.includes(role)){ resumeFn(); return; }
+  if(!S.account){ authGate("login"); return; }   // no account yet: not a role mismatch
+  _roleGateResume=resumeFn;
+  const label = role==="biz" ? "business" : "platform owner";
+  const activeLabel = S.activeRole==="biz" ? "business" : "platform-owner";
+  const linked=S.account.linked_account;
+  const linkedRole = linked ? (linked.is_business?"biz":"plat") : null;
+  const already = linkedRole===role;
+  openModal(`<div class="m-pad"><h3 class="m-title">You'll need a ${label} account</h3>
+    <p class="m-sub">This action is for ${label} accounts — you're currently using your ${activeLabel} profile.</p>
+    <div class="m-actions" style="flex-direction:column;align-items:stretch;gap:8px">
+      ${already
+        ? `<button class="btn btn-p" onclick="_roleGateSwitch('${role}')">Already have one? Switch to it now</button>`
+        : `<button class="btn btn-p" onclick="_roleGateCreate('${role}')">Don't have one? Create one</button>`}
+      <button class="btn btn-ghost" onclick="closeModal();_roleGateResume=null">Cancel</button>
+    </div></div>`,"narrow");
+}
+function _roleGateSwitch(role){
+  closeModal();
+  const resume=_roleGateResume; _roleGateResume=null;
+  switchToLinkedAccount(role).then(()=>{ if(resume) resume(); });
+}
+function _roleGateCreate(role){
+  // Same "set up a linked profile" form switchRole() uses, kept in sync
+  // deliberately rather than duplicated with different copy — the only
+  // difference is confirmLinkProfile() resumes _roleGateResume when set.
+  closeModal();
+  const label = role==="biz" ? "business" : "platform-owner";
+  openModal(`<div class="m-pad"><h3 class="m-title">Set up your ${label} profile?</h3>
+    <p class="m-sub">This creates a separate, linked profile with its own name — switch between
+      the two anytime from My Account. One login, two identities.</p>
+    <div class="frm"><label>${label==="business"?"Business":"Platform-owner"} name</label>
+      <input type="text" id="lp-name" placeholder="${role==='biz'?'Meadow & Moss':'RobertLifts'}"></div>
+    <div class="hint-err hide" id="lp-err"></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal();_roleGateResume=null">Not now</button>
+    <button class="btn btn-p" id="lp-submit" onclick="confirmLinkProfile('${role}')">Set it up</button></div></div>`,"narrow");
 }
 async function switchToLinkedAccount(r){
   try{ S.account=await PSApi.switchAccount(); }
@@ -1118,8 +1172,15 @@ function setMarketTab(tab){
   buildFilters(); renderMarket(true);
 }
 function marketCtaClick(){
-  if(S.marketTab==="platforms"){ S.roles.includes("plat") ? openRegisterPlatform() : startWizard("plat"); }
-  else { S.roles.includes("biz") ? openNewCampaign() : startWizard("biz"); }
+  // Root cause of Rob's testing note: this used to check S.roles directly and
+  // fall straight to startWizard() on a mismatch — which for a guest is
+  // correct (they haven't chosen a role yet), but for someone already logged
+  // in on the OTHER role it silently launched the wrong wizard instead of
+  // ever asking. requireRole() below only intervenes in that second case.
+  const role = S.marketTab==="platforms" ? "plat" : "biz";
+  const openWizard = role==="plat" ? openRegisterPlatform : openNewCampaign;
+  if(!S.account){ startWizard(role); return; }
+  requireRole(role, openWizard);
 }
 function toggleFilters(){ $("filtersBox").classList.toggle("open"); }
 
@@ -2217,7 +2278,10 @@ async function buyOffer(listingId, priceIdx){
     toast("This is an example listing — buy from a real listing to transact."); return;
   }
   if(!S.account){ authGate("login"); return; }
-  if(!S.account.is_business){ toast("Only a business can buy an offer — sign up as a business to fund a deal."); return; }
+  // Was a dead-end toast with no path forward. Same mismatched-active-role
+  // case marketCtaClick() had — a platform-owner-active account browsing the
+  // marketplace can reach "buy" on a listing same as anyone else.
+  if(!S.roles.includes("biz")){ requireRole("biz", ()=>buyOffer(listingId,priceIdx)); return; }
   const amount=Number(p.amount)||0;
   if(amount<=0){ toast("Commission / custom offers — use “Request a quote”."); requestQuote(listingId); return; }
   const listed_price=Math.round(amount*100); // offer amount is in pounds → pence
@@ -2735,7 +2799,9 @@ async function applyCampaign(campId){
   const c=findCampaign(campId); if(!c) return;
   if(c.example || !/^c\d+$/.test(String(c.id))){ toast("This is an example campaign — apply to a real one to transact."); return; }
   if(!S.account){ authGate("login"); return; }
-  if(!S.account.is_platform_owner){ toast("Only a platform owner can apply — sign up as a platform owner to pitch."); return; }
+  // Same fix as buyOffer() above: was a dead-end toast, now offers switching
+  // to (or creating) the platform-owner profile and resumes this application.
+  if(!S.roles.includes("plat")){ requireRole("plat", ()=>applyCampaign(campId)); return; }
   if(String(c.businessId)===String(S.account.id)){ toast("That's your own campaign — you can review applicants from it."); return; }
   let plats=S.myPlatforms||[];
   if(!plats.length){ try{ plats=await PSApi.get("/platforms/mine"); S.myPlatforms=plats; }catch(e){} }
@@ -6616,7 +6682,7 @@ function resScenario(i){
 }
 function resRender(){ resRenderPlaybooks(); resRenderModels(); }
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
