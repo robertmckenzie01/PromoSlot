@@ -301,6 +301,57 @@ class Deal(Base):
     seller_fee_percent = Column(Integer, default=10, nullable=False)
     buyer_fee_percent = Column(Integer, default=5, nullable=False)
 
+    # Pricing model, deliberately composable rather than a fixed set of named
+    # deal "types". "hybrid" is NOT its own value here on purpose: a business
+    # wants pure per-view pricing for its own reasons (zero guaranteed cost),
+    # while a platform owner often wants a floor for theirs (paid for the
+    # work regardless of algorithm luck) — which of those wins is a per-deal
+    # negotiation, not a category chosen once at listing time. So a "hybrid"
+    # deal is simply a per_view/per_impression deal where listed_price is
+    # also > 0, not a separate model value. listed_price above already is
+    # that optional fixed floor; everything below is the pool on top of it.
+    pricing_model = Column(String, default="fixed", nullable=False)  # fixed | per_view | per_impression
+
+    # Rate is always whole pence per a whole unit count (e.g. 10p per 1,000
+    # views) — enforced at listing creation, never fractional pence — so
+    # payout math (floor(verified_quantity / rate_unit_quantity) * rate_unit_pence)
+    # can never produce a fractional penny. Null for pricing_model="fixed".
+    rate_unit_pence = Column(Integer)
+    rate_unit_quantity = Column(Integer)
+
+    # The pre-funded pool a business commits for the price-per portion, pence
+    # (e.g. 1000 = £10.00 — same minor-unit convention as listed_price above).
+    # Charged together with listed_price in one combined PaymentIntent at
+    # funding. Null for pricing_model="fixed".
+    pool_max_budget = Column(Integer)
+
+    # Selectable campaign window. There is exactly one settlement event, at
+    # campaign_ends_at (or shortly after, once a reviewer has verified it) —
+    # never a running/incremental release. Early completion never shortens
+    # this; see proof_grace_deadline below for the one exception to "wait
+    # until the end", which pushes the review out further, never earlier.
+    campaign_starts_at = Column(DateTime)
+    campaign_ends_at = Column(DateTime)
+
+    # Set exactly once, at settlement, from the same verified_quantity a
+    # reviewer recorded on the Verification row. released = paid to the
+    # platform owner (fee taken on this slice only); refunded = returned to
+    # the business fee-free. released + refunded should always equal
+    # pool_max_budget for a settled pool/hybrid deal.
+    pool_released_amount = Column(Integer)
+    pool_refunded_amount = Column(Integer)
+    pool_settled_at = Column(DateTime)
+
+    # Set when a reviewer suspects submitted proof undersells what was
+    # actually delivered (verified independently, not just from what's on
+    # file) and wants to give the platform owner a fair chance to add to it
+    # before final settlement, rather than either paying out on an unproven
+    # number or silently authoring the extra evidence themselves. Reuses the
+    # existing CHANGES_REQUESTED status/notes flow — this is just the
+    # deadline attached to that specific case. Settlement cannot finalize
+    # while this is set and still in the future.
+    proof_grace_deadline = Column(DateTime)
+
     # Stripe references (set as real events occur)
     payment_intent_id = Column(String, index=True)
     charge_id = Column(String)
@@ -488,6 +539,13 @@ class Verification(Base):
     reviewer_id = Column(Integer, ForeignKey("users.id"))
     decision = Column(String, nullable=False)       # approved | rejected
     notes = Column(Text)
+    # The actual quantity (views/impressions) a reviewer confirms at the
+    # point of decision — lives here, not on Proof, because Proof is only
+    # ever what the platform owner submitted (unverified); this is what a
+    # human reviewer decided about it. The pool settlement step reads this
+    # number rather than having an admin retype or re-derive it later. Null
+    # for a plain fixed-price deal, or any decision that isn't "approved".
+    verified_quantity = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
