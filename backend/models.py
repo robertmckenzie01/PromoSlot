@@ -325,11 +325,21 @@ class Deal(Base):
     # funding. Null for pricing_model="fixed".
     pool_max_budget = Column(Integer)
 
-    # Selectable campaign window. There is exactly one settlement event, at
-    # campaign_ends_at (or shortly after, once a reviewer has verified it) —
-    # never a running/incremental release. Early completion never shortens
-    # this; see proof_grace_deadline below for the one exception to "wait
-    # until the end", which pushes the review out further, never earlier.
+    # Selectable campaign window. campaign_duration_days is what's actually
+    # collected at deal creation (a business picks "runs for N days", not
+    # absolute dates a deal might sit unfunded for days before ever
+    # reaching) — bounded 1-60, enforced in routers/deals.py. The real
+    # campaign_starts_at/campaign_ends_at are only ever computed from
+    # funded_at once funding actually succeeds (see
+    # services.mark_deal_funded_from_pi), the same way every other
+    # money-state field here is set only from a real confirmed event, never
+    # optimistically at creation time. There is exactly one settlement
+    # event, at campaign_ends_at (or shortly after, once a reviewer has
+    # verified it) — never a running/incremental release. Early completion
+    # never shortens this; see proof_grace_deadline below for the one
+    # exception to "wait until the end", which pushes the review out
+    # further, never earlier.
+    campaign_duration_days = Column(Integer)
     campaign_starts_at = Column(DateTime)
     campaign_ends_at = Column(DateTime)
 

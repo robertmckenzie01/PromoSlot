@@ -1,5 +1,5 @@
 """Domain services shared across routers and webhook handlers."""
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -36,6 +36,26 @@ def deal_money(listed_price: int, seller_pct: int, buyer_pct: int) -> dict:
 def deal_money_for(deal) -> dict:
     """Breakdown for a specific deal, using the fee rates locked on it."""
     return deal_money(deal.listed_price, deal.seller_fee_percent, deal.buyer_fee_percent)
+
+
+def total_charge_for(deal) -> dict:
+    """What the business is actually charged at funding, fixed + pool combined
+    into one number for one PaymentIntent (see routers/deals.py's fund_deal).
+
+    A plain fixed deal (pool_max_budget is None) is unaffected — this is
+    just deal_money_for(deal)'s charge_amount with 0 added. For a pool/
+    hybrid deal it's that same fixed-side charge plus what deal_money()
+    says the pool's own max budget would cost to fully fund (pool_max_budget
+    + its own buyer fee) — the same "pool listed_price equivalent" framing
+    pool_settlement_for() uses at the other end, at settlement.
+    """
+    fixed = deal_money_for(deal)
+    pool_charge = 0
+    if deal.pool_max_budget:
+        pool_charge = deal_money(deal.pool_max_budget, deal.seller_fee_percent,
+                                 deal.buyer_fee_percent)["charge_amount"]
+    return {"fixed_charge": fixed["charge_amount"], "pool_charge": pool_charge,
+            "total_charge": fixed["charge_amount"] + pool_charge}
 
 
 def _g(obj, *path):
@@ -113,6 +133,15 @@ def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
     deal.funded_at = datetime.utcnow()
     deal.status = DealStatus.FUNDED
     deal.charge_id = getattr(pi, "latest_charge", None)
+
+    # The campaign clock starts now, not at deal creation — a deal can sit
+    # unfunded for days waiting on approval/payment, and it wouldn't be fair
+    # for the campaign window to have been silently ticking down the whole
+    # time. Only ever computed from campaign_duration_days (collected at
+    # creation, see routers/deals.py) once funding is a real confirmed event.
+    if deal.pricing_model in ("per_view", "per_impression") and deal.campaign_duration_days:
+        deal.campaign_starts_at = deal.funded_at
+        deal.campaign_ends_at = deal.funded_at + timedelta(days=deal.campaign_duration_days)
 
     pay = db.query(Payment).filter_by(stripe_payment_intent_id=pi_id).first()
     if pay is not None:

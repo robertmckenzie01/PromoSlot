@@ -15,17 +15,37 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import ConnectedAccount, Deal, DealStatus, Notification, Payment, User
-from ..services import deal_money_for, mark_deal_funded_from_pi, try_instant_payout
+from ..services import deal_money, deal_money_for, mark_deal_funded_from_pi, total_charge_for, try_instant_payout
 from ..stripe_client import stripe
 
 router = APIRouter(prefix="/deals", tags=["deals"])
 
+PRICING_MODELS = ("fixed", "per_view", "per_impression")
+POOL_MODELS = ("per_view", "per_impression")
+MIN_CAMPAIGN_DAYS = 1
+MAX_CAMPAIGN_DAYS = 60
+
 
 class DealCreateIn(BaseModel):
     platform_owner_id: int
-    listed_price: int = Field(ge=100, description="Agreed/listed price, in pence")
+    # 0 is only valid for a pure per_view/per_impression deal with no fixed
+    # floor — see the "0 or >=100" check in create_deal(). A plain "fixed"
+    # deal still requires >=100 exactly as before; that's enforced there too
+    # since it depends on pricing_model, not expressible as a single Field().
+    listed_price: int = Field(ge=0, description="Agreed/listed price, in pence — "
+                              "0 only allowed alongside a pool with no fixed floor")
     currency: str = "gbp"
     terms: dict = Field(default_factory=dict)
+
+    # Composable pricing (see Deal.pricing_model in models.py for why "hybrid"
+    # is deliberately not its own value here — it's just this model with
+    # listed_price also >0). All four below are required together, only for
+    # pricing_model in ("per_view", "per_impression"); ignored for "fixed".
+    pricing_model: str = "fixed"
+    rate_unit_pence: Optional[int] = Field(default=None, ge=1)
+    rate_unit_quantity: Optional[int] = Field(default=None, ge=1)
+    pool_max_budget: Optional[int] = Field(default=None, ge=100)
+    campaign_duration_days: Optional[int] = Field(default=None, ge=MIN_CAMPAIGN_DAYS, le=MAX_CAMPAIGN_DAYS)
 
 
 def _name(u) -> str:
@@ -70,9 +90,22 @@ def deal_dict(d: Deal) -> dict:
         "buyer_fee_percent": d.buyer_fee_percent,
         "buyer_protection_fee": m["buyer_fee"],
         "seller_fee": m["seller_fee"],
-        "total_charged": m["charge_amount"],     # what the business pays
-        "net_to_owner": m["net_to_owner"],        # what the owner receives
+        "net_to_owner": m["net_to_owner"],        # fixed-portion payout only — see pool_* below for the rest
         "platform_take": m["platform_take"],
+        # Pool/hybrid pricing (see Deal.pricing_model in models.py — "hybrid"
+        # is just this with listed_price also >0, not a separate value).
+        # None/0 for a plain fixed deal, so existing callers reading only the
+        # fields above are completely unaffected.
+        "pricing_model": d.pricing_model,
+        "rate_unit_pence": d.rate_unit_pence,
+        "rate_unit_quantity": d.rate_unit_quantity,
+        "pool_max_budget": d.pool_max_budget,
+        "campaign_duration_days": d.campaign_duration_days,
+        "campaign_starts_at": d.campaign_starts_at.isoformat() if d.campaign_starts_at else None,
+        "campaign_ends_at": d.campaign_ends_at.isoformat() if d.campaign_ends_at else None,
+        "pool_released_amount": d.pool_released_amount,
+        "pool_refunded_amount": d.pool_refunded_amount,
+        "total_charged": total_charge_for(d)["total_charge"],   # fixed + pool combined, what the business pays
         "campaign_id": d.campaign_id,
         "platform_id": d.platform_id,
         # Real identities of both parties (never "You"), with refs to their profiles.
@@ -141,6 +174,32 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
             raise HTTPException(status_code=409,
                                 detail="That listing has been removed by its owner and cannot be booked.")
 
+    if body.pricing_model not in PRICING_MODELS:
+        raise HTTPException(status_code=422,
+                            detail=f"pricing_model must be one of {PRICING_MODELS}")
+
+    if body.pricing_model == "fixed":
+        if body.listed_price < 100:
+            raise HTTPException(status_code=422, detail="listed_price must be at least 100 (£1.00)")
+        if any([body.rate_unit_pence, body.rate_unit_quantity, body.pool_max_budget,
+               body.campaign_duration_days]):
+            raise HTTPException(status_code=422,
+                                detail="A fixed-price deal can't also carry pool fields")
+    else:  # per_view / per_impression
+        if body.listed_price != 0 and body.listed_price < 100:
+            raise HTTPException(status_code=422,
+                                detail="listed_price must be 0 (no fixed floor) or at least 100 (£1.00)")
+        missing = [name for name, val in
+                  [("rate_unit_pence", body.rate_unit_pence),
+                   ("rate_unit_quantity", body.rate_unit_quantity),
+                   ("pool_max_budget", body.pool_max_budget),
+                   ("campaign_duration_days", body.campaign_duration_days)]
+                  if val is None]
+        if missing:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{body.pricing_model} deals require: {', '.join(missing)}")
+
     d = Deal(
         business_id=user.id,
         platform_owner_id=owner.id,
@@ -150,6 +209,11 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
         buyer_fee_percent=settings.buyer_fee_percent,
         terms=body.terms,
         status=DealStatus.AWAITING_APPROVAL,
+        pricing_model=body.pricing_model,
+        rate_unit_pence=body.rate_unit_pence,
+        rate_unit_quantity=body.rate_unit_quantity,
+        pool_max_budget=body.pool_max_budget,
+        campaign_duration_days=body.campaign_duration_days,
     )
     db.add(d)
     db.commit()
@@ -236,7 +300,7 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
                     f"{'the business' if gone == 'campaign' else 'the owner'}. "
                     "This deal can no longer be funded."))
 
-    m = deal_money_for(d)  # listed price + 5% buyer protection fee = amount charged
+    tc = total_charge_for(d)  # fixed portion + pool portion (if any), one combined charge
 
     # Reuse an existing pending PaymentIntent if one was already created.
     if d.payment_intent_id:
@@ -247,7 +311,7 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
     else:
         try:
             pi = stripe.PaymentIntent.create(
-                amount=m["charge_amount"],
+                amount=tc["total_charge"],
                 currency=d.currency,
                 # Payment methods (product decision): card + Apple Pay + Google Pay.
                 # Apple/Google Pay are wallets that tokenize into CARD payments, so
@@ -269,11 +333,25 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
         db.add(Payment(
             deal_id=d.id,
             stripe_payment_intent_id=pi.id,
-            amount=m["charge_amount"],
+            amount=tc["total_charge"],
             currency=d.currency,
             status=pi.status,
         ))
         db.commit()
+
+    # Checkout line items — shown separately, never folded into one number.
+    fixed = deal_money_for(d)
+    line_items = [
+        {"label": "Listed price", "amount": fixed["listed_price"]},
+        {"label": f"Buyer protection fee ({d.buyer_fee_percent}%)", "amount": fixed["buyer_fee"]},
+    ]
+    if d.pool_max_budget:
+        pool_fee = deal_money(d.pool_max_budget, d.seller_fee_percent, d.buyer_fee_percent)["buyer_fee"]
+        line_items += [
+            {"label": f"Pool budget (up to {d.rate_unit_pence}p per {d.rate_unit_quantity})",
+             "amount": d.pool_max_budget},
+            {"label": f"Buyer protection fee on pool ({d.buyer_fee_percent}%)", "amount": pool_fee},
+        ]
 
     return {
         "deal_id": d.id,
@@ -281,12 +359,8 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
         "publishable_key": settings.stripe_publishable_key,
         "currency": d.currency,
         "status": pi.status,
-        # Checkout line items — shown separately, never folded into one number.
-        "line_items": [
-            {"label": "Listed price", "amount": m["listed_price"]},
-            {"label": f"Buyer protection fee ({d.buyer_fee_percent}%)", "amount": m["buyer_fee"]},
-        ],
-        "total_charged": m["charge_amount"],
+        "line_items": line_items,
+        "total_charged": tc["total_charge"],
     }
 
 
