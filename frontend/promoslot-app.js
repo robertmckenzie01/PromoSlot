@@ -8,9 +8,9 @@ if(window.PSBoot) return;
    This is the ONLY place to change them (rendered into the footer).
    ============================================================ */
 const SUPPORT_INFO = {
-  email:   "[Business Email — placeholder]",
-  mobile:  "[Mobile Number — placeholder]",
-  address: "[Business Address — placeholder]",
+  email:   "[Business Email: placeholder]",
+  mobile:  "[Mobile Number: placeholder]",
+  address: "[Business Address: placeholder]",
 };
 function renderFooterSupport(){
   // Public pages each carry their own footer (same pattern as the original
@@ -110,7 +110,7 @@ const LISTINGS = [
 ];
 
 const CAMPAIGNS = [
- {id:"cx-ex",example:true,company:"Example Brand",industry:"Beauty & skincare",title:"Example Campaign — Product Launch",verified:false,rating:5.0,reviewCount:"Example",posted:"example",applicants:0,budget:2500,
+ {id:"cx-ex",example:true,company:"Example Brand",industry:"Beauty & skincare",title:"Example Campaign: Product Launch",verified:false,rating:5.0,reviewCount:"Example",posted:"example",applicants:0,budget:2500,
   desc:"This is an example campaign showing how a complete, well-built business listing looks on PromoSlot. Replace this with your own brief, budget and payment structure when you post a campaign.",
   platforms:["TikTok","Instagram","Newsletter"],niches:["Beauty"],countries:["UK","Ireland"],
   services:["Short-form promo video","Product review","Instagram Story","Affiliate promotion"],
@@ -121,15 +121,15 @@ const CAMPAIGNS = [
 ];
 
 const REVIEW_POOL = [
- {name:"Hannah W.",co:"Bloom Cosmetics",stars:5,text:"Delivered exactly what the agreement said — post went live on time, stayed up, analytics screenshots without us chasing. Payment Protection made it painless."},
+ {name:"Hannah W.",co:"Bloom Cosmetics",stars:5,text:"Delivered exactly what the agreement said: post went live on time, stayed up, analytics screenshots without us chasing. Payment Protection made it painless."},
  {name:"Marcus T.",co:"VoltEnergy",stars:5,text:"Views beat the guaranteed minimum by 3× and the measurement-period payout was calculated to the penny. Would fund again tomorrow."},
  {name:"Sofia R.",co:"Petal & Pot",stars:4,text:"Great content and communication. One revision needed on the caption, turned around same day."},
- {name:"Dev K.",co:"Loopwise App",stars:5,text:"The counter-offer flow saved this deal — we couldn't afford the fixed rate, they proposed a hybrid and it outperformed."},
- {name:"Amelia C.",co:"Fern & Co.",stars:5,text:"Audience is exactly as described in the listing. Engagement was real — we tracked 214 code uses in week one."},
+ {name:"Dev K.",co:"Loopwise App",stars:5,text:"The counter-offer flow saved this deal: we couldn't afford the fixed rate, they proposed a hybrid and it outperformed."},
+ {name:"Amelia C.",co:"Fern & Co.",stars:5,text:"Audience is exactly as described in the listing. Engagement was real: we tracked 214 code uses in week one."},
  {name:"Jordan P.",co:"Trailhead Gear",stars:4,text:"Solid delivery, proof submitted early. Only wish we'd booked a longer placement."},
  {name:"Nina S.",co:"Kindred Kids",stars:5,text:"Third deal with this creator through PromoSlot. Zero drama, verified delivery every time."},
  {name:"Tom B.",co:"BrewBox",stars:5,text:"Livestream segment felt native, not forced. VOD views kept climbing through the measurement window."},
- {name:"Priya M.",co:"Asha Skincare",stars:4,text:"Professional throughout. Dispute never needed — the agreed deliverables doc kept everyone honest."},
+ {name:"Priya M.",co:"Asha Skincare",stars:4,text:"Professional throughout. Dispute never needed: the agreed deliverables doc kept everyone honest."},
  {name:"Callum D.",co:"ForgeFit",stars:5,text:"Applied to our campaign with a thoughtful pitch, accepted our terms, delivered in 6 days. This is how it should work."},
  {name:"Elise V.",co:"Nordic Sleep",stars:5,text:"Newsletter placement drove our best CPA of the quarter. Open-rate proof matched the listing's claims exactly."},
  {name:"Ryan O.",co:"PixelForge Games",stars:4,text:"Community announcement got real engagement, not bot noise. Renewal booked."}
@@ -241,13 +241,13 @@ function tourRoleKey(){
 function tourSteps(){
   const rk=tourRoleKey();
   const dash={
-    biz:"A live view of your campaigns — what's running, what you're spending, who has applied, deliverables you're waiting on, and recent activity.",
-    plat:"A live view of your deals — what's active, applications you've sent, what you've earned, deliveries due, and fresh opportunities.",
+    biz:"A live view of your campaigns: what's running, what you're spending, who has applied, deliverables you're waiting on, and recent activity.",
+    plat:"A live view of your deals: what's active, applications you've sent, what you've earned, deliveries due, and fresh opportunities.",
     both:"Both sides in one place: campaigns you run and deals you deliver, spend and earnings, applications either way, and anything waiting on you."
   }[rk];
   const prof={
-    biz:"Keep your company details, industry and campaigns current — platform owners weigh that up before applying. Verified activity and reviews build the rest.",
-    plat:"Keep your platforms, audience figures, services and pricing current — businesses weigh that up before they buy. Verified activity and reviews build the rest.",
+    biz:"Keep your company details, industry and campaigns current. Platform owners weigh that up before applying. Verified activity and reviews build the rest.",
+    plat:"Keep your platforms, audience figures, services and pricing current. Businesses weigh that up before they buy. Verified activity and reviews build the rest.",
     both:"Keep both sides current: company and campaigns, plus your platforms, audience and pricing. Verified activity and reviews build the rest."
   }[rk];
   return [
@@ -255,7 +255,7 @@ function tourSteps(){
      body:"The Marketplace is where both sides of PromoSlot meet. Browse active campaigns, discover platform owners, compare opportunities, and find partnerships that fit.",
      sub:"Businesses find platform owners and promotional offers. Platform owners find businesses actively looking for promotion."},
     {sel:"#nl-msgs", label:"Messages", title:"Keep every deal organised",
-     body:"Talk directly with businesses or platform owners — discuss requirements, negotiate terms, ask questions, all tied to your PromoSlot activity.",
+     body:"Talk directly with businesses or platform owners: discuss requirements, negotiate terms, ask questions, all tied to your PromoSlot activity.",
      sub:"Keeping it here preserves deal history, documents what was agreed, and protects both sides if anything is ever disputed."},
     {sel:"#nl-dash", label:"Dashboard", title:"Everything in one place", body:dash},
     {sel:"#navBell", label:"Notifications", title:"Never miss an opportunity",
@@ -493,7 +493,7 @@ function tourSkip(){
   tourSave("skip", T.i);
   tourTeardown();
   syncTourResume();
-  toast("Tour paused — pick it up any time from the corner.");
+  toast("Tour paused. Pick it up any time from the corner.");
 }
 
 function tourComplete(){
@@ -550,7 +550,7 @@ function tourHideResume(){ const e=$("tourResume"); if(e) e.remove(); }
 // form.
 function tourRestart(){
   if(!tourWideEnough()){
-    toast("The tour needs a wider screen — open PromoSlot on a laptop or desktop.");
+    toast("The tour needs a wider screen. Open PromoSlot on a laptop or desktop.");
     return;
   }
   tourHideResume();
@@ -560,7 +560,7 @@ function tourRestart(){
 }
 function tourResumeClick(){
   if(!tourWideEnough()){
-    toast("The tour needs a wider screen — open PromoSlot on a laptop or desktop.");
+    toast("The tour needs a wider screen. Open PromoSlot on a laptop or desktop.");
     return;
   }
   tourHideResume();
@@ -810,18 +810,18 @@ function renderReturningActionCenter(){
   if(attnEl){
     attnEl.innerHTML = rows.length
       ? `<div class="attn-card">${rows.map(r=>`<div class="attn-row"><span class="attn-dot" style="background:${r.color}"></span><div class="attn-t"><h4>${r.title}</h4><p>${r.sub}</p></div><button class="btn btn-o btn-sm" data-act="${r.act}">Open</button></div>`).join("")}</div>`
-      : `<div class="attn-empty-card">${ICON_CHECK}<div><h4>You're all caught up</h4><p>${role==="biz"?"Nothing needs your attention right now — explore the marketplace or check your active campaigns.":"Nothing needs your attention right now — browse open campaigns or check your active deals."}</p></div></div>`;
+      : `<div class="attn-empty-card">${ICON_CHECK}<div><h4>You're all caught up</h4><p>${role==="biz"?"Nothing needs your attention right now. Explore the marketplace or check your active campaigns.":"Nothing needs your attention right now. Browse open campaigns or check your active deals."}</p></div></div>`;
   }
 
   const oppEl=$("returningOppList"), oppTitleEl=$("returningOppTitle");
   if(oppEl){
     if(role==="biz"){
       const real=(S.marketPlatforms||[]).slice(0,6);
-      oppEl.innerHTML = real.length ? real.map((l,i)=>listingCard(l,i,false)).join("") : `<p class="mut" style="font-size:13.5px">No new listings yet — check back soon.</p>`;
+      oppEl.innerHTML = real.length ? real.map((l,i)=>listingCard(l,i,false)).join("") : `<p class="mut" style="font-size:13.5px">No new listings yet. Check back soon.</p>`;
       if(oppTitleEl) oppTitleEl.textContent="Recently published platform owners";
     } else {
       const real=(S.marketCampaigns||[]).slice(0,6);
-      oppEl.innerHTML = real.length ? real.map((c,i)=>campaignCard(c,i,false)).join("") : `<p class="mut" style="font-size:13.5px">No new campaigns yet — check back soon.</p>`;
+      oppEl.innerHTML = real.length ? real.map((c,i)=>campaignCard(c,i,false)).join("") : `<p class="mut" style="font-size:13.5px">No new campaigns yet. Check back soon.</p>`;
       if(oppTitleEl) oppTitleEl.textContent="Recently published campaigns";
     }
   }
@@ -831,7 +831,7 @@ function renderReturningActionCenter(){
     const notifs=(S.realNotifs||[]).slice(0,5);
     actEl.innerHTML = notifs.length
       ? notifs.map(n=>`<div class="activity-row"><span class="act-time">${relTime(n.created_at)}</span><span>${esc(n.body)}</span></div>`).join("")
-      : `<div class="activity-row"><span class="mut">Nothing yet — updates from your deals and messages appear here.</span></div>`;
+      : `<div class="activity-row"><span class="mut">Nothing yet. Updates from your deals and messages appear here.</span></div>`;
   }
 
   const nudgeEl=$("returningNudges");
@@ -1011,7 +1011,7 @@ function switchRole(r){
   }
   const label = r==="biz" ? "business" : "platform-owner";
   openModal(`<div class="m-pad"><h3 class="m-title">Set up your ${label} profile?</h3>
-    <p class="m-sub">This creates a separate, linked profile with its own name — switch between
+    <p class="m-sub">This creates a separate, linked profile with its own name, switch between
       the two anytime from My Account. One login, two identities.</p>
     <div class="frm"><label>${label==="business"?"Business":"Platform-owner"} name</label>
       <input type="text" id="lp-name" placeholder="${r==='biz'?'Meadow & Moss':'RobertLifts'}"></div>
@@ -1024,7 +1024,7 @@ async function confirmLinkProfile(r){
   const err=$("lp-err"); if(err) err.classList.add("hide");
   if(!name){ if(err){err.textContent="Enter a name for this profile.";err.classList.remove("hide");} return; }
   if(S.account.display_name && name.toLowerCase()===S.account.display_name.trim().toLowerCase()){
-    if(err){err.textContent="That name is already used by your other PromoSlot profile — choose a different one.";err.classList.remove("hide");}
+    if(err){err.textContent="That name is already used by your other PromoSlot profile. Choose a different one.";err.classList.remove("hide");}
     return;
   }
   const btn=$("lp-submit"); if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Creating…`; }
@@ -1065,7 +1065,7 @@ function requireRole(role, resumeFn){
   const linkedRole = linked ? (linked.is_business?"biz":"plat") : null;
   const already = linkedRole===role;
   openModal(`<div class="m-pad"><h3 class="m-title">You'll need a ${label} account</h3>
-    <p class="m-sub">This action is for ${label} accounts — you're currently using your ${activeLabel} profile.</p>
+    <p class="m-sub">This action is for ${label} accounts. You're currently using your ${activeLabel} profile.</p>
     <div class="m-actions" style="flex-direction:column;align-items:stretch;gap:8px">
       ${already
         ? `<button class="btn btn-p" onclick="_roleGateSwitch('${role}')">Already have one? Switch to it now</button>`
@@ -1085,7 +1085,7 @@ function _roleGateCreate(role){
   closeModal();
   const label = role==="biz" ? "business" : "platform-owner";
   openModal(`<div class="m-pad"><h3 class="m-title">Set up your ${label} profile?</h3>
-    <p class="m-sub">This creates a separate, linked profile with its own name — switch between
+    <p class="m-sub">This creates a separate, linked profile with its own name, switch between
       the two anytime from My Account. One login, two identities.</p>
     <div class="frm"><label>${label==="business"?"Business":"Platform-owner"} name</label>
       <input type="text" id="lp-name" placeholder="${role==='biz'?'Meadow & Moss':'RobertLifts'}"></div>
@@ -1319,7 +1319,7 @@ function buildFilters(){
   $("cntCamp").textContent="("+allCampaigns().length+")";
   $("marketCta").textContent = isPlat ? "+ List your platform" : "+ Post a campaign";
   $("marketTitle").textContent = isPlat ? "Platform listings" : "Business campaigns";
-  $("marketSub").textContent = isPlat ? "Audiences for sale — every listing shows verified analytics and the owner's own pricing." : "Brands publishing what they'll pay. Apply, accept the terms, or counter-offer.";
+  $("marketSub").textContent = isPlat ? "Audiences for sale: every listing shows verified analytics and the owner's own pricing." : "Brands publishing what they'll pay. Apply, accept the terms, or counter-offer.";
   const f=S.filters;
   $("filtersBox").innerHTML = `
     <input class="f-search" placeholder="Search ${isPlat?"platforms, niches, names…":"campaigns, brands, industries…"}" value="${esc(f.q)}" oninput="S.filters.q=this.value;renderMarket()">
@@ -1432,13 +1432,13 @@ function renderMarketNow(){
   items.sort((a,b)=>(b.example?1:0)-(a.example?1:0));
   const realCount=items.filter(x=>!x.example).length;
   $("resultsCnt").innerHTML=`<b>${realCount}</b> ${isPlat?"platform listing":"campaign"}${realCount===1?"":"s"} live${realCount?" · 1 example shown":""}`;
-  const foundingES=`<div class="founding-state"><div class="fs-badge">Founding cohort</div><div class="fs-ico">🚀</div><h4>${isPlat?"3 founding creators have joined so far — be the next":"3 founding brands have joined so far — be the next"}</h4><p>PromoSlot is opening with a hand-picked founding cohort. The card above is an example of a complete ${isPlat?"platform-owner listing":"business campaign"} — real ${isPlat?"listings":"campaigns"} will appear here as founders come on board.</p><button class="btn btn-p" onclick="marketCtaClick()">${isPlat?"List your platform":"Post your campaign"}</button></div>`;
+  const foundingES=`<div class="founding-state"><div class="fs-badge">Founding cohort</div><div class="fs-ico">🚀</div><h4>${isPlat?"3 founding creators have joined so far: be the next":"3 founding brands have joined so far: be the next"}</h4><p>PromoSlot is opening with a hand-picked founding cohort. The card above is an example of a complete ${isPlat?"platform-owner listing":"business campaign"}. Real ${isPlat?"listings":"campaigns"} will appear here as founders come on board.</p><button class="btn btn-p" onclick="marketCtaClick()">${isPlat?"List your platform":"Post your campaign"}</button></div>`;
   $("marketCards").innerHTML = items.length
     ? items.map((x,i)=>isPlat?listingCard(x,i):campaignCard(x,i)).join("") + (realCount===0?foundingES:"")
     : `<div class="zero-state">
         <div class="zs-ico">🔎</div>
         <h4>No ${isPlat?"platforms":"campaigns"} match those filters</h4>
-        <p>Try removing a filter or widening the ${isPlat?"price":"budget"} range — the marketplace has ${isPlat?allListings().length+" listings":allCampaigns().length+" live campaigns"} in total.</p>
+        <p>Try removing a filter or widening the ${isPlat?"price":"budget"} range. The marketplace has ${isPlat?allListings().length+" listings":allCampaigns().length+" live campaigns"} in total.</p>
         <button class="btn btn-o btn-sm" onclick="resetFilters();buildFilters();renderMarket()">Clear all filters</button>
       </div>`;
 }
@@ -1513,7 +1513,7 @@ async function openListing(id,tab){
 // own cover image. Both video and cover accept click OR drag-and-drop.
 function workSlotHtml(idx){
   return `<div class="work-slot" data-idx="${idx}">
-    <div><label>Caption</label><input type="text" id="wk-title-${idx}" placeholder="e.g. Hypertrophy reel — my editing style"></div>
+    <div><label>Caption</label><input type="text" id="wk-title-${idx}" placeholder="e.g. Hypertrophy reel, my editing style"></div>
     <div class="row2">
       <div><label>Video · mp4 / webm / mov, up to 200MB</label>
         <div class="dropzone" id="wk-vdz-${idx}" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="wkDrop(event,${idx},'video')">
@@ -1524,7 +1524,7 @@ function workSlotHtml(idx){
         <input type="text" id="wk-link-${idx}" placeholder="https://youtube.com/watch?v=…">
         <div class="dropzone" id="wk-cdz-${idx}" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="wkDrop(event,${idx},'cover')">
           <input type="file" id="wk-cover-${idx}" class="cover-file-input" onchange="wkFileName(${idx},'cover')">
-          <span class="dz-text" id="wk-cdzt-${idx}">Cover image — drag &amp; drop or <label for="wk-cover-${idx}" class="dz-link">select</label></span>
+          <span class="dz-text" id="wk-cdzt-${idx}">Cover image: drag &amp; drop or <label for="wk-cover-${idx}" class="dz-link">select</label></span>
         </div></div>
     </div></div>`;
 }
@@ -1542,8 +1542,8 @@ function wkFileName(idx,which){
   const inp=$((isV?"wk-video-":"wk-cover-")+idx), t=$((isV?"wk-vdzt-":"wk-cdzt-")+idx); if(!inp||!t) return;
   const f=inp.files[0], forId=(isV?"wk-video-":"wk-cover-")+idx;
   const empty=isV?`Drag &amp; drop a video, or <label for="${forId}" class="dz-link">select</label>`
-                 :`Cover image — drag &amp; drop or <label for="${forId}" class="dz-link">select</label>`;
-  t.innerHTML = f ? `📎 ${esc(f.name)} — <label for="${forId}" class="dz-link">change</label>` : empty;
+                 :`Cover image: drag &amp; drop or <label for="${forId}" class="dz-link">select</label>`;
+  t.innerHTML = f ? `📎 ${esc(f.name)} · <label for="${forId}" class="dz-link">change</label>` : empty;
 }
 async function uploadWork(listingId){
   const l=findListing(listingId); if(!l) return;
@@ -1739,7 +1739,7 @@ function removalConfirmHtml(kind, label, info){
   const archiving = info.mode==="archive";
   const n = info.deals_total, live = info.deals_active;
   const dealLine = archiving
-    ? `<p class="m-sub">This ${noun} has <b>${n} deal${n===1?"":"s"}</b> attached${live?` (<b>${live}</b> still live)`:""}, so it can't be deleted outright — those records, and any reviews and completed-campaign history built on them, would be lost.</p>
+    ? `<p class="m-sub">This ${noun} has <b>${n} deal${n===1?"":"s"}</b> attached${live?` (<b>${live}</b> still live)`:""}, so it can't be deleted outright. Those records, and any reviews and completed-campaign history built on them, would be lost.</p>
        <p class="m-sub">Instead it will be <b>removed from the marketplace</b>: nobody can find, book or apply to it again, and it disappears from your dashboard. The deal records stay intact${live?", and any live deal carries on to completion as normal":""}.</p>`
     : `<p class="m-sub">No deals have ever been attached to this ${noun}, so it will be <b>permanently deleted</b>${kind==="listing"?", along with its My Work samples and images":" along with its image"}. This can't be undone.</p>`;
   return `<div class="m-pad"><h3 class="m-title">Remove &ldquo;${esc(label)}&rdquo;?</h3>
@@ -1763,7 +1763,7 @@ async function openRemoveConfirm(kind, uiId, apiPath, label){
       if(err){ err.textContent=e.message||"Could not remove"; err.classList.remove("hide"); } return; }
     closeModal();
     toast(res.mode==="archived"
-      ? `Removed from the marketplace — ${res.deals_total} deal record${res.deals_total===1?"":"s"} kept ✓`
+      ? `Removed from the marketplace: ${res.deals_total} deal record${res.deals_total===1?"":"s"} kept ✓`
       : `${kind==="listing"?"Listing":"Campaign"} deleted ✓`, true);
     await loadMarket(); await loadMine(); openDash();
   };
@@ -1889,7 +1889,7 @@ function renderListingModal(l,tab){
   let body="";
   if(tab==="offers"){
     body = `<div class="det-sec"><h5>Services offered</h5><div class="tagrow">${l.services.map(s=>`<span class="tag">${esc(s)}</span>`).join("")}</div></div>
-    <div class="det-sec"><h5>Offers & pricing — set by ${esc(l.owner.split(" ")[0])}</h5>
+    <div class="det-sec"><h5>Offers & pricing: set by ${esc(l.owner.split(" ")[0])}</h5>
       ${l.pricing.map((p,i)=>`<div class="offer-row">
         <span class="tag ind offer-kind">${PM_LABEL[p.type]}</span>
         <div class="oi"><b>${esc(p.label)}</b><small>${esc(p.detail)}</small></div>
@@ -1911,10 +1911,10 @@ function renderListingModal(l,tab){
     <div class="det-sec"><h5>Availability</h5><p class="det-p">Currently accepting new deals · typical response time under 4 hours · next open slot within 7 days.</p></div>`;
   } else if(tab==="work"){
     const work=(l._media&&l._media.work)||[];
-    body = `<div class="det-sec"><h5>My Work — content samples</h5>
+    body = `<div class="det-sec"><h5>My Work: content samples</h5>
       ${work.length
         ? `<div class="work-grid">${work.map(m=>workCardHtml(l,m,meOwner)).join("")}</div>`
-        : `<p class="det-p">${meOwner?"Showcase your content style — upload a video, or add a link to content hosted elsewhere with its own cover image.":"No work samples yet."}</p>`}
+        : `<p class="det-p">${meOwner?"Showcase your content style, upload a video, or add a link to content hosted elsewhere with its own cover image.":"No work samples yet."}</p>`}
       ${meOwner?mediaUploadForm(l,"work"):""}</div>`;
   } else if(tab==="past"){
     const past = l.example
@@ -1927,17 +1927,17 @@ function renderListingModal(l,tab){
       ${past.map(p=>`<div class="pc"><b>${esc(p.brand||"")}</b><small>${esc(p.title||"")}</small>${p.stat?`<div class="pcs">📈 ${esc(p.stat)}</div>`:""}
         ${p.video_url?`<video controls preload="metadata" src="${p.video_url}" style="width:100%;margin-top:8px;border-radius:8px;background:#000;max-height:260px"></video>`:""}
         ${meOwner&&p.id?`<button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="deleteMedia('${l.id}',${p.id},'past')">Delete</button>`:""}</div>`).join("")}
-      ${nothing?`<p class="det-p" style="grid-column:1/-1">${meOwner?"Add a previous campaign below — attach a video if you have one.":"No campaigns completed yet — every completed deal appears here automatically with its verified results."}</p>`:""}
+      ${nothing?`<p class="det-p" style="grid-column:1/-1">${meOwner?"Add a previous campaign below, attach a video if you have one.":"No campaigns completed yet. Every completed deal appears here automatically with its verified results."}</p>`:""}
     </div>${meOwner&&!l.example?mediaUploadForm(l,"past_campaign"):""}
-    <div class="note" style="margin-top:14px">Delivery ≠ performance: past results are evidence of reach, not a guarantee of sales or virality — unless written into a funded performance agreement.</div></div>`;
+    <div class="note" style="margin-top:14px">Delivery ≠ performance: past results are evidence of reach, not a guarantee of sales or virality, unless written into a funded performance agreement.</div></div>`;
   } else {
     body = l.example
-      ? `<div class="det-sec"><h5>What businesses say</h5><div class="note blue" style="margin-bottom:12px">These are illustrative example reviews — real reviews appear only after a completed deal.</div>
+      ? `<div class="det-sec"><h5>What businesses say</h5><div class="note blue" style="margin-bottom:12px">These are illustrative example reviews, real reviews appear only after a completed deal.</div>
       ${revs.map(r=>`<div class="rev-item ex-review"><div class="rvtop"><span class="rev-who"><span class="rev-dot">${esc(initials(r.name))}</span><b>${esc(r.name)} · ${esc(r.co)}</b><span class="tag ex-tag rev-ex">EXAMPLE</span></span><span class="stars">${"★".repeat(r.stars)}${"☆".repeat(5-r.stars)}</span></div><p>${esc(r.text)}</p></div>`).join("")}</div>`
       : (realReviews.length
         ? `<div class="det-sec"><h5>What businesses say${realRevAvg!=null?` · ⭐ ${realRevAvg.toFixed(1)} (${realRevCount})`:""}</h5>
           ${realReviews.map(r=>`<div class="rev-item"><div class="rvtop"><span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span></div>${r.text?`<p>${esc(r.text)}</p>`:""}</div>`).join("")}</div>`
-        : `<div class="det-sec"><h5>What businesses say</h5><div class="empty-state small"><div class="es-ico">📝</div><h4>No reviews yet</h4><p>Reviews appear here once a business completes a deal with ${esc(l.name)} and leaves feedback — every review is tied to a real, funded transaction.</p></div></div>`);
+        : `<div class="det-sec"><h5>What businesses say</h5><div class="empty-state small"><div class="es-ico">📝</div><h4>No reviews yet</h4><p>Reviews appear here once a business completes a deal with ${esc(l.name)} and leaves feedback. Every review is tied to a real, funded transaction.</p></div></div>`);
   }
   openModal(`
     <div class="det-head">${exWrap(pfp(l.name,l.platform,"",l.ownerAvatar),l.example)}
@@ -1955,7 +1955,7 @@ function renderListingModal(l,tab){
     <p class="det-bio">${esc(l.bio)}</p>
     ${l.image_url?`<div style="padding:0 28px 6px"><img class="list-hero" src="${l.image_url}" alt="${esc(l.name)}"></div>`:""}
     ${meOwner?`<div style="padding:0 28px 8px"><label class="btn btn-o btn-sm" for="list-img">${l.image_url?"Change listing picture":"＋ Add listing picture"}</label><input type="file" id="list-img" accept="image/*" class="pf-file-input" onchange="uploadListingImage('${l.id}')"></div>`:""}
-    ${others.length?`<div style="padding:16px 28px 0"><div class="det-sec" style="margin:0"><h5>Also from ${esc(l.brand)} — ${others.length} more platform${others.length>1?"s":""}</h5>
+    ${others.length?`<div style="padding:16px 28px 0"><div class="det-sec" style="margin:0"><h5>Also from ${esc(l.brand)}: ${others.length} more platform${others.length>1?"s":""}</h5>
       <div class="other-plats">${others.map(o=>`<div class="op-row" onclick="openListing('${o.id}')">${pfp(o.name,o.platform,"")}<div><b>${esc(o.name)}</b><small>${o.platform} · ${fmtN(o.audience)} ${o.platform==="Newsletter"?"subs":o.platform==="Discord"?"members":"followers"}${priceFrom(o)?" · from "+gbp(priceFrom(o)):""}</small></div><span class="op-go">View →</span></div>`).join("")}</div></div></div>`:""}
     <div class="det-tabs">${tabs.map(([k,lab])=>`<button class="det-tab ${tab===k?"on":""}" onclick="openListing('${l.id}','${k}')">${lab}</button>`).join("")}</div>
     <div class="det-body">${body}</div>`,"wide");
@@ -1969,7 +1969,7 @@ function requestQuote(id){
   openModal(`<div class="m-pad"><h3 class="m-title">Request a custom quote from ${esc(l.name)}</h3>
     <p class="m-sub">${esc(l.owner.split(" ")[0])} will reply with a personalised proposal you can accept, decline, or counter.</p>
     <div class="frm">
-      <div><label>What do you need?</label><textarea id="rq-txt">We're launching a new product in your niche — could you put together a proposal for a 2-video package plus a 7-day link placement?</textarea></div>
+      <div><label>What do you need?</label><textarea id="rq-txt">We're launching a new product in your niche, could you put together a proposal for a 2-video package plus a 7-day link placement?</textarea></div>
       <div class="row2"><div><label>Rough budget</label><input type="text" id="rq-bud" value="£300–£500"></div><div><label>Timeline</label><input type="text" id="rq-when" value="Within 3 weeks"></div></div>
     </div>
     <div class="hint-err hide" id="rq-err"></div>
@@ -2002,7 +2002,7 @@ async function sendQuoteReq(id){
   closeModal();
   openModal(`<div class="m-pad"><h3 class="m-title">Quote request sent</h3>
     <p class="m-sub">Your request was delivered to <b>${esc(subj.name)}</b> and is now in your Messages.
-       They'll be notified. PromoSlot never writes a reply on their behalf — any proposal
+       They'll be notified. PromoSlot never writes a reply on their behalf; any proposal
        comes from their own account.</p>
     ${pendingPanel("💬","Awaiting a real reply","Custom proposals appear here only when a real owner actually sends one.")}
     <div class="m-actions"><button class="btn btn-o" onclick="closeModal();openMessages()">Open Messages</button>
@@ -2074,18 +2074,18 @@ function renderCampaignModal(c,tab){
       <div class="ad-row"><span class="k">Target countries</span><span class="v">${c.countries.join(", ")}</span></div>
       <div class="ad-row"><span class="k">Campaign budget</span><span class="v">${c.budget?gbp(c.budget):"Commission-based"}</span></div>
       <div class="ad-row"><span class="k">Payment methods offered</span><span class="v">${c.profile.payMethods.join(" · ")}</span></div>
-      <div class="ad-row"><span class="k">Product samples</span><span class="v">${c.samples?"Yes — supplied free":"Not offered"}</span></div>
+      <div class="ad-row"><span class="k">Product samples</span><span class="v">${c.samples?"Yes, supplied free":"Not offered"}</span></div>
       <div class="ad-row"><span class="k">Previous collaborations</span><span class="v">${esc(c.profile.collabs)}</span></div>
       <div class="ad-row"><span class="k">Active campaigns</span><span class="v">${allCampaigns().filter(x=>x.company===c.company).length} live on PromoSlot</span></div>
     </div></div>`;
   } else {
     body = c.example
-      ? `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}</h5><div class="note blue" style="margin-bottom:12px">These are illustrative example reviews — real reviews appear only after a completed deal.</div>
+      ? `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}</h5><div class="note blue" style="margin-bottom:12px">These are illustrative example reviews, real reviews appear only after a completed deal.</div>
       ${revs.map(r=>`<div class="rev-item ex-review"><div class="rvtop"><span class="rev-who"><span class="rev-dot">${esc(initials(r.name))}</span><b>${esc(r.name)}</b><span class="tag ex-tag rev-ex">EXAMPLE</span></span><span class="stars">${"★".repeat(r.stars)}${"☆".repeat(5-r.stars)}</span></div><p>${esc(r.text)}</p></div>`).join("")}</div>`
       : (cRealReviews.length
         ? `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}${cRevAvg!=null?` · ⭐ ${cRevAvg.toFixed(1)} (${cRevCount})`:""}</h5>
           ${cRealReviews.map(r=>`<div class="rev-item"><div class="rvtop"><span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span></div>${r.text?`<p>${esc(r.text)}</p>`:""}</div>`).join("")}</div>`
-        : `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}</h5><div class="empty-state small"><div class="es-ico">📝</div><h4>No reviews yet</h4><p>Reviews appear here once a platform owner completes a deal with ${esc(c.company)} and leaves feedback — every review is tied to a real, funded transaction.</p></div></div>`);
+        : `<div class="det-sec"><h5>What platform owners say about ${esc(c.company)}</h5><div class="empty-state small"><div class="es-ico">📝</div><h4>No reviews yet</h4><p>Reviews appear here once a platform owner completes a deal with ${esc(c.company)} and leaves feedback. Every review is tied to a real, funded transaction.</p></div></div>`);
   }
   openModal(`
     <div class="det-head">${exWrap(pfp(c.company,null,"",c.companyAvatar),c.example)}
@@ -2119,7 +2119,7 @@ function msgTime(iso){
   return d.getHours()+":"+String(d.getMinutes()).padStart(2,"0");
 }
 function threadMsgsHtml(msgs){
-  if(!msgs||!msgs.length) return `<div class="thread-empty" style="min-height:120px"><div class="es-ico">✉️</div><p>No messages yet — say hello.</p></div>`;
+  if(!msgs||!msgs.length) return `<div class="thread-empty" style="min-height:120px"><div class="es-ico">✉️</div><p>No messages yet, say hello.</p></div>`;
   return msgs.map(m=>`<div class="msg ${m.mine?"me":"them"}">${esc(m.body)}<span class="mt">${msgTime(m.created_at)}</span></div>`).join("");
 }
 // Resolve the real counterparty + subject from a listing/campaign id.
@@ -2137,15 +2137,15 @@ function chatSubject(id){
 function exampleChat(subj){
   return `<div class="chat-box">
     <div class="chat-head">${pfp(subj.name,subj.plat)}<div><b>${esc(subj.name)}</b><small class="mut" style="color:var(--mut)">Example ${subj.kind==="campaign"?"campaign":"profile"}</small></div></div>
-    <div style="padding:12px 16px 0"><div class="note blue" style="margin:0">🧪 This is an <b>example ${subj.kind==="campaign"?"campaign":"profile"}</b> — there's no real account here, so messages aren't delivered. Real conversations begin when members join. PromoSlot never writes replies on anyone's behalf.</div></div>
-    <div class="chat-msgs" style="min-height:120px"><div class="thread-empty"><div class="es-ico">✉️</div><p>Example — messaging is disabled here.</p></div></div>
+    <div style="padding:12px 16px 0"><div class="note blue" style="margin:0">🧪 This is an <b>example ${subj.kind==="campaign"?"campaign":"profile"}</b>: there's no real account here, so messages aren't delivered. Real conversations begin when members join. PromoSlot never writes replies on anyone's behalf.</div></div>
+    <div class="chat-msgs" style="min-height:120px"><div class="thread-empty"><div class="es-ico">✉️</div><p>Example: messaging is disabled here.</p></div></div>
   </div>`;
 }
 async function openChat(id){
   const subj=chatSubject(id); if(!subj) return;
   if(!subj.real){ openModal(exampleChat(subj)); return; }
   if(!S.account){ authGate("login"); return; }
-  if(String(subj.otherId)===String(S.account.id)){ toast("That's your own — you can't message yourself."); return; }
+  if(String(subj.otherId)===String(S.account.id)){ toast("That's your own, you can't message yourself."); return; }
   // Load any existing thread for this (person, subject) so history shows.
   let msgs=[], convoId=null;
   try{
@@ -2181,16 +2181,16 @@ async function sendChat(){
 // layered over the composer — and only ever prefill the box; nothing is sent
 // until the user presses Send.
 const MSG_SUGGESTIONS=[
-  "Hi — could you share your availability for the next few weeks?",
+  "Hi, could you share your availability for the next few weeks?",
   "What would you charge for a one-off promotional video?",
   "Could you send recent performance figures for a similar post?",
   "Is the price negotiable for a multi-post package?",
-  "Happy to proceed — shall I open a deal so the funds are held pending verification?",
+  "Happy to proceed, shall I open a deal so the funds are held pending verification?",
 ];
 function msgSuggestHtml(){
   return `<aside class="msg-suggest"><h5>Suggested messages</h5>
     ${MSG_SUGGESTIONS.map((t,i)=>`<button type="button" onclick="useSuggestion(${i})">${esc(t)}</button>`).join("")}
-    <p class="ms-hint">Tap one to drop it into the box — nothing sends until you press Send.</p></aside>`;
+    <p class="ms-hint">Tap one to drop it into the box. Nothing sends until you press Send.</p></aside>`;
 }
 function useSuggestion(i){
   const inp=$("ibInput"); if(!inp) return;
@@ -2230,7 +2230,7 @@ function renderMessages(showThread){
   const head=`<div class="msgs-head"><h2>Messages</h2></div>`;
   if(!convos.length){
     $("msgsWrap").innerHTML=`${head}
-      <div class="empty-state"><div class="es-ico">💬</div><h4>No conversations yet</h4><p>Message a platform owner or business from their profile to start a conversation. Your real threads show up here — nothing is pre-filled.</p><button class="btn btn-o btn-sm" onclick="openMarket()">Browse the marketplace</button></div>`;
+      <div class="empty-state"><div class="es-ico">💬</div><h4>No conversations yet</h4><p>Message a platform owner or business from their profile to start a conversation. Your real threads show up here, nothing is pre-filled.</p><button class="btn btn-o btn-sm" onclick="openMarket()">Browse the marketplace</button></div>`;
     return;
   }
   const act=S.activeConv;
@@ -2247,7 +2247,7 @@ function renderMessages(showThread){
     thread=`<div class="chat-head">
       <button class="btn btn-ghost conv-back" onclick="renderMessages(false)">←</button>
       ${pfp(t.other_name,null)}<div><b>${esc(t.other_name)}</b><small class="mut" style="color:var(--mut)">Direct message</small></div>${viewBtn}</div>
-    <div style="padding:12px 16px 0"><div class="note grey" style="margin:0"><b>Welcome to Messages.</b> You're free to discuss anything here — pricing, timelines, ideas, whatever's useful. If you do reach an agreement, make sure it's reflected in your listing or campaign, with the other party buying or applying to it. That's what allows PromoSlot to verify delivery and release the correct payout.</div></div>
+    <div style="padding:12px 16px 0"><div class="note grey" style="margin:0"><b>Welcome to Messages.</b> You're free to discuss anything here: pricing, timelines, ideas, whatever's useful. If you do reach an agreement, make sure it's reflected in your listing or campaign, with the other party buying or applying to it. That's what allows PromoSlot to verify delivery and release the correct payout.</div></div>
     <div class="chat-msgs" id="ibMsgs">${threadMsgsHtml(t.messages)}</div>
     <div class="chat-input"><input id="ibInput" autocomplete="off" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendInboxMsg()"><button class="btn btn-p" onclick="sendInboxMsg()">Send</button></div>`;
   }
@@ -2275,7 +2275,7 @@ async function sendInboxMsg(){
 async function buyOffer(listingId, priceIdx){
   const l=findListing(listingId); const p=l.pricing[priceIdx];
   if(l.example || !/^\d+$/.test(String(l.ownerId))){
-    toast("This is an example listing — buy from a real listing to transact."); return;
+    toast("This is an example listing. Buy from a real listing to transact."); return;
   }
   if(!S.account){ authGate("login"); return; }
   // Was a dead-end toast with no path forward. Same mismatched-active-role
@@ -2283,13 +2283,13 @@ async function buyOffer(listingId, priceIdx){
   // marketplace can reach "buy" on a listing same as anyone else.
   if(!S.roles.includes("biz")){ requireRole("biz", ()=>buyOffer(listingId,priceIdx)); return; }
   const amount=Number(p.amount)||0;
-  if(amount<=0){ toast("Commission / custom offers — use “Request a quote”."); requestQuote(listingId); return; }
+  if(amount<=0){ toast("Commission / custom offers, use “Request a quote”."); requestQuote(listingId); return; }
   const listed_price=Math.round(amount*100); // offer amount is in pounds → pence
   try{
     const deal=await PSApi.post("/deals",{platform_owner_id:parseInt(l.ownerId,10),listed_price,currency:"gbp",
       terms:{offer:p.label,detail:p.detail,deliverables:p.label,platform:l.platform,owner:l.name,listing_id:l.id}});
     closeModal(); showView("view-deal"); renderRealDeal(deal.id);
-    toast("Deal created — review & approve the agreement",true);
+    toast("Deal created, review & approve the agreement",true);
   }catch(err){ toast(err.message||"Could not create deal"); }
 }
 
@@ -2326,13 +2326,13 @@ async function openProfile(userId, backRef){
   // Mirror the listing's sections on the profile: services & pricing, audience
   // & analytics, My Work, past campaigns — all from the same real data.
   const svc = (p.listings||[]).filter(l=>(l.services&&l.services.length)||(l.pricing&&l.pricing.length)).map(l=>
-    `<div class="det-sec"><h5>Services &amp; pricing — ${esc(l.name)}</h5>
+    `<div class="det-sec"><h5>Services &amp; pricing: ${esc(l.name)}</h5>
       ${l.services&&l.services.length?`<div class="tagrow" style="margin-bottom:8px">${l.services.map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
       ${(l.pricing||[]).map(pr=>`<div class="offer-row"><span class="tag ind offer-kind">${esc(PM_LABEL[pr.type]||pr.type||"")}</span>
         <div class="oi"><b>${esc(pr.label||"")}</b><small>${esc(pr.detail||"")}</small></div>
         <span class="op">${pr.amount>0?gbp(pr.amount):"Quote"}</span></div>`).join("")}</div>`).join("");
   const aud = (p.listings||[]).map(l=>
-    `<div class="det-sec"><h5>Audience &amp; analytics — ${esc(l.name)} ${l.verified?'<span class="tag grn">Verified ✔</span>':'<span class="tag">Self-reported</span>'}</h5>
+    `<div class="det-sec"><h5>Audience &amp; analytics: ${esc(l.name)} ${l.verified?'<span class="tag grn">Verified ✔</span>':'<span class="tag">Self-reported</span>'}</h5>
       <div class="statrow big"><div><b>${fmtN(l.audience)}</b><span>Followers</span></div>
       <div><b>${fmtN(l.avgViews)}</b><span>Avg views</span></div>
       <div><b>${fmtN(l.impressions)}</b><span>Avg impressions</span></div>
@@ -2362,8 +2362,8 @@ async function openProfile(userId, backRef){
   const campaigns = p.campaigns&&p.campaigns.length ? `<div class="det-sec"><h5>Campaigns</h5>${p.campaigns.map(c=>`<div class="op-row" onclick="closeModal();openCampaign('${c.id}')">${pfp(c.company,null,"",c.companyAvatar)}<div><b>${esc(c.title)}</b><small>${esc(c.company)}</small></div><span class="op-go">View →</span></div>`).join("")}</div>` : "";
   const reviews = p.reviews&&p.reviews.length
     ? `<div class="det-sec"><h5>Reviews (${p.review_count})</h5>${p.reviews.map(r=>`<div class="rev-item"><div class="rvtop"><span class="rev-who">${pfp(r.author_name,null,"rev-dot",r.author_avatar)}<b>${esc(r.author_name||"")}</b></span><span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</span></div>${r.text?`<p>${esc(r.text)}</p>`:""}</div>`).join("")}</div>`
-    : `<div class="det-sec"><h5>Reviews</h5><p class="mut" style="font-size:13px">No reviews yet — a rating appears after a completed deal.</p></div>`;
-  const intro = p.intro_video_url ? `<div class="det-sec pintro"><h5>Who we are — video</h5><video controls preload="metadata" src="${p.intro_video_url}"></video></div>` : "";
+    : `<div class="det-sec"><h5>Reviews</h5><p class="mut" style="font-size:13px">No reviews yet, a rating appears after a completed deal.</p></div>`;
+  const intro = p.intro_video_url ? `<div class="det-sec pintro"><h5>Who we are: video</h5><video controls preload="metadata" src="${p.intro_video_url}"></video></div>` : "";
   const about = p.about_text ? `<div class="det-sec"><h5>Who we are</h5><p class="det-p" style="white-space:pre-wrap">${esc(p.about_text)}</p></div>` : "";
   const links = (p.links&&p.links.length)
     ? `<div class="det-sec"><h5>Links</h5><div class="tagrow">${p.links.map(l=>`<a class="tag ind" href="${esc(l.url)}" target="_blank" rel="noopener">🔗 ${esc(l.label||l.url)}</a>`).join("")}</div></div>` : "";
@@ -2423,7 +2423,7 @@ async function renderRealDeal(dealId){
   let main;
   if(d.status==="cancelled"){
     main=`<h3 class="deal-h">Deal declined</h3>
-    <p class="deal-sub">This deal was cancelled before funding — no money moved. ${d.terms&&d.terms.kind==="application"?"The application is closed; the owner can apply again with new terms.":""}</p>
+    <p class="deal-sub">This deal was cancelled before funding, no money moved. ${d.terms&&d.terms.kind==="application"?"The application is closed; the owner can apply again with new terms.":""}</p>
     ${doc}`;
   } else if(!d.funded){
     // The other side withdrew the listing/campaign this deal came from before it
@@ -2433,10 +2433,10 @@ async function renderRealDeal(dealId){
     const goneWord = gone==="campaign" ? "Campaign" : "Listing";
     const goneNote = gone ? `<div class="note" style="margin-top:0;margin-bottom:14px">
       <b>${goneWord} removed by ${gone==="campaign"?"the business":"the owner"}.</b>
-      This deal was never funded, and the ${gone} it came from has since been taken down —
+      This deal was never funded, and the ${gone} it came from has since been taken down,
       so it is not going ahead. No money moved. It stays here in your deal history for
       your records.</div>` : "";
-    main=`${goneNote}<h3 class="deal-h">${gone?`${goneWord} removed — deal not going ahead`:(bothApproved?"Fund the deal":"Approve the agreement")}</h3>
+    main=`${goneNote}<h3 class="deal-h">${gone?`${goneWord} removed: deal not going ahead`:(bothApproved?"Fund the deal":"Approve the agreement")}</h3>
     <p class="deal-sub">${gone?"Nothing further is expected from either side.":(bothApproved?"Both parties approved. The business funds the agreed amount, held pending verification, before work starts.":"Both parties approve the same agreement before any money moves.")}</p>
     ${doc}
     <div class="approve-row">
@@ -2450,10 +2450,10 @@ async function renderRealDeal(dealId){
     const proofList = proofs.length
       ? proofs.map(proofItemHtml).join("")
       : `<p class="mut" style="font-size:12.5px">No delivery evidence submitted yet.</p>`;
-    main=`<h3 class="deal-h">Funded — ${gbpP(d.total_charged)} held pending verification 🔒</h3>
+    main=`<h3 class="deal-h">Funded: ${gbpP(d.total_charged)} held pending verification 🔒</h3>
     <p class="deal-sub">Money held by PromoSlot. The owner delivers &amp; submits proof → a reviewer verifies → the owner is paid ${gbpP(d.net_to_owner)} (listed price − ${d.seller_fee_percent}% seller fee).</p>
     ${graceOpen ? `<div class="note">⏳ <b>Proof-update grace period open until ${new Date(d.proof_grace_deadline).toLocaleString("en-GB")}.</b>
-      ${meOwner ? "A reviewer wants a chance to see more delivery proof before this is finalized — add anything further to your submitted evidence below before the deadline." : ""}
+      ${meOwner ? "A reviewer wants a chance to see more delivery proof before this is finalized. Add anything further to your submitted evidence below before the deadline." : ""}
       ${meBiz ? "PromoSlot has asked the platform owner for additional delivery proof before finalizing payout. This is routine caution, not an accusation." : ""}
       ${isReviewer ? "Settlement/approval is blocked until this closes, or the owner resubmits." : ""}</div>` : ""}
     ${doc}
@@ -2463,7 +2463,7 @@ async function renderRealDeal(dealId){
       <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.instant_paid?d.instant_net_amount:d.net_to_owner)+(d.instant_paid?" (instant)":""):"pending"}</span></div></div>
     ${!d.verified && checklist.length ? `<div class="det-sec"><h5>Delivery Checklist</h5>
       <p class="mut" style="font-size:12.5px;margin:0 0 8px">${meOwner
-        ? "What to submit as proof. Ticking these is just for your own reference — it doesn't submit anything, and PromoSlot always verifies delivery independently regardless of what's checked."
+        ? "What to submit as proof. Ticking these is just for your own reference, it doesn't submit anything, and PromoSlot always verifies delivery independently regardless of what's checked."
         : "What we ask the platform owner to submit as proof of delivery for this deal."}</p>
       ${checklist.map(it=>`<label class="proof-item" style="cursor:${meOwner?"pointer":"default"}" onchange="this.classList.toggle('got',this.querySelector('input').checked)">
         <input type="checkbox" style="width:16px;height:16px;accent-color:var(--acc);flex-shrink:0" ${meOwner?"":"disabled"}>
@@ -2471,15 +2471,15 @@ async function renderRealDeal(dealId){
     <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
       ${meOwner && proofs.length ? (d.paid
         ? (d.instant_paid
-          ? `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified &amp; paid instantly — your evidence met PromoSlot's delivery conditions, and ${gbpP(d.instant_net_amount)} (after Stripe's instant-payout fee) was sent to your account. It should land within about 30 minutes.</p>`
-          : `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified &amp; paid — your evidence met PromoSlot's delivery conditions, and ${gbpP(d.net_to_owner)} has been sent to your connected account. Bank transfers can take up to 7 days to land, especially on newer accounts — no action needed on your end.</p>`)
+          ? `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified &amp; paid instantly: your evidence met PromoSlot's delivery conditions, and ${gbpP(d.instant_net_amount)} (after Stripe's instant-payout fee) was sent to your account. It should land within about 30 minutes.</p>`
+          : `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified &amp; paid: your evidence met PromoSlot's delivery conditions, and ${gbpP(d.net_to_owner)} has been sent to your connected account. Bank transfers can take up to 7 days to land, especially on newer accounts. No action needed on your end.</p>`)
         : d.verified
-          ? `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified — your evidence met PromoSlot's delivery conditions. Payout is being released to your account now.</p>`
+          ? `<p class="review-thanks ok-txt" style="margin-top:10px">✓ Verified: your evidence met PromoSlot's delivery conditions. Payout is being released to your account now.</p>`
           : `<p class="review-thanks" style="margin-top:10px">Thank you for submitting proof of delivery, your submission will be reviewed by our team shortly</p>`
       ) : ""}
-      ${meOwner && d.paid && !d.instant_paid ? `<div style="margin-top:10px"><button class="btn btn-o btn-sm" id="instantBtn-${d.id}" onclick="realInstantPayout(${d.id})">⚡ Get paid now — 1% fee</button></div>` : ""}
+      ${meOwner && d.paid && !d.instant_paid ? `<div style="margin-top:10px"><button class="btn btn-o btn-sm" id="instantBtn-${d.id}" onclick="realInstantPayout(${d.id})">⚡ Get paid now, 1% fee</button></div>` : ""}
       ${meOwner && !d.verified && !disputeOpen ? `<div class="frm" style="margin-top:10px">
-        <div><label>Views delivered (optional — shown on your Past campaigns)${d.views_promised?` · ${fmtN(d.views_promised)} promised`:""}</label>
+        <div><label>Views delivered (optional, shown on your Past campaigns)${d.views_promised?` · ${fmtN(d.views_promised)} promised`:""}</label>
           <input type="number" id="pf-views" min="0" placeholder="e.g. 12500" value="${d.views_delivered!=null?d.views_delivered:""}"></div>
         <div id="pf-slots">${proofSlotHtml(0)}</div>
         <div style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="addProofSlot()">＋ Add another item</button></div>
@@ -2522,7 +2522,7 @@ async function realApprove(dealId){
   toast("Your approval is recorded",true); renderRealDeal(dealId);
 }
 async function realDecline(dealId){
-  if(!confirm("Decline and cancel this deal? This can't be undone — no money has moved.")) return;
+  if(!confirm("Decline and cancel this deal? This can't be undone, no money has moved.")) return;
   try{ await PSApi.post(`/deals/${dealId}/decline`); }catch(err){ toast(err.message||"Could not decline"); return; }
   toast("Deal declined",true); openDash();
 }
@@ -2561,12 +2561,12 @@ function cardErrorMessage(err){
   // Stripe's raw err.message can be verbose/internal-sounding (e.g. the live-mode
   // test-card decline text). Show a short, consistent, customer-facing message
   // instead, with just enough hint to be actionable.
-  if(!err) return "Something went wrong — please try again.";
+  if(!err) return "Something went wrong, please try again.";
   const code=err.code||"";
-  if(code==="incomplete_number"||code==="incorrect_number") return "Card Invalid — check the card number.";
-  if(code==="incomplete_expiry"||code==="invalid_expiry_month"||code==="invalid_expiry_year"||code==="expired_card") return "Card Invalid — check the expiry date.";
-  if(code==="incomplete_cvc"||code==="incorrect_cvc") return "Card Invalid — check the security code.";
-  return "Card Invalid — please check your details or try a different card.";
+  if(code==="incomplete_number"||code==="incorrect_number") return "Card Invalid: check the card number.";
+  if(code==="incomplete_expiry"||code==="invalid_expiry_month"||code==="invalid_expiry_year"||code==="expired_card") return "Card Invalid: check the expiry date.";
+  if(code==="incomplete_cvc"||code==="incorrect_cvc") return "Card Invalid: check the security code.";
+  return "Card Invalid: please check your details or try a different card.";
 }
 async function realPay(){
   const ctx=window._stripeCtx; if(!ctx) return;
@@ -2577,7 +2577,7 @@ async function realPay(){
   // Stripe confirms the PaymentIntent succeeded).
   try{ await PSApi.post(`/deals/${ctx.dealId}/refresh`); }catch(e){}
   window._stripeCtx=null;
-  toast("Payment successful — Payment Protection funded 🔒",true);
+  toast("Payment successful, Payment Protection funded 🔒",true);
   renderRealDeal(ctx.dealId);
 }
 function reviewerControls(d, proofCount){
@@ -2587,24 +2587,24 @@ function reviewerControls(d, proofCount){
   if(!d.verified){
     // Verification step — three distinct outcomes. Verifying does NOT pay out.
     inner = proofCount>0
-      ? `<p class="mut" style="font-size:12.5px;margin-bottom:9px">Verifying only confirms the evidence meets the agreed terms — it does <b>not</b> release money. Payout is a separate step you take afterwards.</p>
+      ? `<p class="mut" style="font-size:12.5px;margin-bottom:9px">Verifying only confirms the evidence meets the agreed terms, it does <b>not</b> release money. Payout is a separate step you take afterwards.</p>
          <div class="btn-row">
-           <button class="btn btn-g btn-sm" onclick="realVerify(${d.id},'approved')">✓ Verify — evidence meets terms</button>
+           <button class="btn btn-g btn-sm" onclick="realVerify(${d.id},'approved')">✓ Verify: evidence meets terms</button>
            <button class="btn btn-o btn-sm" onclick="realVerify(${d.id},'rejected')">↩︎ Send back for revision</button>
            <button class="btn btn-danger btn-sm" onclick="realRefund(${d.id})">✕ Disapprove &amp; refund business</button>
          </div>
-         ${isPool && !graceOpen ? `<div style="margin-top:9px"><button class="btn btn-ghost btn-sm" onclick="realOpenGracePeriod(${d.id})">⏳ Suspect underdelivery — give the owner 24h to add proof</button></div>` : ""}
-         ${isPool && graceOpen ? `<p class="mut" style="font-size:12.5px;margin-top:9px">Grace period already open until ${new Date(d.proof_grace_deadline).toLocaleString("en-GB")} — wait for it to close, or for the owner to resubmit, before approving.</p>` : ""}`
+         ${isPool && !graceOpen ? `<div style="margin-top:9px"><button class="btn btn-ghost btn-sm" onclick="realOpenGracePeriod(${d.id})">⏳ Suspect underdelivery: give the owner 24h to add proof</button></div>` : ""}
+         ${isPool && graceOpen ? `<p class="mut" style="font-size:12.5px;margin-top:9px">Grace period already open until ${new Date(d.proof_grace_deadline).toLocaleString("en-GB")} . Wait for it to close, or for the owner to resubmit, before approving.</p>` : ""}`
       : `<p class="mut" style="font-size:12.5px">Waiting for the owner to submit evidence before you can verify.</p>`;
   } else if(!d.paid){
     // Verified but unpaid — payout is a separate, deliberate action (also on the Awaiting Payouts page).
-    inner = `<div class="note blue" style="margin:0 0 10px">✓ Verified — <b>awaiting payout</b>. Releasing funds is a separate action; do it now or later from <b>Awaiting Payouts</b>.</div>
+    inner = `<div class="note blue" style="margin:0 0 10px">✓ Verified: <b>awaiting payout</b>. Releasing funds is a separate action; do it now or later from <b>Awaiting Payouts</b>.</div>
       <div class="btn-row">
-        <button class="btn btn-g btn-sm" onclick="realRelease(${d.id})">💸 Release payout — ${gbpP(d.net_to_owner)} to owner</button>
+        <button class="btn btn-g btn-sm" onclick="realRelease(${d.id})">💸 Release payout: ${gbpP(d.net_to_owner)} to owner</button>
         <button class="btn btn-danger btn-sm" onclick="realRefund(${d.id})">✕ Refund business instead</button>
       </div>`;
   } else {
-    inner = `<p class="ok-txt" style="font-size:13px">✓ Verified &amp; paid out — deal complete.</p>`;
+    inner = `<p class="ok-txt" style="font-size:13px">✓ Verified &amp; paid out, deal complete.</p>`;
   }
   return `<div class="det-sec" style="margin-top:18px"><h5>Reviewer actions</h5>${inner}</div>`;
 }
@@ -2621,7 +2621,7 @@ function proofSlotHtml(idx){
          ondragleave="this.classList.remove('drag')"
          ondrop="pfDrop(event,${idx})">
       <input type="file" id="pf-file-${idx}" class="pf-file-input" onchange="pfFileName(${idx})">
-      <span class="dz-text" id="pf-dzt-${idx}">Drag &amp; drop a file here, or <label for="pf-file-${idx}" class="dz-link">select file</label> — any type</span>
+      <span class="dz-text" id="pf-dzt-${idx}">Drag &amp; drop a file here, or <label for="pf-file-${idx}" class="dz-link">select file</label>, any type</span>
     </div>
   </div>`;
 }
@@ -2637,8 +2637,8 @@ function pfDrop(e,idx){
 function pfFileName(idx){
   const inp=$("pf-file-"+idx), t=$("pf-dzt-"+idx); if(!inp||!t) return;
   const f=inp.files[0];
-  t.innerHTML = f ? `📎 ${esc(f.name)} — <label for="pf-file-${idx}" class="dz-link">change</label>`
-                  : `Drag &amp; drop a file here, or <label for="pf-file-${idx}" class="dz-link">select file</label> — any type`;
+  t.innerHTML = f ? `📎 ${esc(f.name)} · <label for="pf-file-${idx}" class="dz-link">change</label>`
+                  : `Drag &amp; drop a file here, or <label for="pf-file-${idx}" class="dz-link">select file</label>, any type`;
 }
 async function realSubmitProof(dealId){
   const items=[];
@@ -2669,10 +2669,10 @@ async function realInstantPayout(dealId){
   if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Sending…`; }
   try{
     await PSApi.post(`/deals/${dealId}/payout/instant`);
-    toast("Instant payout sent — should land within about 30 minutes ⚡",true);
+    toast("Instant payout sent, should land within about 30 minutes ⚡",true);
   }catch(err){
     toast(err.message||"Could not send instant payout");
-    if(btn){ btn.disabled=false; btn.innerHTML="⚡ Get paid now — 1% fee"; }
+    if(btn){ btn.disabled=false; btn.innerHTML="⚡ Get paid now, 1% fee"; }
   }
   renderRealDeal(dealId);
 }
@@ -2692,28 +2692,28 @@ async function realVerify(dealId, decision){
   try{ await PSApi.post(`/review/deals/${dealId}/verify`,{decision,reason,evidence_reviewed:true}); }
   catch(err){ toast(err.message||"Verify failed"); return; }
   toast(decision==="approved"
-    ? "Verified ✓ — moved to Awaiting Payouts (release payout separately when ready)"
+    ? "Verified ✓, moved to Awaiting Payouts (release payout separately when ready)"
     : "Sent back to the owner for revision", true);
   loadNotifications();
   renderRealDeal(dealId);
 }
 async function realOpenGracePeriod(dealId){
   const reason=adminReasonPrompt("Open a 24-hour proof-update grace period"); if(reason===null) return;
-  const note=window.prompt("Message to the platform owner — what should they add or clarify? (sent to them by app and email)","");
+  const note=window.prompt("Message to the platform owner: what should they add or clarify? (sent to them by app and email)","");
   if(note===null) return;
   if(!note.trim()){ toast("A message to the owner is required"); return; }
   try{
     await PSApi.post(`/review/deals/${dealId}/verify`,
       {decision:"changes_requested", reason, notes:note.trim(), evidence_reviewed:true, open_grace_period:true});
   }catch(err){ toast(err.message||"Could not open grace period"); return; }
-  toast("Grace period opened — owner notified, 24 hours to add proof",true);
+  toast("Grace period opened, owner notified, 24 hours to add proof",true);
   loadNotifications();
   renderRealDeal(dealId);
 }
 async function realRelease(dealId){
   const reason=adminReasonPrompt("Release this payout"); if(reason===null) return;
   try{ const r=await PSApi.post(`/review/deals/${dealId}/release`,{reason,evidence_reviewed:true});
-    toast("Payout released — "+gbpP(r.net_to_owner)+" to owner 💸",true); }
+    toast("Payout released: "+gbpP(r.net_to_owner)+" to owner 💸",true); }
   catch(err){ toast(err.message||"Release failed"); return; }
   loadNotifications();
   renderRealDeal(dealId);
@@ -2738,7 +2738,7 @@ function setReviewStars(n){ window._reviewStars=n; document.querySelectorAll("#r
 async function realSubmitReview(dealId){
   const rating=window._reviewStars||5; const text=($("rev-text").value||"").trim();
   try{ await PSApi.post(`/deals/${dealId}/review`,{rating,text}); }catch(err){ toast(err.message||"Could not publish review"); return; }
-  closeModal(); toast("Review published — thanks for keeping the marketplace honest",true);
+  closeModal(); toast("Review published, thanks for keeping the marketplace honest",true);
   loadMarket();          // refresh cached ratings so profiles/cards reflect it immediately
   renderRealDeal(dealId); // re-render: the review option is now replaced by the thank-you
 }
@@ -2797,12 +2797,12 @@ function collectApplyPricing(){
 }
 async function applyCampaign(campId){
   const c=findCampaign(campId); if(!c) return;
-  if(c.example || !/^c\d+$/.test(String(c.id))){ toast("This is an example campaign — apply to a real one to transact."); return; }
+  if(c.example || !/^c\d+$/.test(String(c.id))){ toast("This is an example campaign. Apply to a real one to transact."); return; }
   if(!S.account){ authGate("login"); return; }
   // Same fix as buyOffer() above: was a dead-end toast, now offers switching
   // to (or creating) the platform-owner profile and resumes this application.
   if(!S.roles.includes("plat")){ requireRole("plat", ()=>applyCampaign(campId)); return; }
-  if(String(c.businessId)===String(S.account.id)){ toast("That's your own campaign — you can review applicants from it."); return; }
+  if(String(c.businessId)===String(S.account.id)){ toast("That's your own campaign, you can review applicants from it."); return; }
   let plats=S.myPlatforms||[];
   if(!plats.length){ try{ plats=await PSApi.get("/platforms/mine"); S.myPlatforms=plats; }catch(e){} }
   const platOpts=plats.map(p=>`<option value="${p.id}">${esc(p.name)} · ${esc(p.platform)}</option>`).join("");
@@ -2811,7 +2811,7 @@ async function applyCampaign(campId){
     <div class="frm">
       ${plats.length
         ? `<div><label>Promote on</label><select id="ap-plat">${platOpts}</select></div>`
-        : `<div class="note blue" style="margin:0">You don't have a listing yet — you can still apply, and add one anytime.</div>`}
+        : `<div class="note blue" style="margin:0">You don't have a listing yet, you can still apply, and add one anytime.</div>`}
       <div><label>Payment methods you propose</label>
         <div id="pm-slots">${pmSlotHtml(0)}</div>
         <div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="addPmSlot()">＋ add another payment method</button></div>
@@ -2831,7 +2831,7 @@ async function submitApplication(cid){
   try{
     const deal=await PSApi.post(`/campaigns/${cid}/apply`,{listed_price, platform_id:platform_id||null, pitch, pricing});
     closeModal(); showView("view-deal"); renderRealDeal(deal.id);
-    toast("Application sent — the business will review & approve",true);
+    toast("Application sent, the business will review & approve",true);
   }catch(err){ toast(err.message||"Could not apply"); }
 }
 function dealById(id){ return S.deals.find(d=>d.id===id); }
@@ -2875,11 +2875,11 @@ function renderDeal(id){
   </div>`;
   let main="";
   if(d.step===1){
-    main=`<h3 class="deal-h">Step 1 — Build the agreement</h3>
+    main=`<h3 class="deal-h">Step 1: Build the agreement</h3>
     <p class="deal-sub">Either party can revise these terms before approval. Both sides approve the <b>same final agreement</b> before any work begins.</p>
     ${doc}
     <div class="btn-row">
-      <button class="btn btn-p" onclick="dealNext('${d.id}')">Looks right — go to approval</button>
+      <button class="btn btn-p" onclick="dealNext('${d.id}')">Looks right, go to approval</button>
       <button class="btn btn-o" onclick="counterOffer('${d.id}')">✏️ Send counter-offer</button>
       <button class="btn btn-danger" onclick="cancelDeal('${d.id}')">Cancel deal</button>
     </div>`;
@@ -2889,24 +2889,24 @@ function renderDeal(id){
     // verification and payout each require real infrastructure that isn't live.
     const amt=escrowOf(d);
     const exampleBanner = d.example
-      ? `<div class="note blue" style="margin:0 0 14px">🧪 This deal is with an <b>example profile</b>, shown so you can preview how PromoSlot documents an agreement. There is no real counterparty to approve, fund or pay — real deals begin when both accounts are real.</div>`
+      ? `<div class="note blue" style="margin:0 0 14px">🧪 This deal is with an <b>example profile</b>, shown so you can preview how PromoSlot documents an agreement. There is no real counterparty to approve, fund or pay. Real deals begin when both accounts are real.</div>`
       : "";
     const theirState = d.theirApproved
       ? '<span class="ok-txt">✓ Approved</span>'
       : '<span class="mut">Waiting for their approval</span>';
     const waitingNote = d.myApproved && !d.theirApproved
       ? pendingPanel("⏳", `Waiting for ${esc(d.with)} to approve`,
-          `They approve from their own account. This deal only moves to funding once both sides have approved the same agreement — there is no automatic or simulated approval.`)
+          `They approve from their own account. This deal only moves to funding once both sides have approved the same agreement. There is no automatic or simulated approval.`)
       : "";
     const roadmap = `<div class="det-sec" style="margin-top:24px">
-      <h5>The rest of this deal — not available yet</h5>
+      <h5>The rest of this deal: not available yet</h5>
       <p class="deal-sub" style="margin-bottom:12px">Everything below activates only when the underlying integration is live and confirms a real event. Nothing here is simulated.</p>
-      ${lockedStep("🔒","Payment Protection — "+gbp(amt),"The business funds the deal via Stripe. It is marked funded only after Stripe confirms the charge succeeded. Stripe payments are not connected yet.")}
+      ${lockedStep("🔒","Payment Protection: "+gbp(amt),"The business funds the deal via Stripe. It is marked funded only after Stripe confirms the charge succeeded. Stripe payments are not connected yet.")}
       ${lockedStep("📤","Delivery & proof submission","The platform owner uploads the published link, analytics and view/impression counts. Proof counts only once a real file or link is uploaded and stored. Server-side storage is not connected yet.")}
       ${lockedStep("🔎","Human verification","A PromoSlot reviewer checks the real submitted evidence against this agreement and marks it verified by hand. This is never automatic. No reviewer is assigned yet.")}
-      ${lockedStep("💸","Payout (minus 10% seller fee)","After a reviewer verifies delivery, funds transfer to the owner via Stripe Connect — the agreed price minus PromoSlot's 10% seller fee (the 5% buyer protection fee was already added at funding). Released only on a real successful transfer. Payouts are not connected yet.")}
+      ${lockedStep("💸","Payout (minus 10% seller fee)","After a reviewer verifies delivery, funds transfer to the owner via Stripe Connect, the agreed price minus PromoSlot's 10% seller fee (the 5% buyer protection fee was already added at funding). Released only on a real successful transfer. Payouts are not connected yet.")}
     </div>`;
-    main=`<h3 class="deal-h">Step 2 — Both parties approve</h3>
+    main=`<h3 class="deal-h">Step 2: Both parties approve</h3>
     <p class="deal-sub">Work cannot begin until both sides approve the identical agreement. This document becomes the basis for verification and any dispute.</p>
     ${exampleBanner}
     ${doc}
@@ -2945,7 +2945,7 @@ function dealNext(id){
   if(d.step!==1) return;
   d.step=2;
   d.status="Awaiting approvals";
-  dlog(d,"Agreement finalised — sent for dual approval");
+  dlog(d,"Agreement finalised, sent for dual approval");
   renderDeal(id);
 }
 function approveMine(id){
@@ -2955,12 +2955,12 @@ function approveMine(id){
   // The counterparty's approval is a real action taken by their real account.
   // We never fabricate it. It stays "waiting" until a real second party approves.
   renderDeal(id);
-  toast("Your approval is recorded — waiting on "+d.with,true);
+  toast("Your approval is recorded, waiting on "+d.with,true);
 }
 function counterOffer(id){
   const d=dealById(id);
   openModal(`<div class="m-pad"><h3 class="m-title">Counter-offer on ${esc(d.id)}</h3>
-    <p class="m-sub">Revise the terms — ${esc(d.with)} can accept, decline, or counter again. Nothing is binding until both sides approve the same version.</p>
+    <p class="m-sub">Revise the terms: ${esc(d.with)} can accept, decline, or counter again. Nothing is binding until both sides approve the same version.</p>
     <div class="frm">
       <div class="row2">
         <div><label>Guaranteed payment (£)</label><input type="number" id="co-guar" value="${d.terms.guaranteed}"></div>
@@ -2980,15 +2980,15 @@ function sendCounter(id){
   d.terms.performance=$("co-perf").value;
   d.terms.revisions=$("co-rev").value;
   d.myApproved=false; d.theirApproved=false;
-  dlog(d,"You sent a counter-offer — awaiting their response");
+  dlog(d,"You sent a counter-offer, awaiting their response");
   // We never fabricate the counterparty accepting. Their response comes from
   // their real account.
   closeModal(); renderDeal(id);
-  toast("Counter-offer sent to "+d.with+" — awaiting their response");
+  toast("Counter-offer sent to "+d.with+", awaiting their response");
 }
 function cancelDeal(id){
   const d=dealById(id);
-  openModal(`<div class="m-pad"><h3 class="m-title">Cancel this deal?</h3><p class="m-sub">${d.step<3?"The deal hasn't been funded — cancellation is free and instant.":"Protected funds will be returned to the business per the cancellation terms."}</p>
+  openModal(`<div class="m-pad"><h3 class="m-title">Cancel this deal?</h3><p class="m-sub">${d.step<3?"The deal hasn't been funded, cancellation is free and instant.":"Protected funds will be returned to the business per the cancellation terms."}</p>
   <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Keep deal</button><button class="btn btn-danger" onclick="S.deals=S.deals.filter(x=>x.id!=='${id}');closeModal();openDash();toast('Deal ${id} cancelled')">Cancel deal</button></div></div>`,"narrow");
 }
 function fundDeal(id){
@@ -2997,7 +2997,7 @@ function fundDeal(id){
   const d=dealById(id);
   if(!INFRA.payments){
     openModal(`<div class="m-pad"><h3 class="m-title">Payment Protection isn't available yet</h3>
-      <p class="m-sub">Funding a deal moves real money, held pending verification, so it can only happen through a live payment provider. PromoSlot's Stripe integration isn't connected yet, so no deal can be funded — and none will ever be shown as funded until a real Stripe charge succeeds.</p>
+      <p class="m-sub">Funding a deal moves real money, held pending verification, so it can only happen through a live payment provider. PromoSlot's Stripe integration isn't connected yet, so no deal can be funded, and none will ever be shown as funded until a real Stripe charge succeeds.</p>
       ${pendingPanel("💳","Payments pending","Stripe Connect is not wired up. When it is, this step will charge the business and mark the deal funded only after Stripe confirms the payment.")}
       <div class="m-actions"><button class="btn btn-p" onclick="closeModal()">Got it</button></div></div>`,"narrow");
     return;
@@ -3010,7 +3010,7 @@ function submitProof(id,key){
   if(!INFRA.fileStorage){
     openModal(`<div class="m-pad"><h3 class="m-title">Proof upload isn't available yet</h3>
       <p class="m-sub">Delivery evidence has to be really uploaded and stored so a reviewer and both parties can inspect it. That storage isn't connected yet, so nothing can be submitted or auto-filled as proof.</p>
-      ${pendingPanel("📤","Evidence storage pending","When server-side file storage is live, you'll attach the published link, analytics screenshots and view counts here — and they'll count only once the upload is confirmed stored.")}
+      ${pendingPanel("📤","Evidence storage pending","When server-side file storage is live, you'll attach the published link, analytics screenshots and view counts here, and they'll count only once the upload is confirmed stored.")}
       <div class="m-actions"><button class="btn btn-p" onclick="closeModal()">Got it</button></div></div>`,"narrow");
     return;
   }
@@ -3018,13 +3018,13 @@ function submitProof(id,key){
 }
 function openDispute(id){
   const d=dealById(id);
-  openModal(`<div class="m-pad"><h3 class="m-title">⚖️ Dispute review — ${esc(d.id)}</h3>
-  <p class="m-sub">PromoSlot reviews the accepted deal terms, content links, submitted evidence, platform analytics, messages, deadlines and revision requests. The decision follows the <b>agreed deliverables</b> — not whether a brand disliked the commercial outcome.</p>
+  openModal(`<div class="m-pad"><h3 class="m-title">⚖️ Dispute review: ${esc(d.id)}</h3>
+  <p class="m-sub">PromoSlot reviews the accepted deal terms, content links, submitted evidence, platform analytics, messages, deadlines and revision requests. The decision follows the <b>agreed deliverables</b>, not whether a brand disliked the commercial outcome.</p>
   <div class="proof-item"><span class="pi-ico">📄</span>Accepted agreement ${esc(d.id)}<span class="ok">On file</span></div>
   <div class="proof-item"><span class="pi-ico">🔗</span>Submitted evidence (${d.proof.length} items)<span class="ok">On file</span></div>
   <div class="proof-item"><span class="pi-ico">💬</span>Message history with ${esc(d.with)}<span class="ok">On file</span></div>
   <div class="frm" style="margin-top:14px"><div><label>What wasn't fulfilled?</label><textarea placeholder="Describe which agreed deliverable was not met…"></textarea></div></div>
-  <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Close</button><button class="btn btn-p" onclick="closeModal();toast('Dispute filed — a PromoSlot reviewer will respond within 48h',true)">File dispute</button></div></div>`);
+  <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Close</button><button class="btn btn-p" onclick="closeModal();toast('Dispute filed, a PromoSlot reviewer will respond within 48h',true)">File dispute</button></div></div>`);
 }
 function leaveReview(id){
   const d=dealById(id);
@@ -3032,7 +3032,7 @@ function leaveReview(id){
   // accounts. No deal can reach that state yet, so reviews cannot be created.
   if(!d || !d.paidOut){
     openModal(`<div class="m-pad"><h3 class="m-title">Reviews come after a completed deal</h3>
-      <p class="m-sub">A review can only be left once this deal is genuinely complete — funded, delivered, verified by a reviewer, and paid out to a real counterparty. That hasn't happened, so there's nothing to review yet. Reviews are never pre-written or auto-generated.</p>
+      <p class="m-sub">A review can only be left once this deal is genuinely complete: funded, delivered, verified by a reviewer, and paid out to a real counterparty. That hasn't happened, so there's nothing to review yet. Reviews are never pre-written or auto-generated.</p>
       ${pendingPanel("⭐","Review pending completion","When the full deal really completes between two real accounts, both sides will be invited to leave a review that attaches permanently to this transaction.")}
       <div class="m-actions"><button class="btn btn-p" onclick="closeModal()">Got it</button></div></div>`,"narrow");
     return;
@@ -3094,14 +3094,14 @@ function collectPaySel(){
 }
 function payMethodsHtml(){
   const list=unlockedPayMethods(W.d.intentsB);
-  if(!list.length) return `<p class="mut" style="font-size:12.5px">Go back to step 1 and pick a goal — the payment methods you can offer follow from it.</p>`;
+  if(!list.length) return `<p class="mut" style="font-size:12.5px">Go back to step 1 and pick a goal. The payment methods you can offer follow from it.</p>`;
   return `<div class="chips-lg">${list.map(m=>
       `<button type="button" class="chip ${paySel(m.key).on?"on":""}" onclick="togglePayMethod('${m.key}')">${esc(m.label)}</button>`).join("")}</div>`
     + list.filter(m=>paySel(m.key).on).map(m=>{
       const c=paySel(m.key);
       return `<div class="pm-slot" style="margin-top:10px">
         <div class="row2">
-          <div><label>${esc(m.label)} — ${esc(m.field)}</label>
+          <div><label>${esc(m.label)}: ${esc(m.field)}</label>
             <input type="number" min="0" step="any" id="pm-amt-${m.key}" value="${esc(c.amount)}"></div>
           <div><label>Clarification (optional)</label>
             <input type="text" id="pm-note-${m.key}" value="${esc(c.note)}"
@@ -3121,11 +3121,11 @@ function collectCampaignPayments(){
 }
 
 const GIVEAWAY_PM="Giveaway prize";
-const BIZ_INTENTS=[["📦","Looking to market a product","Get your product in front of the right audiences"],["🤝","Looking to offer affiliate partnerships","Pay commission on verified sales"],["🎁","Wanting to run a giveaway","Grow awareness with hosted giveaways"],["🌟","Looking for long-term brand ambassadors","Monthly retainers with creators you trust"],["🎬","Wanting UGC content","Videos for your own ads — not posted to creator pages"],["🧪","Testing a new market","Small campaigns to validate a niche or country"]];
+const BIZ_INTENTS=[["📦","Looking to market a product","Get your product in front of the right audiences"],["🤝","Looking to offer affiliate partnerships","Pay commission on verified sales"],["🎁","Wanting to run a giveaway","Grow awareness with hosted giveaways"],["🌟","Looking for long-term brand ambassadors","Monthly retainers with creators you trust"],["🎬","Wanting UGC content","Videos for your own ads, not posted to creator pages"],["🧪","Testing a new market","Small campaigns to validate a niche or country"]];
 // First card was hardcoded to "TikTok" regardless of which of the 18
 // platform types the person actually has — generalized so it reads
 // correctly for a newsletter, podcast, Discord server, etc. too.
-const PLAT_INTENTS=[["🎵","I want to monetize my platform","Turn views into deal flow"],["🗂","I have multiple platforms to list","Each platform gets its own listing, audience & prices"],["💼","I'm looking for brand deals","Sponsored posts, integrations, reviews"],["🔗","I want to offer affiliate promotions","Earn commission on verified sales"],["📮","I run a community/newsletter","Discord, Substack, forums — communities monetise too"]];
+const PLAT_INTENTS=[["🎵","I want to monetize my platform","Turn views into deal flow"],["🗂","I have multiple platforms to list","Each platform gets its own listing, audience & prices"],["💼","I'm looking for brand deals","Sponsored posts, integrations, reviews"],["🔗","I want to offer affiliate promotions","Earn commission on verified sales"],["📮","I run a community/newsletter","Discord, Substack, forums, communities monetise too"]];
 
 function defW(){
   return {
@@ -3156,7 +3156,7 @@ function openRegisterPlatform(){
   // before ever registering a first.
   W={kind:"plat",d:defW(),i:0,steps:["p-reg","p-aud","p-serv","p-review"],again:S.myPlatforms.length>0}; lastPct=0;
   const n=S.myPlatforms.length;
-  if(n===1){ W.d.pType="Discord"; W.d.pName="RM Fit Hub"; W.d.pDesc="46k-member training community — check-ins, form reviews and a very active deals channel."; W.d.aud="46200"; W.d.views="18300"; W.d.imps="61000"; W.d.er="12.1"; W.d.pServices=new Set(["Community announcement","Pinned community post","Brand AMA"]); }
+  if(n===1){ W.d.pType="Discord"; W.d.pName="RM Fit Hub"; W.d.pDesc="46k-member training community: check-ins, form reviews and a very active deals channel."; W.d.aud="46200"; W.d.views="18300"; W.d.imps="61000"; W.d.er="12.1"; W.d.pServices=new Set(["Community announcement","Pinned community post","Brand AMA"]); }
   if(n>=2){ W.d.pType="Newsletter"; W.d.pName="LiftLog Weekly"; W.d.pDesc="Weekly training newsletter for lifters who want evidence over hype. Sent Sundays, 48% open rate."; W.d.aud="32500"; W.d.views="15600"; W.d.imps="15600"; W.d.er="48"; W.d.pServices=new Set(["Newsletter advertisement","Sponsored blog post","Affiliate promotion"]); }
   renderWiz("fwd");
 }
@@ -3201,17 +3201,17 @@ function pmIn(id,label,val,type){ return `<div><label>${label}</label><input typ
 function wizStepHtml(step){
   const d=W.d;
   switch(step){
-    case "x-intent": return {t:"Welcome to PromoSlot",s:"You picked <b>Both roles</b> — one account, two dashboards. Select everything that applies:",h:
+    case "x-intent": return {t:"Welcome to PromoSlot",s:"You picked <b>Both roles</b>: one account, two dashboards. Select everything that applies:",h:
       `<h5 class="wiz-h5">As a business</h5>${selCardsHtml("intentsB",BIZ_INTENTS.slice(0,4))}
        <h5 class="wiz-h5" style="margin-top:14px">As a platform owner</h5>${selCardsHtml("intentsP",PLAT_INTENTS.slice(0,4))}`,
       valid:()=>d.intentsB.size||d.intentsP.size?null:"Select at least one goal."};
-    case "x-order": return {t:"Which profile first?",s:"You'll set up one now — we'll offer the other right after.",h:
+    case "x-order": return {t:"Which profile first?",s:"You'll set up one now, we'll offer the other right after.",h:
       `<div class="sel-cards">
         <div class="sel-card ${W.d.order==='biz'?'on':''}" onclick="W.d.order='biz';renderWiz()"><div><b>Business profile first</b><small>Post campaigns & buy promotion</small></div><span class="sc-check">✓</span></div>
         <div class="sel-card ${W.d.order==='plat'?'on':''}" onclick="W.d.order='plat';renderWiz()"><div><b>Platform profile first</b><small>List your audience & get paid</small></div><span class="sc-check">✓</span></div>
       </div>`,
       valid:()=>W.d.order?null:"Pick one to start with."};
-    case "b-intent": return {t:"What brings you to PromoSlot?",s:"Select everything that applies — this shapes the questions we ask next.",h:selCardsHtml("intentsB",BIZ_INTENTS),
+    case "b-intent": return {t:"What brings you to PromoSlot?",s:"Select everything that applies, this shapes the questions we ask next.",h:selCardsHtml("intentsB",BIZ_INTENTS),
       valid:()=>d.intentsB.size?null:"Select at least one goal."};
     case "b-company": return {t:"Tell us about your business",s:"This becomes your public business profile that platform owners can browse.",h:
       `<div class="frm"><div class="row2">
@@ -3221,7 +3221,7 @@ function wizStepHtml(step){
         <div><label>Target market description</label><textarea id="w-target">${esc(d.target)}</textarea></div></div>`,
       collect:()=>{d.company=$("w-company").value.trim();d.industry=$("w-industry").value;d.product=$("w-product").value.trim();d.target=$("w-target").value.trim();},
       valid:()=>d.company&&d.product?null:"Company name and product are required."};
-    case "b-target": return {t:"Who should promote you?",s:`Multi-select everything — ${d.intentsB.size?[...d.intentsB][0].toLowerCase()+" works across many platforms at once.":"you're never limited to one option."}`,h:
+    case "b-target": return {t:"Who should promote you?",s:`Multi-select everything: ${d.intentsB.size?[...d.intentsB][0].toLowerCase()+" works across many platforms at once.":"you're never limited to one option."}`,h:
       `<div class="frm">
         <div><label>Target countries</label>${wchipsHtml("countries",ALL_COUNTRIES)}</div>
         <div><label>Preferred platforms</label>${wchipsHtml("platforms",ALL_PLATFORMS)}</div>
@@ -3240,7 +3240,7 @@ function wizStepHtml(step){
       const extras=[];
       if(d.intentsB.has("Wanting UGC content")) extras.push(pmIn("w-ugc","UGC videos needed",d.ugcCount));
       if(d.intentsB.has("Looking for long-term brand ambassadors")) extras.push(`<div><label>Ambassador term</label><select id="w-amb">${["1 month","3 months","6 months","12 months"].map(x=>`<option ${x===d.ambTerm?"selected":""}>${x}</option>`).join("")}</select></div>`);
-      return {t:"Budget & payment",s:"Pick every payment method you want to offer — you set each amount yourself, and creators choose what suits their audience.",h:
+      return {t:"Budget & payment",s:"Pick every payment method you want to offer, you set each amount yourself, and creators choose what suits their audience.",h:
       `<div class="frm"><div class="row2">
         <div><label>Campaign budget (£)</label><input type="number" id="w-budget" value="${esc(d.budget)}"></div>
         <div><label>Campaign duration</label><select id="w-dur">${["One-off","Video-by-video","2 weeks","4 weeks","6 weeks","3 months","Ongoing"].map(x=>`<option ${x===d.duration?"selected":""}>${x}</option>`).join("")}</select></div></div>
@@ -3265,7 +3265,7 @@ function wizStepHtml(step){
           .catch(()=>{ W.d.who={about_text:"",links:[],assets:[]}; W.d.whoLoaded=true; renderWiz(); });
       }
       const p=W.d.who||{about_text:"",links:[],assets:[]};
-      return {t:"Who we are",s:"Platform owners see this when they view your full profile from your campaign. All optional — and it's the same profile you can edit any time from My Account.",h:
+      return {t:"Who we are",s:"Platform owners see this when they view your full profile from your campaign. All optional, and it's the same profile you can edit any time from My Account.",h:
         W.d.whoLoaded===true
           ? `<div class="frm">${whoEditorHtml("wz",p)}</div>`
           : `<div class="frm"><div class="sk sk-line" style="width:60%"></div><div class="sk sk-block" style="height:80px;margin-top:10px"></div></div>`,
@@ -3291,7 +3291,7 @@ function wizStepHtml(step){
       nextLabel:"Create my business profile"};
     case "p-intent": return {t:"What brings you to PromoSlot?",s:"Select everything that applies.",h:selCardsHtml("intentsP",PLAT_INTENTS),
       valid:()=>d.intentsP.size?null:"Select at least one."};
-    case "p-reg": return {t:W.again?"Register another platform":"Register your first platform",s:"Each platform you control gets its own listing — own audience, own prices, own offers. You can add more afterwards.",h:
+    case "p-reg": return {t:W.again?"Register another platform":"Register your first platform",s:"Each platform you control gets its own listing: own audience, own prices, own offers. You can add more afterwards.",h:
       `<div class="frm"><div class="row2">
         <div><label>Platform type</label><select id="w-ptype">${ALL_PLATFORMS.map(p=>`<option ${p===d.pType?"selected":""}>${p}</option>`).join("")}</select></div>
         <div><label>Your brand / display name</label><input type="text" id="w-pbrand" value="${esc(d.pBrand)}"></div></div>
@@ -3300,7 +3300,7 @@ function wizStepHtml(step){
         <div><label>Niche(s)</label>${wchipsHtml("pNiches",ALL_NICHES,"niche")}</div></div>`,
       collect:()=>{d.pType=$("w-ptype").value;d.pBrand=$("w-pbrand").value.trim();d.pName=$("w-pname").value.trim();d.pDesc=$("w-pdesc").value.trim();},
       valid:()=>d.pName&&d.pBrand?null:"Brand and platform name are required."};
-    case "p-aud": return {t:"Your audience",s:"Businesses filter by these numbers — analytics evidence can be verified later for a ✔ badge.",h:
+    case "p-aud": return {t:"Your audience",s:"Businesses filter by these numbers, analytics evidence can be verified later for a ✔ badge.",h:
       `<div class="frm"><div class="row2">
         ${pmIn("w-aud","Audience size",d.aud)}${pmIn("w-views","Average views / opens",d.views)}</div>
         <div class="row2">${pmIn("w-imps","Average impressions",d.imps)}${pmIn("w-er","Engagement / open rate (%)",d.er)}</div>
@@ -3309,7 +3309,7 @@ function wizStepHtml(step){
         <div><label>Audience interests</label>${wchipsHtml("interests",["Gym & training","Nutrition","Supplements","Skincare","Makeup","Indie games","PC hardware","Investing","Budgeting","Quick recipes","Meal kits","Dev tools","AI","Parenting","Fashion","Travel"])}</div></div>`,
       collect:()=>{d.aud=$("w-aud").value;d.views=$("w-views").value;d.imps=$("w-imps").value;d.er=$("w-er").value;},
       valid:()=>Number(d.aud)>0?null:"Audience size is required."};
-    case "p-serv": return {t:"Services & pricing",s:"Multi-select every service you offer, then attach one or several pricing methods. Every price is yours — set whatever you want, and change it anytime.",h:
+    case "p-serv": return {t:"Services & pricing",s:"Multi-select every service you offer, then attach one or several pricing methods. Every price is yours: set whatever you want, and change it anytime.",h:
       `<div class="frm"><div><label>Available services</label>${wchipsHtml("pServices",ALL_SERVICES)}</div>
       <div><label>Pricing models (select one or more)</label>
       ${pmBox("fixed","Fixed price","e.g. £100 for one promotional video",pmIn("pm-fx-label","Offer name","1 promotional video","text")+pmIn("pm-fx-price","Your price (£)","180"))}
@@ -3328,7 +3328,7 @@ function wizStepHtml(step){
       valid:()=>{ collectPricing(); return d.pServices.size&&d.pricing.length?null:"Pick at least one service and one pricing model."; }};
     case "p-review": {
       const prev=buildMyListing();
-      return {t:"Your listing — live preview",s:"Exactly how your card appears in the marketplace. Publish when it looks right.",h:
+      return {t:"Your listing: live preview",s:"Exactly how your card appears in the marketplace. Publish when it looks right.",h:
       `<div class="wiz-preview">${listingCard(prev)}</div>
        <div class="rv-rows boxed">
         <div class="rv-row"><span class="k">Pricing methods</span><span class="v">${d.pricing.map(p=>PM_LABEL[p.type]).join(" · ")}</span></div>
@@ -3343,9 +3343,9 @@ function collectPricing(){
   const on=k=>document.getElementById("pmb-"+k)?.classList.contains("on");
   const v=id=>document.getElementById(id)?.value||"";
   if(on("fixed")) d.pricing.push({key:"fixed",type:"fixed",label:v("pm-fx-label")||"1 promotional post",detail:"1 revision included · draft approval before posting",amount:Number(v("pm-fx-price"))||0});
-  if(on("per-view")) d.pricing.push({key:"per-view",type:"per-view",label:"Performance deal — per view",detail:`£${v("pm-pv-min")} minimum guaranteed + £${v("pm-pv-rate")} per 1,000 verified views · measured ${v("pm-pv-days")} days after posting · capped at £${v("pm-pv-cap")}`,amount:Number(v("pm-pv-min"))||0});
+  if(on("per-view")) d.pricing.push({key:"per-view",type:"per-view",label:"Performance deal: per view",detail:`£${v("pm-pv-min")} minimum guaranteed + £${v("pm-pv-rate")} per 1,000 verified views · measured ${v("pm-pv-days")} days after posting · capped at £${v("pm-pv-cap")}`,amount:Number(v("pm-pv-min"))||0});
   if(on("per-imp")) d.pricing.push({key:"per-imp",type:"per-imp",label:"Per-impression sponsorship",detail:`£${v("pm-pi-rate")} per 1,000 verified impressions · measured at 7 days`,amount:Number(v("pm-pi-rate"))||0});
-  if(on("time")) d.pricing.push({key:"time",type:"time",label:`Placement — per ${v("pm-tm-unit")}`,detail:`£${v("pm-tm-price")} per ${v("pm-tm-unit")} · min ${v("pm-tm-min")}, max ${v("pm-tm-max")} ${v("pm-tm-unit")}s · ${v("pm-tm-renew").toLowerCase()}`,amount:Number(v("pm-tm-price"))||0});
+  if(on("time")) d.pricing.push({key:"time",type:"time",label:`Placement: per ${v("pm-tm-unit")}`,detail:`£${v("pm-tm-price")} per ${v("pm-tm-unit")} · min ${v("pm-tm-min")}, max ${v("pm-tm-max")} ${v("pm-tm-unit")}s · ${v("pm-tm-renew").toLowerCase()}`,amount:Number(v("pm-tm-price"))||0});
   if(on("affiliate")) d.pricing.push({key:"affiliate",type:"affiliate",label:"Affiliate promotion",detail:`${v("pm-af-pct")}% per verified sale${Number(v("pm-af-lead"))?` · £${v("pm-af-lead")} per qualified lead`:""} · ${v("pm-af-cookie")}-day cookie · £${v("pm-af-min")} min payout`,amount:0});
   if(on("hybrid")) d.pricing.push({key:"hybrid",type:"hybrid",label:"Hybrid: guaranteed + performance",detail:`£${v("pm-hy-guar")} guaranteed + ${v("pm-hy-extra")}`,amount:Number(v("pm-hy-guar"))||0});
   if(on("custom")) d.pricing.push({key:"custom",type:"custom",label:"Custom quote",detail:"Invite businesses to request a personalised proposal",amount:0});
@@ -3442,7 +3442,7 @@ async function finishBiz(){
   // Nothing is inferred and no default amount is ever invented.
   const pays=collectCampaignPayments();
   const niche=d.industry.includes("Beauty")?"Beauty":d.industry.includes("Fitness")?"Fitness":d.industry.includes("Food")?"Food":d.industry.includes("Fin")?"Finance":d.industry.includes("Gam")?"Gaming":d.industry.includes("parent")||d.industry.includes("Kids")?"Parenting":"Tech";
-  const title=`${d.product.split(" ").slice(0,3).join(" ")} — Launch Campaign`;
+  const title=`${d.product.split(" ").slice(0,3).join(" ")}: Launch Campaign`;
   const payload={title,industry:d.industry,description:`${d.company} is looking for creators to promote: ${d.product}. ${d.target}.`,
     budget:Number(d.budget)||0,platforms:[...d.platforms],niches:[niche],countries:[...d.countries],services:[...d.services],
     creator_sizes:[...d.sizes],goals:[...d.intentsB],payment:pays,
@@ -3457,7 +3457,7 @@ async function finishBiz(){
   const created=S.myCampaigns[0];
   const linkedP = S.account.linked_account;
   const isBothFlow = W.kind==="both" && linkedP && linkedP.is_platform_owner && !linkedP.has_published_listing_or_campaign;
-  wizSuccess("Your business profile is live 🎉",`“${created?created.title:title}” has been published to the marketplace — platform owners can now apply, accept your terms, or counter-offer.`, isBothFlow?"plat":null);
+  wizSuccess("Your business profile is live 🎉",`“${created?created.title:title}” has been published to the marketplace. Platform owners can now apply, accept your terms, or counter-offer.`, isBothFlow?"plat":null);
 }
 async function finishPlat(){
   const l=buildMyListing();
@@ -3510,7 +3510,7 @@ function openVerify(role){
   window._vSel = new Set(items.map(i=>i[2]));
   openModal(`<div class="m-pad"><div class="vf-head"><div class="vf-shield">🛡️</div>
       <div><h3 class="m-title">Get ${isBiz?"business":"analytics"} verified</h3>
-      <p class="m-sub" style="margin:4px 0 0">A verified ✔ badge is only granted after a real PromoSlot reviewer checks your evidence by hand. The review team isn't operating yet, so no badge can be issued — and nothing here fakes one.</p></div></div>
+      <p class="m-sub" style="margin:4px 0 0">A verified ✔ badge is only granted after a real PromoSlot reviewer checks your evidence by hand. The review team isn't operating yet, so no badge can be issued, and nothing here fakes one.</p></div></div>
     <div class="det-sec" style="margin-top:6px"><h5>What a reviewer will check</h5>
       ${items.map(([ico,t,sub])=>`<label class="vf-item" data-v="${esc(t)}">
         <span class="pi-ico">${ico}</span><div class="vf-body"><b>${esc(t)}</b><small>${esc(sub)}</small></div>
@@ -3528,8 +3528,8 @@ function runVerify(role){
   // A verified badge requires a real human reviewer. That process isn't live, so
   // we never set verified=true or claim a pass here.
   if(!INFRA.humanReview){
-    openModal(`<div class="m-pad"><div class="vf-head"><div class="vf-shield">🛡️</div><div><h3 class="m-title">Interest registered — verification pending</h3>
-      <p class="m-sub" style="margin:4px 0 0">Thanks. Your ${isBiz?"business":"analytics"} verification request is noted. A real reviewer will check your evidence once the review team is live — no badge is granted, and none is shown, until then.</p></div></div>
+    openModal(`<div class="m-pad"><div class="vf-head"><div class="vf-shield">🛡️</div><div><h3 class="m-title">Interest registered: verification pending</h3>
+      <p class="m-sub" style="margin:4px 0 0">Thanks. Your ${isBiz?"business":"analytics"} verification request is noted. A real reviewer will check your evidence once the review team is live. No badge is granted, and none is shown, until then.</p></div></div>
       ${pendingPanel("⏳","Awaiting human review","Verification is deliberate and manual. It's never granted automatically, by a timer, or by clicking through this screen.")}
       <div class="m-actions"><button class="btn btn-p" onclick="closeModal();openDash()">Back to dashboard</button></div></div>`,"", false);
     return;
@@ -3546,7 +3546,7 @@ function dealRows(){
   const deals=S.realDeals||[];
   if(!deals.length) return `<div class="empty-state small">
     <div class="es-ico">🤝</div><h4>No deals yet</h4>
-    <p>Buy an offer from a listing to open a protected deal — funding, delivery and payout all happen in one deal room.</p>
+    <p>Buy an offer from a listing to open a protected deal: funding, delivery and payout all happen in one deal room.</p>
     <button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Browse listings</button></div>`;
   return deals.map(d=>{
     const meBiz=S.account&&S.account.id===d.business_id;
@@ -3560,7 +3560,7 @@ function dealRows(){
     const stCls=d.paid?"st-done":awaitingPayout?"st-review":d.funded?"st-escrow":"st-review";
     const stLabel=d.source_removed
       ? (d.source_removed==="campaign"?"Campaign removed by business":"Listing removed by owner")
-      : (awaitingPayout?"Verified — awaiting payout":esc(d.status));
+      : (awaitingPayout?"Verified: awaiting payout":esc(d.status));
     return `<div class="deal-row" onclick="showView('view-deal');renderRealDeal(${d.id})">
       ${pfp(other,d.terms&&d.terms.platform,"",meBiz?d.owner_avatar:d.business_avatar)}<div><div class="dr-t">Deal ${d.id}${d.terms&&d.terms.offer?" · "+esc(d.terms.offer):""}</div>
       <div class="dr-s">${meBiz?"You buy · "+esc(other):"You deliver · "+esc(other)}</div></div>
@@ -3570,7 +3570,7 @@ function dealRows(){
 }
 function notifRows(){
   const items=S.realNotifs||[];
-  if(!items.length) return `<div class="empty">Nothing yet — updates from your deals appear here.</div>`;
+  if(!items.length) return `<div class="empty">Nothing yet. Updates from your deals appear here.</div>`;
   return items.map(n=>`<div class="notif"><div class="n-ico">${NOTIF_ICON[n.type]||"🔔"}</div><div>${esc(n.body)}<small>${relTime(n.created_at)}</small></div></div>`).join("");
 }
 function sparkline(seed,color){
@@ -3622,7 +3622,7 @@ function renderGrowthTimeline(hostId, events, cfg){
   cfg=cfg||{}; const verb=cfg.verb||"earned";
   events=(events||[]).filter(e=>e.t && !isNaN(+e.t)).sort((a,b)=>a.t-b.t);
   if(!events.length){
-    host.innerHTML=`<div class="empty-state small"><div class="es-ico">📈</div><h4>No ${verb==="earned"?"earnings":"purchases"} yet</h4><p>Your account growth appears here once you have a completed deal — drag along the line to scrub through time.</p></div>`;
+    host.innerHTML=`<div class="empty-state small"><div class="es-ico">📈</div><h4>No ${verb==="earned"?"earnings":"purchases"} yet</h4><p>Your account growth appears here once you have a completed deal. Drag along the line to scrub through time.</p></div>`;
     return;
   }
   let cum=0; const pts=events.map(e=>({t:+e.t, v:(cum+=e.amount), amount:e.amount, dealId:e.dealId}));
@@ -3745,11 +3745,11 @@ function renderBizDash(){
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('platforms')">Browse platform listings</button>
         <button class="btn btn-p" onclick="openNewCampaign()">＋ New campaign</button></div></div>
-    <div class="kpis">${kpi({i:0,to:S.myCampaigns.length,label:"Live campaigns",delta:S.myCampaigns.length?"↑ published today":"none yet — post one",cls:S.myCampaigns.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourCampaigns')"})}${kpi({i:1,to:applicants,label:"Applicants",delta:applicants?"↑ new applications":"awaiting first applications",cls:applicants?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:2,val:escrowPence?gbpP(escrowPence):"—",to:escrowPence?escrowPence/100:null,pre:"£",dec:2,label:"Payment Protection",delta:escrowPence?"released on verified delivery":"fund a deal to protect it",cls:"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:3,to:completedCount,label:"Completed deals",delta:completedCount?"fee only on completion":"none yet",cls:"neu",spark:"#4f46e5"})}    </div>
+    <div class="kpis">${kpi({i:0,to:S.myCampaigns.length,label:"Live campaigns",delta:S.myCampaigns.length?"↑ published today":"none yet, post one",cls:S.myCampaigns.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourCampaigns')"})}${kpi({i:1,to:applicants,label:"Applicants",delta:applicants?"↑ new applications":"awaiting first applications",cls:applicants?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:2,val:escrowPence?gbpP(escrowPence):"—",to:escrowPence?escrowPence/100:null,pre:"£",dec:2,label:"Payment Protection",delta:escrowPence?"released on verified delivery":"fund a deal to protect it",cls:"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:3,to:completedCount,label:"Completed deals",delta:completedCount?"fee only on completion":"none yet",cls:"neu",spark:"#4f46e5"})}    </div>
     <div class="panel"><div class="panel-h"><h4>Account growth · spend over time</h4></div><div class="panel-b" id="bizGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel" id="yourCampaigns"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>
-        <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i,true)).join("")}</div>`:`<div class="empty-state"><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay — platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
+        <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i,true)).join("")}</div>`:`<div class="empty-state"><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay. Platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Start a deal</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
       <div class="panel"><div class="panel-h"><h4>Activity</h4></div><div class="panel-b">${notifRows()}</div></div>
@@ -3789,8 +3789,8 @@ function renderPlatDash(){
     <div class="panel"><div class="panel-h"><h4>Account growth · earnings over time</h4></div><div class="panel-b" id="platGrowth"></div></div>
     <div class="dash-cols"><div>
       <div class="panel" id="yourListings"><div class="panel-h"><h4>Your platform listings</h4><button class="btn btn-o btn-sm" onclick="openRegisterPlatform()">＋ Add platform</button></div>
-        <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i,true)).join("")}</div>`:`<div class="empty-state"><h4>No listings yet</h4><p>Register each platform you control — its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
-        ${S.myPlatforms.length&&S.myPlatforms.length<3?`<div class="note blue" style="margin-top:14px">💡 Owners with multiple listings get seen by more campaigns — list each platform you own separately, each with its own audience and prices. <a href="#" onclick="openRegisterPlatform();return false">Register another platform →</a></div>`:""}</div></div>
+        <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i,true)).join("")}</div>`:`<div class="empty-state"><h4>No listings yet</h4><p>Register each platform you control: its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
+        ${S.myPlatforms.length&&S.myPlatforms.length<3?`<div class="note blue" style="margin-top:14px">💡 Owners with multiple listings get seen by more campaigns: list each platform you own separately, each with its own audience and prices. <a href="#" onclick="openRegisterPlatform();return false">Register another platform →</a></div>`:""}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">Find campaigns</button></div><div class="panel-b">${dealRows()}</div></div>
     </div><div>
       <div class="panel"><div class="panel-h"><h4>Activity</h4></div><div class="panel-b">${notifRows()}</div></div>
@@ -3846,7 +3846,7 @@ async function refreshInstantStatus(){
   window._instantPk=s.publishable_key;
   if(s.eligible){
     row.innerHTML=`<span>Get paid instantly (1% fee)</span><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="instantToggle" ${s.opted_in?"checked":""} onchange="toggleInstantPayout(this)"><b class="mut" style="font-size:12px">${s.opted_in?"On":"Off"}</b></label>`;
-    extra.innerHTML=`<p class="mut" style="font-size:12px;margin-top:6px">Applies automatically to future payouts when on. Stripe deducts its instant-payout fee (about 1%) from what you receive — funds usually land within 30 minutes instead of the standard schedule.</p>`;
+    extra.innerHTML=`<p class="mut" style="font-size:12px;margin-top:6px">Applies automatically to future payouts when on. Stripe deducts its instant-payout fee (about 1%) from what you receive. Funds usually land within 30 minutes instead of the standard schedule.</p>`;
   }else{
     row.innerHTML=`<span>Instant payouts</span><b class="mut">Not eligible yet</b>`;
     extra.innerHTML=`<p class="mut" style="font-size:12px;margin-top:6px">Your bank account isn't on Stripe's instant-eligible list yet. Add a debit card to unlock instant payouts (1% fee, deducted automatically).</p>
@@ -3885,7 +3885,7 @@ async function submitDebitCard(){
   // currency:'gbp' requests the special payout-destination token type, not a
   // charge token — the card number never reaches our backend, only this token id.
   const {token,error}=await ctx.stripe.createToken(ctx.card,{currency:"gbp"});
-  if(error){ btn.disabled=false; btn.textContent="Add card"; errEl.textContent=error.message||"Card invalid — check your details."; errEl.classList.remove("hide"); return; }
+  if(error){ btn.disabled=false; btn.textContent="Add card"; errEl.textContent=error.message||"Card invalid, check your details."; errEl.classList.remove("hide"); return; }
   try{
     await PSApi.post("/connect/debit-card", {token: token.id});
     toast("Debit card added",true);
@@ -3917,14 +3917,14 @@ function openNewCampaign(){
   // Their saved payment methods are their real answer — don't re-seed the
   // giveaway default over a choice they already made.
   d.giveawayPmSeeded=true;
-  W.i=0; renderWiz("fwd"); toast("Campaign builder — prefilled from your profile");
+  W.i=0; renderWiz("fwd"); toast("Campaign builder, prefilled from your profile");
 }
 
 /* ==================== NOTIFICATIONS ==================== */
 const NOTIF_FEED=[
- {ico:"🚀",tag:"Founding cohort",txt:"PromoSlot is now open to its founding cohort — real listings and campaigns appear here as members join."},
- {ico:"✨",tag:"New offer",txt:"See how a complete platform-owner listing looks — open the Example Creator profile.",ref:"px-ex"},
- {ico:"✨",tag:"New campaign",txt:"See how a complete business campaign looks — open the Example Campaign.",ref:"cx-ex"}
+ {ico:"🚀",tag:"Founding cohort",txt:"PromoSlot is now open to its founding cohort. Real listings and campaigns appear here as members join."},
+ {ico:"✨",tag:"New offer",txt:"See how a complete platform-owner listing looks, open the Example Creator profile.",ref:"px-ex"},
+ {ico:"✨",tag:"New campaign",txt:"See how a complete business campaign looks, open the Example Campaign.",ref:"cx-ex"}
 ];
 let notifOpen=false;
 const NOTIF_ICON={deal_funded:"🔒",delivery_checklist_ready:"📋",proof_grace_period_opened:"⏳",proof_grace_period_opened_business:"⏳",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️",message:"💬",campaign_application:"📩",deal_declined:"🚫",deal_approved:"🤝",review_received:"⭐",listing_removed:"🗑️",campaign_removed:"🗑️",account_restored:"👋",
@@ -4132,9 +4132,9 @@ async function openSupportTicket(id){
     <div class="agree-doc">
       <div class="ad-head"><span>📮 ${esc(t.subject)}</span><span>${t.created_at?new Date(t.created_at).toLocaleString("en-GB"):""}</span></div>
       <div class="ad-row"><span class="k">From</span><span class="v">${esc(t.name)}</span></div>
-      <div class="ad-row"><span class="k">Email</span><span class="v">${esc(t.email||"— none given")}</span></div>
+      <div class="ad-row"><span class="k">Email</span><span class="v">${esc(t.email||"none given")}</span></div>
       <div class="ad-row"><span class="k">Mobile</span><span class="v">${esc(t.mobile||"—")}</span></div>
-      <div class="ad-row"><span class="k">PromoSlot account</span><span class="v">${t.user_id?`yes — they'll also get an in-app notification`:"no — email only"}</span></div>
+      <div class="ad-row"><span class="k">PromoSlot account</span><span class="v">${t.user_id?`yes, they'll also get an in-app notification`:"no, email only"}</span></div>
     </div>
     <div class="det-sec" style="margin-top:16px"><h5>Message</h5>
       <p class="det-p" style="white-space:pre-wrap">${esc(t.body)}</p></div>
@@ -4291,7 +4291,7 @@ async function openDispute(id){
       <div class="ad-row"><span class="k">Amount disputed</span><span class="v"><b>${gbpP(d.amount)}</b></span></div>
       <div class="ad-row"><span class="k">Reason (Stripe)</span><span class="v">${esc(d.reason||"unspecified")}</span></div>
       ${isOpenCase&&d.evidence_due_by?`<div class="ad-row"><span class="k">Evidence deadline</span><span class="v">${_disputeDeadline(d.evidence_due_by)} · ${new Date(d.evidence_due_by).toLocaleString("en-GB")}</span></div>`:""}
-      <div class="ad-row"><span class="k">Payout impact</span><span class="v">${d.payout_already_released?`<b style="color:var(--red)">Payout already released</b> — an absorbed loss if this is lost, no automatic clawback`:"Deal frozen — nothing released yet, no extra loss beyond the disputed charge"}</span></div>
+      <div class="ad-row"><span class="k">Payout impact</span><span class="v">${d.payout_already_released?`<b style="color:var(--red)">Payout already released</b>: an absorbed loss if this is lost, no automatic clawback`:"Deal frozen, nothing released yet, no extra loss beyond the disputed charge"}</span></div>
       ${d.outcome?`<div class="ad-row"><span class="k">Outcome</span><span class="v"><b>${esc(_disputeStatusLabel(d.outcome))}</b></span></div>`:""}
       <div class="ad-row"><span class="k">Stripe dispute ID</span><span class="v mut" style="font-size:12px">${esc(d.stripe_dispute_id)}</span></div>
     </div>
@@ -4304,7 +4304,7 @@ async function openDispute(id){
     <div class="det-sec"><h5>Request information</h5>
       <p class="mut" style="font-size:12px;margin-bottom:8px">Ask the business or platform owner for a message, a deliverable or a screenshot before finalising the response in Stripe. Their reply comes back through Messages.</p>
       <div class="frm"><div class="row2">
-        <div><label>Ask</label><select id="dq-target"><option value="business">Business — ${esc((d.business&&d.business.name)||"")}</option><option value="owner">Platform owner — ${esc((d.owner&&d.owner.name)||"")}</option></select></div>
+        <div><label>Ask</label><select id="dq-target"><option value="business">Business: ${esc((d.business&&d.business.name)||"")}</option><option value="owner">Platform owner: ${esc((d.owner&&d.owner.name)||"")}</option></select></div>
       </div>
       <div><textarea id="dq-ask" placeholder="What do you need from them?"></textarea></div>
       <button class="btn btn-o btn-sm" onclick="requestDisputeInfo(${d.id})">Send request</button></div></div>
@@ -4314,7 +4314,7 @@ async function openDispute(id){
         <div><textarea id="dq-note" placeholder="Never shown to either party…"></textarea></div>
         <button class="btn btn-o btn-sm" onclick="addDisputeNote(${d.id})">Add note</button></div></div>
 
-    <p class="mut" style="font-size:12px;margin-top:14px">Accepting or challenging this dispute — and submitting evidence — happens on Stripe's own dashboard (evidence submission is final). This page is for visibility and record-keeping, not for responding to Stripe directly.</p>`;
+    <p class="mut" style="font-size:12px;margin-top:14px">Accepting or challenging this dispute, and submitting evidence, happens on Stripe's own dashboard (evidence submission is final). This page is for visibility and record-keeping, not for responding to Stripe directly.</p>`;
 }
 async function claimDispute(id){
   const b=$("dq-claim"); if(b){ b.disabled=true; b.innerHTML=`<span class="spin"></span> Claiming…`; }
@@ -4361,7 +4361,7 @@ function roleBadge(role){
 const SUSPEND_DURATIONS=[
   ["3 days",3],["1 week",7],["2 weeks",14],["3 weeks",21],
   ["1 month",30],["3 months",90],["6 months",180],["1 year",365],
-  ["Indefinite — until manually restored",null],
+  ["Indefinite: until manually restored",null],
 ];
 // Returns {duration_days} or null if cancelled. Indefinite is a real choice,
 // not the absence of one: an admin often can't know an end date up front.
@@ -4461,7 +4461,7 @@ async function openAdmin(tab, focus){
                  campaigns:(sus.campaigns||[]).filter(timed).sort(soonest)};
     const overdue=[...users,...items.listings,...items.campaigns]
                     .filter(x=>overdueDays(x.suspended_until)).length;
-    body=`<p class="deal-sub" style="padding:0 2px 8px">Suspensions with an end date, soonest first. Nothing lifts automatically — a suspension ends when you restore it here.${
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Suspensions with an end date, soonest first. Nothing lifts automatically. A suspension ends when you restore it here.${
         overdue?` <b style="color:var(--red)">${overdue} already past its date.</b>`:""}</p>
       <div class="panel"><div class="panel-h"><h4>Users</h4></div><div class="panel-b">
         ${users.length?restrictedUserRowsHtml(users)
@@ -4484,7 +4484,7 @@ async function openAdmin(tab, focus){
         <div><div class="dr-t">${esc(u.display_name||u.email)}</div>
           <div class="dr-s">${esc(u.email)}${u.banned?" · <b>banned</b>":u.suspended?" · <b>suspended</b>":u.deactivated?" · <b>deactivated</b>":""}${u.suspended_reason?" · "+esc(u.suspended_reason):""}</div></div>
         <div class="btn-row">${btn}</div></div>`;
-    body=`<p class="deal-sub" style="padding:0 2px 8px">What's live right now. Suspending hides an item and blocks new bookings but keeps it intact — it moves to <b>Banned/Suspended</b>, and returns here when restored or when its period runs out. <b>Delete removes it outright and cannot be undone.</b> Both are written to the audit log.</p>
+    body=`<p class="deal-sub" style="padding:0 2px 8px">What's live right now. Suspending hides an item and blocks new bookings but keeps it intact: it moves to <b>Banned/Suspended</b>, and returns here when restored or when its period runs out. <b>Delete removes it outright and cannot be undone.</b> Both are written to the audit log.</p>
       <div class="panel"><div class="panel-h"><h4>Live listings</h4></div><div class="panel-b">
         ${mods.listings.length?mods.listings.map(l=>row(l.name,`${esc(l.platform)} · by ${esc(l.owner||"")}`,
           `<button class="btn btn-o btn-sm" onclick="adminSuspendListing(${String(l.id).slice(1)})">Suspend</button>`
@@ -4506,14 +4506,14 @@ async function openAdmin(tab, focus){
         ${mem.truncated?`<p class="mut" style="font-size:12px;margin-top:8px">Showing the ${mem.limit} most recent. Use the Admins tab search to find anyone older.</p>`:""}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Deactivated users</h4></div><div class="panel-b">
-        <p class="mut" style="font-size:12.5px;margin-bottom:10px">Paused by the account holder themselves — reversible, they just log back in. Their listings/campaigns are hidden below with the rest.</p>
+        <p class="mut" style="font-size:12.5px;margin-bottom:10px">Paused by the account holder themselves. Reversible, they just log back in. Their listings/campaigns are hidden below with the rest.</p>
         ${(mem.deactivated||[]).length?(mem.deactivated).map(u=>urow(u,
           `<button class="btn btn-danger btn-sm" onclick="adminDeleteUser(${u.id})">Delete</button>`)).join("")
           :`<p class="mut" style="font-size:12.5px">No deactivated accounts.</p>`}
       </div></div>
 `;
   } else {
-    body=`<p class="deal-sub" style="padding:0 2px 8px">Append-only. The database itself rejects any update or delete on this table — these entries cannot be edited or removed through any path.</p>
+    body=`<p class="deal-sub" style="padding:0 2px 8px">Append-only. The database itself rejects any update or delete on this table: these entries cannot be edited or removed through any path.</p>
       <div class="panel"><div class="panel-b">
       ${logs.length?logs.map(r=>`<div class="proof-item got proof-block">
         <div class="pb-head"><span class="pi-ico">🧾</span><b>${esc(r.action)}</b>
@@ -4580,16 +4580,16 @@ function adminUnban(id){
   const name=u?(u.display_name||u.email):`user #${id}`;
   const why=u&&u.suspended_reason?u.suspended_reason:"no reason on record";
   if(!confirm(`Are you sure you want to lift the ban on "${name}"? They were banned for the following reason: "${why}"`)) return;
-  _modAction(`/admin/users/${id}/unban`, "Ban lifted — account restored", {backTo:"banned"});
+  _modAction(`/admin/users/${id}/unban`, "Ban lifted, account restored", {backTo:"banned"});
 }
 function _ownerStatusSuffix(o){
   // Extra context on who's actually behind a suspended listing/campaign —
   // most useful for the deactivated/deleted/banned cases, where the reason
   // the item is suspended has nothing to do with the item itself.
   if(!o) return "";
-  if(o.status==="deleted") return ` · Owner: ${esc(o.display_name||"Deleted user")} — account deleted${o.last_known_email?" (was "+esc(o.last_known_email)+")":""}`;
-  if(o.status==="deactivated") return ` · Owner: ${esc(o.display_name||o.email||"")} — account deactivated`;
-  if(o.status==="banned") return ` · Owner: ${esc(o.display_name||o.email||"")} — account banned`;
+  if(o.status==="deleted") return ` · Owner: ${esc(o.display_name||"Deleted user")}: account deleted${o.last_known_email?" (was "+esc(o.last_known_email)+")":""}`;
+  if(o.status==="deactivated") return ` · Owner: ${esc(o.display_name||o.email||"")}: account deactivated`;
+  if(o.status==="banned") return ` · Owner: ${esc(o.display_name||o.email||"")}: account banned`;
   return "";
 }
 function restrictedItemRowsHtml(items){
@@ -4647,7 +4647,7 @@ async function openAcpItem(ref){
   await openAdmin("moderation", ref);
   if($("acp-"+ref)) return;
   await openAdmin("banned", ref);
-  if(!$("acp-"+ref)) toast("That item isn't listed — it may have been deleted.");
+  if(!$("acp-"+ref)) toast("That item isn't listed, it may have been deleted.");
 }
 
 // Super-Admin shortcut shown on listing/campaign/profile detail views. Purely
@@ -4672,7 +4672,7 @@ async function openAcpAccount(userId, displayName){
   if($("acp-u"+userId)) return;
   // Neither list has them, which is what a privileged account looks like.
   if(displayName) await openAdmin("admins", displayName);
-  else toast("That account isn't listed under Moderation — try the Admins tab.");
+  else toast("That account isn't listed under Moderation, try the Admins tab.");
 }
 
 function acpLinkHtml(kind, ref){
@@ -4696,7 +4696,7 @@ async function adminSearchUsers(){
   host.innerHTML=rows.map(u=>{
     const isSelf = S.account && u.id===S.account.id;
     let action;
-    if(isSelf) action=`<span class="mut" style="font-size:12.5px">That's you — you can't change your own role.</span>`;
+    if(isSelf) action=`<span class="mut" style="font-size:12.5px">That's you, you can't change your own role.</span>`;
     else if(u.role==="SUPER_ADMIN") action=`<span class="mut" style="font-size:12.5px">Super-Admin</span>`;
     else if(u.role==="ADMIN") action=`<button class="btn btn-ghost btn-sm" onclick="adminSetRole(${u.id},'USER')">Remove admin</button>`;
     else action=`<button class="btn btn-p btn-sm" onclick="adminSetRole(${u.id},'ADMIN')">Promote to Admin</button>`;
@@ -4729,9 +4729,9 @@ async function _modAction(path, okMsg, opts){
   try{ r=await PSApi.post(path, {...c, ...extra}); }catch(e){ toast(e.message||"Action failed"); return; }
   toast(typeof okMsg==="function"?okMsg(r):okMsg, true); loadMarket(); openAdmin(opts.backTo||"moderation");
 }
-const adminSuspendListing   = id => _modAction(`/admin/listings/${id}/suspend`,   "Listing suspended — hidden from the marketplace", {withDuration:true, backTo:"banned"});
+const adminSuspendListing   = id => _modAction(`/admin/listings/${id}/suspend`,   "Listing suspended, hidden from the marketplace", {withDuration:true, backTo:"banned"});
 const adminUnsuspendListing = id => _modAction(`/admin/listings/${id}/unsuspend`, "Listing restored", {backTo:"banned"});
-const adminSuspendCampaign  = id => _modAction(`/admin/campaigns/${id}/suspend`,  "Campaign suspended — hidden from the marketplace", {withDuration:true, backTo:"banned"});
+const adminSuspendCampaign  = id => _modAction(`/admin/campaigns/${id}/suspend`,  "Campaign suspended, hidden from the marketplace", {withDuration:true, backTo:"banned"});
 const adminUnsuspendCampaign= id => _modAction(`/admin/campaigns/${id}/unsuspend`,"Campaign restored", {backTo:"banned"});
 // Always permanent, on the spot — Super-Admin can remove a listing/campaign
 // whatever is attached to it. A quick pre-check warns honestly if a deal is
@@ -4744,7 +4744,7 @@ async function adminRemoveListing(id){
   let status={deals_total:0};
   try{ status=await PSApi.get(`/admin/listings/${id}/deal-status`); }catch(e){}
   if(status.deals_total>0){
-    if(!confirm(`Listing currently in process — ${status.deals_total} deal(s) are attached. Removing the listing will not affect those deals or any money, only the listing itself. Continue?`)) return;
+    if(!confirm(`Listing currently in process: ${status.deals_total} deal(s) are attached. Removing the listing will not affect those deals or any money, only the listing itself. Continue?`)) return;
   }
   _modAction(`/admin/listings/${id}/remove`,
     r => r.deals_detached ? `Listing permanently deleted (${r.deals_detached} deal(s) detached, untouched otherwise)` : "Listing permanently deleted");
@@ -4753,7 +4753,7 @@ async function adminRemoveCampaign(id){
   let status={deals_total:0};
   try{ status=await PSApi.get(`/admin/campaigns/${id}/deal-status`); }catch(e){}
   if(status.deals_total>0){
-    if(!confirm(`Campaign currently in process — ${status.deals_total} deal(s) are attached. Removing the campaign will not affect those deals or any money, only the campaign itself. Continue?`)) return;
+    if(!confirm(`Campaign currently in process: ${status.deals_total} deal(s) are attached. Removing the campaign will not affect those deals or any money, only the campaign itself. Continue?`)) return;
   }
   _modAction(`/admin/campaigns/${id}/remove`,
     r => r.deals_detached ? `Campaign permanently deleted (${r.deals_detached} deal(s) detached, untouched otherwise)` : "Campaign permanently deleted");
@@ -4771,7 +4771,7 @@ async function adminSuspend(userId){
   const c=adminCreds(); if(!c) return;
   try{ await PSApi.post(`/admin/users/${userId}/suspend`, {...c, ...d}); }
   catch(e){ toast(e.message||"Could not suspend"); return; }
-  toast("Account suspended — sessions revoked",true); openAdmin("banned");
+  toast("Account suspended, sessions revoked",true); openAdmin("banned");
 }
 async function adminUnsuspend(userId){
   const c=adminCreds(); if(!c) return;
@@ -4787,7 +4787,7 @@ async function adminBan(userId){
   const c=adminCreds(); if(!c) return;
   try{ await PSApi.post(`/admin/users/${userId}/ban`, c); }
   catch(e){ toast(e.message||"Could not ban"); return; }
-  toast("Account banned — sessions revoked",true); openAdmin("banned");
+  toast("Account banned, sessions revoked",true); openAdmin("banned");
 }
 // Unlike Ban, this actually frees the email address — anonymize_user()
 // overwrites it with a placeholder, so the real address is no longer
@@ -4795,11 +4795,11 @@ async function adminBan(userId){
 // there is no "undelete" the way unban/unsuspend exist, since the personal
 // data itself is gone, not just flagged.
 async function adminDeleteUser(userId){
-  if(!confirm("Permanently wipe this account's personal data? This cannot be undone — unlike a ban, there is no way to restore it afterwards. The email address will be freed up and can be used to sign up again.")) return;
+  if(!confirm("Permanently wipe this account's personal data? This cannot be undone. Unlike a ban, there is no way to restore it afterwards. The email address will be freed up and can be used to sign up again.")) return;
   const c=adminCreds(); if(!c) return;
   try{ await PSApi.post(`/admin/users/${userId}/delete`, c); }
   catch(e){ toast(e.message||"Could not delete"); return; }
-  toast("Account deleted — email can be reused",true); openAdmin("banned");
+  toast("Account deleted, email can be reused",true); openAdmin("banned");
 }
 function scrollToPanel(id){
   const el=$(id); if(!el) return;
@@ -4836,7 +4836,7 @@ async function openPayouts(){
     <div class="deal-top"><button class="btn btn-ghost" onclick="openReviewQueue()">← Review queue</button><h2>Awaiting Payouts</h2>
       <button class="btn btn-o btn-sm" onclick="openCompleted()">🗂️ Completed Deals →</button>
       <span class="status-pill st-escrow">${q.length} to pay</span></div>
-    <p class="deal-sub" style="padding:0 2px 6px">Verified deals waiting for a payout. They stay here until you release the funds (or refund) — nothing is lost after verification.</p>
+    <p class="deal-sub" style="padding:0 2px 6px">Verified deals waiting for a payout. They stay here until you release the funds (or refund). Nothing is lost after verification.</p>
     <div class="panel"><div class="panel-b">${q.length?q.map(item=>`
       <div class="deal-row" onclick="showView('view-deal');renderRealDeal(${item.deal_id})">
         <div class="pfp" style="background:var(--acc)">${item.deal_id}</div>
@@ -4922,7 +4922,7 @@ function authModal(mode){
     <div class="auth-form-side">
       <div class="m-pad">
         <h3 class="m-title">${isSignup?"Create your PromoSlot account":"Log in"}</h3>
-        <p class="m-sub">${isSignup?"One account — choose one or both roles.":"Welcome back."}</p>
+        <p class="m-sub">${isSignup?"One account: choose one or both roles.":"Welcome back."}</p>
         <div class="frm">
           ${isSignup?`<div id="au-name-wrap"><label id="au-name-lbl">Display name</label><input type="text" id="au-name" placeholder="Robert Media"></div>
           <div id="au-name2-wrap" class="hide"><label>Platform-owner name</label><input type="text" id="au-name2" placeholder="RobertLifts"></div>`:""}
@@ -5033,7 +5033,7 @@ async function doLogin(){
 function checkYourEmailModal(email){
   openModal(`<div class="m-pad"><h3 class="m-title">Check your email</h3>
     <p class="m-sub">We've sent a link to <b>${esc(email||"your inbox")}</b>. Click it to confirm
-       your address — you'll be signed in straight away. The link works once and expires in 24 hours.</p>
+       your address, you'll be signed in straight away. The link works once and expires in 24 hours.</p>
     <p class="mut" style="font-size:12.5px">Not arrived? Check spam, or send it again below.</p>
     <div class="hint-err hide" id="vr-err"></div>
     <div class="m-actions">
@@ -5077,13 +5077,13 @@ async function verifyEmailFromLink(token){
   S.account=acct;
   await loadPerms(); await loadMine(); await loadNotifications();
   closeModal(); authReflect();
-  toast("Email verified — you're signed in ✓",true);
+  toast("Email verified, you're signed in ✓",true);
   _resumeAfterAuth();   // homepage, same as a normal login
 }
 
 function forgotPasswordModal(prefill){
   openModal(`<div class="m-pad"><h3 class="m-title">Reset your password</h3>
-    <p class="m-sub">Enter the email on your account. We'll send a secure link to set a new password — it expires in 1 hour.</p>
+    <p class="m-sub">Enter the email on your account. We'll send a secure link to set a new password, it expires in 1 hour.</p>
     <div class="frm">
       <div><label>Email</label><input type="text" id="fp-email" value="${esc(prefill||"")}" onkeydown="if(event.key==='Enter')sendReset()"></div>
       <div class="hint-err hide" id="fp-err"></div>
@@ -5122,7 +5122,7 @@ async function doResetPassword(token){
   try{ await PSApi.post("/auth/reset-password",{token,new_password:nw}); }
   catch(e){ fail(e.message||"That reset link is invalid or has expired."); return; }
   S._loginFails=0;
-  closeModal(); toast("Password updated — please log in",true);
+  closeModal(); toast("Password updated, please log in",true);
   history.replaceState({}, "", location.pathname);
   authModal("login");
 }
@@ -5170,7 +5170,7 @@ function supportFormHtml(){
 function openEditDisplayName(){
   const cur=(S.account&&S.account.display_name)||"";
   openModal(`<div class="m-pad"><h3 class="m-title">Change your display name</h3>
-    <p class="m-sub">Shown across PromoSlot — on your profile, listings, and to the other party in a deal.</p>
+    <p class="m-sub">Shown across PromoSlot: on your profile, listings, and to the other party in a deal.</p>
     <div class="frm"><label>Display name</label>
       <input type="text" id="dn-name" value="${esc(cur)}" placeholder="e.g. Meadow & Moss" onkeydown="if(event.key==='Enter')saveDisplayName()"></div>
     <div class="hint-err hide" id="dn-err"></div>
@@ -5192,7 +5192,7 @@ async function saveDisplayName(){
 function openEditPhone(){
   const cur=(S.account&&S.account.phone)||"";
   openModal(`<div class="m-pad"><h3 class="m-title">Emergency contact phone</h3>
-    <p class="m-sub">Optional and private — never shown on your public profile or to the other party in a deal. Only used in the rare case PromoSlot needs to reach you urgently, e.g. a time-limited window to add delivery proof before a deal is finalized.</p>
+    <p class="m-sub">Optional and private, never shown on your public profile or to the other party in a deal. Only used in the rare case PromoSlot needs to reach you urgently, e.g. a time-limited window to add delivery proof before a deal is finalized.</p>
     <div class="frm"><label>Phone number</label>
       <input type="tel" id="ph-num" value="${esc(cur)}" placeholder="e.g. +44 7700 900123" onkeydown="if(event.key==='Enter')savePhone()"></div>
     <div class="hint-err hide" id="ph-err"></div>
@@ -5295,7 +5295,7 @@ function openAccount(){
                 </div>
                 <p class="acct2-email">${esc(a.email)}<span class="acct2-email-tag">Sign-in email</span></p>
                 <div class="acct2-name-row" style="margin-top:2px">
-                  <p class="acct2-email" style="margin:0">${a.phone?esc(a.phone):"No phone on file"}<span class="acct2-email-tag">Private — emergency contact only</span></p>
+                  <p class="acct2-email" style="margin:0">${a.phone?esc(a.phone):"No phone on file"}<span class="acct2-email-tag">Private: emergency contact only</span></p>
                   <button type="button" class="acct2-name-edit" onclick="openEditPhone()">${a.phone?"Edit":"Add"}</button>
                 </div>
                 <div class="acct2-tags">
@@ -5315,7 +5315,7 @@ function openAccount(){
       <section class="acct2-zone">
         <div class="acct2-zone-head">
           <div>
-            <div class="acct2-zone-kicker">01 — Your public presence</div>
+            <div class="acct2-zone-kicker">01: Your public presence</div>
             <h2 class="acct2-zone-title">What businesses see <em>before</em> they message you.</h2>
           </div>
           <p class="acct2-zone-sub">Your listings, your intro video and your bio all appear on your public profile. This is the part of the account worth spending time on.</p>
@@ -5353,7 +5353,7 @@ function openAccount(){
           <div class="acct2-card" id="whoPanel"></div>
           <div class="acct2-card">
             <h3>Intro video</h3>
-            <p>A short hello on your public profile — separate from your My Work portfolio.</p>
+            <p>A short hello on your public profile, separate from your My Work portfolio.</p>
             <div class="acct2-video-slot">
               ${a.intro_video_url
                 ? `<video controls preload="metadata" src="${a.intro_video_url}"></video>`
@@ -5369,7 +5369,7 @@ function openAccount(){
       </section>
 
       <section class="acct2-zone">
-        <div class="acct2-zone-kicker muted">02 — Access &amp; security</div>
+        <div class="acct2-zone-kicker muted">02: Access &amp; security</div>
         <h2 class="acct2-zone-title" style="margin-top:14px">Who can get into this account, and under which profile.</h2>
         <div class="acct2-secondary" style="margin-top:22px">
           <div class="acct2-mini">
@@ -5403,7 +5403,7 @@ function openAccount(){
             <div class="acct2-mini-row">
               ${!isBiz?`<button type="button" class="acct2-add-profile" onclick="switchRole('biz')">＋ Set up a business profile</button>`:""}
               ${!isPlat?`<button type="button" class="acct2-add-profile" onclick="switchRole('plat')">＋ Set up a platform-owner profile</button>`:""}
-              ${isBiz&&isPlat?`<p class="mut" style="font-size:12.5px">Both roles are already on this one account (set up before this feature shipped) — nothing to add.</p>`:""}
+              ${isBiz&&isPlat?`<p class="mut" style="font-size:12.5px">Both roles are already on this one account (set up before this feature shipped), nothing to add.</p>`:""}
             </div>`}
           </div>
 
@@ -5421,7 +5421,7 @@ function openAccount(){
       </section>
 
       <section class="acct2-zone acct2-utility">
-        <div class="acct2-zone-kicker muted">03 — Help &amp; internal</div>
+        <div class="acct2-zone-kicker muted">03: Help &amp; internal</div>
         <div class="acct2-utility-body">
           <div>
             <h3 class="acct2-utility-title">Something not right? Talk to a person.</h3>
@@ -5433,18 +5433,18 @@ function openAccount(){
       </section>
 
       <section class="acct2-zone">
-        <div class="acct2-zone-kicker muted">04 — Danger zone</div>
+        <div class="acct2-zone-kicker muted">04: Danger zone</div>
         <h2 class="acct2-zone-title" style="margin-top:14px">Deactivate or delete your account.</h2>
 
         <div class="acct2-mini" style="max-width:520px;margin-top:22px">
           <div style="font-size:14px;font-weight:600;margin-bottom:8px">Deactivate my account</div>
           <p style="font-size:13px;color:var(--mut);margin-bottom:14px">
-            Hides your profile and pauses your listings or campaigns — nobody can find or contact you on
+            Hides your profile and pauses your listings or campaigns. Nobody can find or contact you on
             PromoSlot while deactivated. Signs you out everywhere, but nothing is deleted: log back in with
             your usual email and password any time to pick up exactly where you left off.${a.linked_account?`
             Since your business and platform-owner profiles share this one login, <b>both are paused
             together</b>.`:""} Deals that are funded or in progress aren't cancelled by this, but you
-            won't be able to act on them — approve, message, or submit delivery proof — until you log
+            won't be able to act on them (approve, message, or submit delivery proof) until you log
             back in. Worth wrapping up or checking in on anything active first.
           </p>
           <button class="btn btn-ghost btn-sm" onclick="deactivateAccountModal()">Deactivate my account</button>
@@ -5453,11 +5453,11 @@ function openAccount(){
         <div class="acct2-mini" style="max-width:520px;margin-top:16px;border-color:var(--red-border)">
           <div style="font-size:14px;font-weight:600;margin-bottom:8px">Delete my account</div>
           <p style="font-size:13px;color:var(--mut);margin-bottom:14px">
-            This permanently removes your profile — name, bio, photo, intro video — and signs you out
+            This permanently removes your profile (name, bio, photo, intro video) and signs you out
             everywhere. It cannot be undone.${a.linked_account?` Since your business and platform-owner
             profiles share this one login, <b>both are deleted together</b>.`:""}
             Deals, reviews and messages you're already part of stay on record for the other party and for
-            accounting/dispute purposes, just no longer linked to your name — and a deal that's currently
+            accounting/dispute purposes, just no longer linked to your name, and a deal that's currently
             funded isn't cancelled by this; payment still completes normally, including your payout if
             you're the one receiving it. Once deleted, this email address is free again if you ever want
             to sign up fresh.
@@ -5536,7 +5536,7 @@ async function doDeactivateAccount(){
   });
   S.convos=[]; S.activeThread=null; S.realDeals=[]; S.realNotifs=[]; S._who=null;
   authReflect(); goHome();
-  toast("Your account is deactivated — log back in any time to reactivate it",true);
+  toast("Your account is deactivated, log back in any time to reactivate it",true);
 }
 function deleteAccountModal(){
   openModal(`<div class="m-pad" style="max-width:440px">
@@ -5657,7 +5657,7 @@ function collectWhoLinks(prefix){
 function whoEditorHtml(prefix,p){
   const links=(p.links&&p.links.length)?p.links:[{label:"",url:""}];
   return `<div><label>About you / your business</label><textarea id="${prefix}-about" placeholder="Who you are, what you do, what you're looking for…">${esc(p.about_text||"")}</textarea></div>
-    <div><label>Links (social media, website — no limit)</label>
+    <div><label>Links (social media, website, no limit)</label>
       <div id="${prefix}-rows">${links.map((l,i)=>linkRowHtml(i,l,prefix)).join("")}</div>
       <div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="addLinkRow('${prefix}')">＋ add another link</button></div></div>
     <div><label>Files &amp; images</label>
@@ -5688,8 +5688,8 @@ function renderWhoWeArePreserving(){
   updateAcctTrack();
 }
 function paintWho(host,p){
-  host.innerHTML=`<h5 style="margin-bottom:6px">Who we are — public profile</h5>
-    <p class="mut" style="font-size:12.5px;margin-bottom:10px">Shown to anyone viewing your profile from a campaign or listing. Add as much as you like — all optional, and editable here or during campaign setup (it's the same profile).</p>
+  host.innerHTML=`<h5 style="margin-bottom:6px">Who we are: public profile</h5>
+    <p class="mut" style="font-size:12.5px;margin-bottom:10px">Shown to anyone viewing your profile from a campaign or listing. Add as much as you like, all optional, and editable here or during campaign setup (it's the same profile).</p>
     <div class="frm">${whoEditorHtml("who",p)}<div class="hint-err hide" id="who-err"></div></div>
     <div style="margin-top:12px"><button class="btn btn-p btn-sm" onclick="saveWhoWeAre()">Save profile</button></div>`;
 }
@@ -5754,7 +5754,7 @@ async function submitSupport(){
   if(err) err.classList.add("hide");
   if(!name||!subject||!body){ fail("Name, subject and message are required."); return; }
   try{ await PSApi.post("/support",{name,email:email||null,mobile:mobile||null,subject,body}); }
-  catch(e){ fail(e.message||"Could not submit — please try again."); return; }
+  catch(e){ fail(e.message||"Could not submit, please try again."); return; }
   const panel=$("supportPanel");
   if(panel) panel.innerHTML=`<h5 style="margin-bottom:6px">Contact Support</h5>
     <p class="review-thanks">– Thank you for submitting your form, our team will be in contact with you shortly</p>`;
@@ -6108,7 +6108,7 @@ const DJ_STAGES=[
    biz:"Follow the agreed delivery without relying on informal promises.",
    own:"Complete the promotion against the accepted terms and deadline."},
   {title:"Submit evidence", status:"Evidence submitted for PromoSlot approval", next:"Next: Complete the deal",
-   biz:"Review the submitted links and analytics — PromoSlot approves the evidence against the funded agreement.",
+   biz:"Review the submitted links and analytics. PromoSlot approves the evidence against the funded agreement.",
    own:"Submit the proof required by the agreement; PromoSlot approves it before payment is released."},
   {title:"Approve and release payment", status:"Deal completed", next:"",
    biz:"Approve delivery once PromoSlot has approved the submitted evidence.",
@@ -6209,7 +6209,7 @@ function djStagePanel(i){
           <div class="dj-ev-received">&#10003; Received</div>
         </div>
       </div>
-      <p class="dj-ev-note">Submitted 6 September, 14:02 — PromoSlot checks this evidence against the funded agreement and approves it before payment is released.</p>
+      <p class="dj-ev-note">Submitted 6 September, 14:02. PromoSlot checks this evidence against the funded agreement and approves it before payment is released.</p>
     </div>`;
   return `
     <div class="dj-anim dj-final">
@@ -6327,8 +6327,8 @@ function psRender(syncInputValue){
   const help=document.getElementById("psAmountHelp");
   let helpText="Type any amount between £10 and £100,000.", isErr=false;
   if(psState.raw.trim()===""||n===null){ helpText="Enter a deal value to see your numbers."; isErr=true; }
-  else if(n<PS_MIN){ helpText="Minimum deal value is £10 — showing the £500 example."; isErr=true; }
-  else if(n>PS_MAX){ helpText="Maximum deal value is £100,000 — showing the £500 example."; isErr=true; }
+  else if(n<PS_MIN){ helpText="Minimum deal value is £10, showing the £500 example."; isErr=true; }
+  else if(n>PS_MAX){ helpText="Maximum deal value is £100,000, showing the £500 example."; isErr=true; }
   help.textContent=helpText;
   help.classList.toggle("err",isErr);
 
@@ -6414,15 +6414,15 @@ const RES_PB_ORDER=["TikTok","Instagram","Discord","Newsletter","YouTube","Lives
 const RES_PLAYBOOKS={
   TikTok:{
     formats:["A dedicated video built around your product","A segment inside a video on the creator's own topic","A Live mention or on-stream demo","Participation in a sound or format you are running","Link-in-bio placement for a campaign window"],
-    ask:["Dedicated video or a segment — and if a segment, roughly where it falls","Where the product appears in the first few seconds","How long the video stays up","Whether you get the file to reuse in paid ads, and for how long","Which countries most of the views come from"],
+    ask:["Dedicated video or a segment, and if a segment, roughly where it falls","Where the product appears in the first few seconds","How long the video stays up","Whether you get the file to reuse in paid ads, and for how long","Which countries most of the views come from"],
     ex:["A skincare brand buys one dedicated 30-second routine video plus 14 days of link-in-bio placement.","A B2B tool buys a 15-second segment inside a 'day in the job' video, and licences the clip for six months of paid ads."]},
   Instagram:{
     formats:["Sponsored in-feed post or carousel","Reel","A sequence of story frames with a link sticker","Collab post, co-authored so it appears on both accounts","Product tagging on existing content"],
-    ask:["Collab post or single-author — the reach is very different","How many story frames, and whether they are saved to a highlight","Whether the link sticker is included","Whether the feed post stays up permanently or is removed after the window","Who supplies the images, and at what crop"],
+    ask:["Collab post or single-author: the reach is very different","How many story frames, and whether they are saved to a highlight","Whether the link sticker is included","Whether the feed post stays up permanently or is removed after the window","Who supplies the images, and at what crop"],
     ex:["A coffee roaster buys three story frames with a link sticker plus one collab Reel.","A gymwear brand buys a carousel where the first slide is theirs and the rest is the creator's own styling."]},
   Discord:{
     formats:["Announcement post in the server's announcements channel","Pinned message in a topical channel","A dedicated channel or category for your product","Role or emoji giveaway","AMA or voice event","Sponsorship of a recurring server event"],
-    ask:["Which channels, and how many members can actually see them","Whether an @everyone or @here ping is included — it changes reach more than anything else here","How long a pin stays before it is rotated out","Whether the mod team answers questions on your behalf or routes them to you","A screenshot of the pin plus the ping timestamp as evidence"],
+    ask:["Which channels, and how many members can actually see them","Whether an @everyone or @here ping is included, it changes reach more than anything else here","How long a pin stays before it is rotated out","Whether the mod team answers questions on your behalf or routes them to you","A screenshot of the pin plus the ping timestamp as evidence"],
     ex:["An indie studio buys an announcement with @here plus a pinned playtest signup held for 14 days.","A developer-tools company sponsors a 45-minute voice AMA with a pinned written recap afterwards."]},
   Newsletter:{
     formats:["Dedicated send, your message only","Primary sponsor slot in a regular issue","Short classified or text ad","A sponsored section inside an editorial piece","Footer or 'what I'm using' placement"],
@@ -6435,15 +6435,15 @@ const RES_PLAYBOOKS={
   Livestream:{
     sub:"Twitch, Kick & more",
     formats:["A sponsored segment inside a stream","A full sponsored session, start to finish","Overlay or panel placement for a fixed period","A live, on-air product demo or unboxing","A chat command, bot integration or on-stream giveaway","Clip and VOD retention rights after the stream ends"],
-    ask:["Whether the audience actually lives on Twitch, Kick, YouTube Live or elsewhere — each platform pulls a genuinely different crowd","Whether the stream is simulcast across platforms at once, which can multiply your reach from a single session","Which stream slots, by day and hour — the audience at 15:00 is not the audience at 21:00","How long the overlay, panel or chat command stays live","Whether VODs or clips stay available afterwards, and for how long","Average concurrent and peak viewers for that specific slot, not lifetime follower count"],
+    ask:["Whether the audience actually lives on Twitch, Kick, YouTube Live or elsewhere: each platform pulls a genuinely different crowd","Whether the stream is simulcast across platforms at once, which can multiply your reach from a single session","Which stream slots, by day and hour: the audience at 15:00 is not the audience at 21:00","How long the overlay, panel or chat command stays live","Whether VODs or clips stay available afterwards, and for how long","Average concurrent and peak viewers for that specific slot, not lifetime follower count"],
     ex:["A drinks brand sponsors four streams in a month across Twitch and Kick, with an overlay logo, a chat command and one on-stream taste test the chat reacts to live.","A gaming peripheral brand supplies a keyboard for a two-hour first-playthrough stream and watches chat light up the moment it's unboxed, with the VOD kept live for 60 days.","A software company sponsors a coding stream's entire session, live-demoing the product and fielding viewer questions on air in real time."]},
   Reddit:{
     formats:["A sponsored post where the subreddit's rules allow it","An AMA","A mod-approved announcement or sticky","Inclusion in a sidebar or wiki resources list","Sponsorship of a community event or contest"],
-    ask:["Whether the moderators have approved it in writing — on Reddit this is the whole risk","How long a sticky holds","The exact disclosure wording","Whether comments stay open, and who replies","What happens if the post is removed after publication"],
+    ask:["Whether the moderators have approved it in writing, on Reddit this is the whole risk","How long a sticky holds","The exact disclosure wording","Whether comments stay open, and who replies","What happens if the post is removed after publication"],
     ex:["A hardware startup runs a founder AMA in a niche subreddit, stickied for 24 hours.","A price-tracking tool is added to a subreddit's sidebar resources list for a quarter."]},
   Quora:{
     formats:["A sponsored answer from a writer with standing in the topic","A post inside a Space","A pinned Space announcement","A long-form Quora blog post"],
-    ask:["Which specific questions the answer targets, and whether those questions already get traffic","How the sponsorship is disclosed","Whether the answer stays up indefinitely — search longevity is most of the value","Whether it can be edited later if your product changes"],
+    ask:["Which specific questions the answer targets, and whether those questions already get traffic","How the sponsorship is disclosed","Whether the answer stays up indefinitely: search longevity is most of the value","Whether it can be edited later if your product changes"],
     ex:["An accounting tool sponsors an answer on a tax-registration question that already ranks in search.","A training provider sponsors a pinned post in a careers Space for a month."]},
   X:{
     formats:["A single sponsored post","A thread using your product as the worked example","A quote-post amplifying your own announcement","Pinned post for a period","An appearance in an audio Space"],
@@ -6451,11 +6451,11 @@ const RES_PLAYBOOKS={
     ex:["A launch announcement quote-posted by three accounts in the same niche within the same hour.","A developer tool sponsors a technical thread where the product solves the problem at step four."]},
   LinkedIn:{
     formats:["A sponsored post from a personal profile","A company-page post","One edition of their newsletter","A document or carousel post","A named appearance at a live event"],
-    ask:["Personal profile or company page — the reach is not comparable","How the disclosure is worded for a professional audience","Whether they reply in comments for the first day","Who supplies the document, and in which format","Whether the post will be boosted with paid spend, and who pays for it"],
+    ask:["Personal profile or company page: the reach is not comparable","How the disclosure is worded for a professional audience","Whether they reply in comments for the first day","Who supplies the document, and in which format","Whether the post will be boosted with paid spend, and who pays for it"],
     ex:["An HR platform sponsors a personal-profile post about redesigning a hiring process, with the product named as the tool used.","A recruitment firm sponsors one edition of a niche industry newsletter."]},
   Pinterest:{
     formats:["Standard pins","A multi-page idea pin","A dedicated board or board section","Pins added to an established board","A seasonal collection"],
-    ask:["Which board — you are usually buying that board's own traffic, not the account's","Whether the pins stay live indefinitely","Who supplies the imagery, and at what aspect ratio","Whether the destination domain is claimed and verified"],
+    ask:["Which board: you are usually buying that board's own traffic, not the account's","Whether the pins stay live indefinitely","Who supplies the imagery, and at what aspect ratio","Whether the destination domain is claimed and verified"],
     ex:["An interiors retailer buys five pins added to an established small-kitchens board for twelve months.","A stationer buys one idea pin plus a dedicated section for a wedding range."]},
   "Blog/Website":{
     formats:["A sponsored article","Inclusion in an existing comparison or roundup","Banner or sidebar placement for a period","A resource-page listing","A review or teardown","A post plus newsletter bundle"],
@@ -6463,7 +6463,7 @@ const RES_PLAYBOOKS={
     ex:["A payments provider buys a place in an existing invoicing-tools comparison for twelve months.","A B2B brand commissions a sponsored teardown on a niche industry blog."]},
   Podcast:{
     formats:["Host-read pre-roll, mid-roll or post-roll","A dedicated segment or full interview","Series sponsorship across several episodes","Show-notes placement","A social clip promoting the episode"],
-    ask:["Which slot, and how long the read is","Whether the ad is baked in permanently or dynamically inserted — dynamic ads can be removed later","Downloads per episode over the first 30 days","Where the show-notes link sits","A vanity URL or code, since podcast attribution is otherwise guesswork"],
+    ask:["Which slot, and how long the read is","Whether the ad is baked in permanently or dynamically inserted, dynamic ads can be removed later","Downloads per episode over the first 30 days","Where the show-notes link sits","A vanity URL or code, since podcast attribution is otherwise guesswork"],
     ex:["A meal-kit brand buys mid-roll reads across six consecutive episodes with a vanity URL.","A recruiter sponsors one interview episode featuring a guest from their own team."]},
   Facebook:{
     formats:["A page post","A Group post or pinned announcement, with admin approval","Event sponsorship","Reels","Local community placement"],
@@ -6477,7 +6477,7 @@ function resPlaybookHtml(p){
     <summary><span class="res-plat-sum"><span class="res-plat-ico" style="background:${m.color}14;color:${m.color}">${m.ico}</span>${esc(p)}${d.sub?`<span class="res-plat-sub">${esc(d.sub)}</span>`:""}</span></summary>
     <div class="res-plat-body">
       <div class="two-list">
-        <div><h4>Formats you can buy</h4><ul class="list-yes">${d.formats.map(x=>`<li>${esc(x)}<button type="button" class="res-vis" data-p="${esc(p)}" data-f="${esc(x)}" aria-haspopup="dialog" aria-label="See a visual example: ${esc(p)} — ${esc(x)}">Visual</button></li>`).join("")}</ul></div>
+        <div><h4>Formats you can buy</h4><ul class="list-yes">${d.formats.map(x=>`<li>${esc(x)}<button type="button" class="res-vis" data-p="${esc(p)}" data-f="${esc(x)}" aria-haspopup="dialog" aria-label="See a visual example: ${esc(p)}, ${esc(x)}">Visual</button></li>`).join("")}</ul></div>
         <div><h4>Pin down before you fund</h4><ul class="list-ask">${d.ask.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
       </div>
     </div>
@@ -6625,9 +6625,9 @@ function resVisPaint(){
     const img=RES_VIS_MEDIA[p+"|"+f];
     fr.classList.toggle("has-img", !!img);
     fr.innerHTML=img
-      ? `<img src="${esc(img)}" alt="${esc(p)} — ${esc(f)} — example">`
+      ? `<img src="${esc(img)}" alt="${esc(p)}, ${esc(f)}, example">`
       : `<span class="vw-frame-ico" style="color:${m?m.color:"var(--acc)"}">${m?m.ico:""}</span>
-      <span class="vw-frame-lbl">Placeholder<br>${esc(p)} — ${esc(f)}<br>image or video goes here</span>`;
+      <span class="vw-frame-lbl">Placeholder<br>${esc(p)}, ${esc(f)}<br>image or video goes here</span>`;
   }
   // Keep the page underneath in step with the viewer.
   let n=b.parentElement;
@@ -6698,19 +6698,19 @@ const RES_MODELS={
     best:"Short-form video, where the same account can do modest numbers one week and very large numbers the next, and neither side can honestly predict which.",
     watch:"Name the counter and the measurement window before you fund. A platform's creator dashboard, its public counter and a third-party tool rarely agree, and that gap is the most common cause of a dispute."},
   "per-imp":{what:"A rate per thousand impressions, against the impressions the placement is expected to deliver.",
-    best:"Placement inventory — newsletter slots, banners, story frames — where the audience is served the placement rather than choosing to watch it.",
+    best:"Placement inventory: newsletter slots, banners, story frames, where the audience is served the placement rather than choosing to watch it.",
     watch:"Impressions are neither views nor clicks. Agree which screen the figure is read from, and remember that an impression count says nothing about whether anyone read it."},
   time:{what:"A price per day, week or month for a placement that stays live for a set duration.",
     best:"Positions you rent rather than content you commission: pinned messages, stream overlays, sidebar and resource-page links, board placements.",
     watch:"A period is only verifiable if it is checked at both ends. Ask for dated evidence at the start and at the end of the window, not just a screenshot on day one."},
   affiliate:{what:"A percentage per sale, with a cookie window and an optional minimum payout.",
     best:"A product with a working checkout, tracking you already trust, and an audience close enough to buying that a recommendation converts on its own.",
-    watch:"It can pay nothing through nobody's fault, so experienced partners often decline it on its own. Only the minimum payout is held up front — with no minimum, nothing is escrowed."},
+    watch:"It can pay nothing through nobody's fault, so experienced partners often decline it on its own. Only the minimum payout is held up front. With no minimum, nothing is escrowed."},
   hybrid:{what:"A guaranteed amount held up front, plus agreed performance terms on top of it.",
     best:"A first campaign together, or any deal where you and the partner genuinely disagree about the likely result and both have a defensible case.",
-    watch:"Write the performance half as a formula with one named source and one window — five pounds per thousand views on the post's own analytics, counted 30 days after publication — never as an adjective like strong performance."},
+    watch:"Write the performance half as a formula with one named source and one window: five pounds per thousand views on the post's own analytics, counted 30 days after publication. Never as an adjective like strong performance."},
   custom:{what:"Anything the six above do not describe: staged retainers, product plus fee, revenue splits, barter.",
-    best:"Genuinely unusual deals. If a standard model nearly fits, use the standard model — it is easier for both sides and for a reviewer to check.",
+    best:"Genuinely unusual deals. If a standard model nearly fits, use the standard model: it is easier for both sides and for a reviewer to check.",
     watch:"There are no defaults to fall back on, and only the amount stated up front is held. Spell out how each part is calculated, when it falls due, and what evidence settles it."}
 };
 const RES_SCENARIOS=[
