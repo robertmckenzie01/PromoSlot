@@ -2327,6 +2327,8 @@ async function renderRealDeal(dealId){
   const disputeOpen = !!d.payment_dispute_open;
   let proofs=[];
   if(d.funded && (meBiz||meOwner||isReviewer)){ try{ proofs=await PSApi.get("/deals/"+dealId+"/proofs"); }catch(e){} }
+  let checklist=[];
+  if(d.funded && (meBiz||meOwner||isReviewer)){ try{ checklist=(await PSApi.get("/deals/"+dealId+"/delivery-checklist")).items; }catch(e){} }
   let myReview=null;
   if(d.paid && (meBiz||meOwner)){
     try{ const revs=await PSApi.get("/deals/"+dealId+"/reviews");
@@ -2390,6 +2392,13 @@ async function renderRealDeal(dealId){
       <div class="proof-item got"><span class="pi-ico">🔒</span>Payment Protection funded<span class="ok">✓</span></div>
       <div class="proof-item ${d.verified?"got":""}"><span class="pi-ico">🔎</span>Delivery verified by a reviewer<span class="ok">${d.verified?"✓":"pending"}</span></div>
       <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.instant_paid?d.instant_net_amount:d.net_to_owner)+(d.instant_paid?" (instant)":""):"pending"}</span></div></div>
+    ${!d.verified && checklist.length ? `<div class="det-sec"><h5>Delivery Checklist</h5>
+      <p class="mut" style="font-size:12.5px;margin:0 0 8px">${meOwner
+        ? "What to submit as proof. Ticking these is just for your own reference — it doesn't submit anything, and PromoSlot always verifies delivery independently regardless of what's checked."
+        : "What we ask the platform owner to submit as proof of delivery for this deal."}</p>
+      ${checklist.map(it=>`<label class="proof-item" style="cursor:${meOwner?"pointer":"default"}" onchange="this.classList.toggle('got',this.querySelector('input').checked)">
+        <input type="checkbox" style="width:16px;height:16px;accent-color:var(--acc);flex-shrink:0" ${meOwner?"":"disabled"}>
+        <span>${esc(it.label)}</span></label>`).join("")}</div>` : ""}
     <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
       ${meOwner && proofs.length ? (d.paid
         ? (d.instant_paid
