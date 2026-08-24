@@ -3056,7 +3056,10 @@ function collectCampaignPayments(){
 
 const GIVEAWAY_PM="Giveaway prize";
 const BIZ_INTENTS=[["📦","Looking to market a product","Get your product in front of the right audiences"],["🤝","Looking to offer affiliate partnerships","Pay commission on verified sales"],["🎁","Wanting to run a giveaway","Grow awareness with hosted giveaways"],["🌟","Looking for long-term brand ambassadors","Monthly retainers with creators you trust"],["🎬","Wanting UGC content","Videos for your own ads — not posted to creator pages"],["🧪","Testing a new market","Small campaigns to validate a niche or country"]];
-const PLAT_INTENTS=[["🎵","I want to monetize my TikTok","Turn views into deal flow"],["🗂","I have multiple platforms to list","Each platform gets its own listing, audience & prices"],["💼","I'm looking for brand deals","Sponsored posts, integrations, reviews"],["🔗","I want to offer affiliate promotions","Earn commission on verified sales"],["📮","I run a community/newsletter","Discord, Substack, forums — communities monetise too"]];
+// First card was hardcoded to "TikTok" regardless of which of the 18
+// platform types the person actually has — generalized so it reads
+// correctly for a newsletter, podcast, Discord server, etc. too.
+const PLAT_INTENTS=[["🎵","I want to monetize my platform","Turn views into deal flow"],["🗂","I have multiple platforms to list","Each platform gets its own listing, audience & prices"],["💼","I'm looking for brand deals","Sponsored posts, integrations, reviews"],["🔗","I want to offer affiliate promotions","Earn commission on verified sales"],["📮","I run a community/newsletter","Discord, Substack, forums — communities monetise too"]];
 
 function defW(){
   return {
@@ -3081,7 +3084,11 @@ function startWizard(kind){
   renderWiz("fwd");
 }
 function openRegisterPlatform(){
-  W={kind:"plat",d:defW(),i:0,steps:["p-reg","p-aud","p-serv","p-review"],again:true}; lastPct=0;
+  // "again" drives the p-reg step's title ("Register another platform" vs
+  // "Register your first platform") — this used to be hardcoded true, so a
+  // platform owner with zero listings was told to register "another" one
+  // before ever registering a first.
+  W={kind:"plat",d:defW(),i:0,steps:["p-reg","p-aud","p-serv","p-review"],again:S.myPlatforms.length>0}; lastPct=0;
   const n=S.myPlatforms.length;
   if(n===1){ W.d.pType="Discord"; W.d.pName="RM Fit Hub"; W.d.pDesc="46k-member training community — check-ins, form reviews and a very active deals channel."; W.d.aud="46200"; W.d.views="18300"; W.d.imps="61000"; W.d.er="12.1"; W.d.pServices=new Set(["Community announcement","Pinned community post","Brand AMA"]); }
   if(n>=2){ W.d.pType="Newsletter"; W.d.pName="LiftLog Weekly"; W.d.pDesc="Weekly training newsletter for lifters who want evidence over hype. Sent Sundays, 48% open rate."; W.d.aud="32500"; W.d.views="15600"; W.d.imps="15600"; W.d.er="48"; W.d.pServices=new Set(["Newsletter advertisement","Sponsored blog post","Affiliate promotion"]); }
@@ -3292,7 +3299,7 @@ function renderWiz(dir){
   const animCls = dir==="back"?"from-left":dir==="fwd"?"from-right":"";
   openModal(`<div class="m-pad">
     <div class="wiz-prog"><span>Step ${W.i+1} of ${W.steps.length}</span><div class="bar"><i id="wizBar" style="width:${lastPct}%"></i></div>
-      <button class="btn-ghost wiz-exit" onclick="if(confirm('Exit setup? Your answers won\\'t be saved.')){closeModal();W=null}">Exit</button></div>
+      <button class="btn-ghost wiz-exit" onclick="if(confirm('Exit setup? Your answers won\\'t be saved.')){closeModal();W=null;try{sessionStorage.removeItem(WIZARD_RESUME_KEY)}catch(e){}}">Exit</button></div>
     <div class="wiz-body"><div class="wiz-step ${animCls}"><h3>${def.t}</h3><p class="wsub">${def.s}</p>${def.h}<div class="hint-err hide" id="wizErr"></div></div></div>
     <div class="wiz-foot">
       <button class="btn btn-o" onclick="wizBack()" ${W.i===0?"disabled":""}>← Back</button>
@@ -3321,6 +3328,14 @@ function wizNext(){
   // validation on purpose — an incomplete step 1 shows the normal error first, so
   // the signup prompt only appears when they are genuinely ready to move on.
   if(!S.account && W.i===0){
+    // Remember what they were trying to do — see WIZARD_RESUME_KEY above.
+    // Cleared the moment it's consumed (_resumeAfterAuth) or if they hit
+    // "Exit setup" on the wizard itself (wizExit below). If they instead
+    // just close the signup form and come back to log in some unrelated
+    // day later, this can still fire once on that login — a minor, mostly
+    // harmless surprise (they land in the platform wizard once) rather
+    // than something worth a heavier abandonment-tracking mechanism.
+    try{ sessionStorage.setItem(WIZARD_RESUME_KEY, W.kind); }catch(e){}
     authGate("signup");
     // Pre-tick the role they implicitly chose by starting this wizard.
     if(W.kind==="plat"||W.kind==="both"){ const b=$("au-r-plat"); if(b) b.classList.add("on"); }
@@ -3642,7 +3657,7 @@ function renderPlatDash(){
       <div><h2>${esc(brand)}</h2><div class="sub"><span class="mode-tag">Platform owner</span> ${S.myPlatforms.length} listing${S.myPlatforms.length===1?"":"s"} live</div></div>
       <div class="dash-actions">
         <button class="btn btn-o" onclick="openMarket('campaigns')">Browse campaigns</button>
-        <button class="btn btn-p" onclick="openRegisterPlatform()">＋ Register another platform</button></div></div>
+        <button class="btn btn-p" onclick="openRegisterPlatform()">＋ Register ${S.myPlatforms.length?"another":"your first"} platform</button></div></div>
     <div class="kpis">${kpi({i:0,to:S.myPlatforms.length,label:"Live listings",delta:S.myPlatforms.length?"live in the marketplace":"list one to get seen",cls:S.myPlatforms.length?"up":"neu",spark:"#4f46e5",act:"scrollToPanel('yourListings')"})}${kpi({i:1,val:earnedPence?gbpP(earnedPence):"—",to:earnedPence?earnedPence/100:null,pre:"£",dec:2,label:"Earned (after 10% seller fee)",delta:earnedPence?`from ${paidReal.length} completed deal${paidReal.length>1?"s":""}`:"complete a deal to earn",cls:earnedPence?"up":"neu",spark:"#4f46e5"})}${kpi({i:2,to:inEscrow,label:"Protected deals",delta:inEscrow?"funds secured before you work":"none protected yet",cls:"neu",spark:"#4f46e5",act:"scrollToPanel('yourDeals')"})}${kpi({i:3,val:rAvg!=null?"⭐ "+rAvg.toFixed(1):"—",label:"Your rating",delta:rAvg!=null?`${rCount} review${rCount===1?"":"s"}`:"appears after your first completed deal",cls:rAvg!=null?"up":"neu",spark:"#4f46e5"})}    </div>
     <div class="panel"><div class="panel-h"><h4>Account growth · earnings over time</h4></div><div class="panel-b" id="platGrowth"></div></div>
     <div class="dash-cols"><div>
@@ -4721,8 +4736,12 @@ function authGate(mode){
   authModal(mode||"login");
 }
 
-// Where to go once a session exists. Deliberately always the homepage: there is
-// no "resume what you were doing", and login and signup behave identically.
+// Where to go once a session exists. Both login and email-verification land
+// here — email verification is a real page navigation (clicking a link),
+// which wipes any in-memory wizard state, so WIZARD_RESUME_KEY is the one
+// thing that survives that gap. Everything else about "where to go" stays
+// the homepage; this only fires when the account came from starting one of
+// the listing/campaign wizards as a guest (see wizNext()'s auth gate).
 function _resumeAfterAuth(){
   window._afterAuth = null;   // nothing reads this any more; cleared for safety
   closeSignupNudge();         // they signed up — stop asking
@@ -4732,6 +4751,19 @@ function _resumeAfterAuth(){
   // for anyone who has already seen, skipped or finished it.
   maybeOfferTour();
   syncTourResume();
+  let resumeKind=null;
+  try{ resumeKind=sessionStorage.getItem(WIZARD_RESUME_KEY); sessionStorage.removeItem(WIZARD_RESUME_KEY); }catch(e){}
+  if(!resumeKind || !S.account) return;
+  // Jump straight to the platform-type/campaign step rather than re-asking
+  // the "which of these are you" intent question — signing up already
+  // answered that. Guard on the account's actual role rather than trusting
+  // resumeKind blindly, in case they ended up choosing a different role at
+  // the signup form than the wizard they started from implied.
+  if((resumeKind==="plat"||resumeKind==="both") && S.account.is_platform_owner){
+    openRegisterPlatform();
+  } else if((resumeKind==="biz"||resumeKind==="both") && S.account.is_business){
+    openNewCampaign();
+  }
 }
 
 // The single login/signup entry modal, used everywhere: the nav buttons, every
@@ -5668,6 +5700,15 @@ and the server re-authorises every request behind these views regardless.
 sessionStorage (not localStorage) so it is per-tab and dies with the tab.
 */
 const ROUTE_KEY="ps_route";
+// A guest who starts the "list your platform"/"post a campaign" wizard gets
+// bounced into signup partway through (see wizNext()'s auth gate) — and
+// signup requires clicking a real emailed verification link, which is a full
+// page navigation that wipes the in-memory wizard state (W) no matter what.
+// Stashed here (sessionStorage, same per-tab/dies-with-tab reasoning as
+// ROUTE_KEY above) so _resumeAfterAuth() can pick the wizard back up once a
+// real session exists, instead of stranding the person on the homepage
+// having never actually reached the "which platform" step.
+const WIZARD_RESUME_KEY="ps_resume_wizard";
 // Routes anyone may land on. Everything else needs a live session to restore.
 const PUBLIC_ROUTES=new Set(["home","market","how","pricing","protect","resources","about","terms","privacy","refund"]);
 let _routeReady=false;                 // don't record routes during restore
