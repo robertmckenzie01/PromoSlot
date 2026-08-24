@@ -31,9 +31,16 @@ ALLOWED_TRANSITIONS = {
     DealStatus.UNDER_REVIEW: {DealStatus.VERIFIED, DealStatus.CHANGES_REQUESTED,
                               DealStatus.REJECTED, DealStatus.REFUNDED,
                               DealStatus.DISPUTED},
-    # Owner can resubmit after changes were requested.
-    DealStatus.CHANGES_REQUESTED: {DealStatus.PROOF_SUBMITTED, DealStatus.REFUNDED,
-                                   DealStatus.DISPUTED, DealStatus.CANCELLED},
+    # Owner can resubmit after changes were requested. VERIFIED is also
+    # reachable directly (without a resubmission) — a reviewer may simply
+    # reconsider, and it's the only way out of an open proof-update grace
+    # period (Deal.proof_grace_deadline) once it closes with no new proof:
+    # the reviewer approves using what was already submitted. routers/review.py
+    # additionally blocks this specific transition while a grace deadline is
+    # still in the future — this table only says the path can legally exist.
+    DealStatus.CHANGES_REQUESTED: {DealStatus.PROOF_SUBMITTED, DealStatus.VERIFIED,
+                                   DealStatus.REFUNDED, DealStatus.DISPUTED,
+                                   DealStatus.CANCELLED},
     # A rejected deal can only be refunded or disputed — never paid.
     DealStatus.REJECTED: {DealStatus.REFUNDED, DealStatus.DISPUTED},
     # Verified == eligible for payout. Payout or refund; never back to review.

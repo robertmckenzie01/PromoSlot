@@ -90,7 +90,15 @@ def submit_proof(
     # Owner-reported delivered views, backed by the evidence they just supplied.
     if views_delivered is not None and views_delivered >= 0:
         d.views_delivered = views_delivered
-    if d.status in (DealStatus.FUNDED, DealStatus.IN_DELIVERY):
+    # CHANGES_REQUESTED was missing here even though deal_state.py's
+    # ALLOWED_TRANSITIONS has always permitted CHANGES_REQUESTED ->
+    # PROOF_SUBMITTED ("Owner can resubmit after changes were requested") —
+    # nothing actually drove that transition, so a resubmission after a
+    # reviewer asked for changes silently left the deal stuck showing
+    # changes_requested forever. Found while wiring the proof-update grace
+    # period (task #140), which specifically depends on a resubmission
+    # here moving the deal back into the normal review queue.
+    if d.status in (DealStatus.FUNDED, DealStatus.IN_DELIVERY, DealStatus.CHANGES_REQUESTED):
         d.status = DealStatus.PROOF_SUBMITTED
     # Real event -> notify the business that evidence was submitted.
     db.add(Notification(user_id=d.business_id, type="proof_submitted",

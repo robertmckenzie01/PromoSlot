@@ -108,6 +108,10 @@ def deal_dict(d: Deal) -> dict:
         "campaign_ends_at": d.campaign_ends_at.isoformat() if d.campaign_ends_at else None,
         "pool_released_amount": d.pool_released_amount,
         "pool_refunded_amount": d.pool_refunded_amount,
+        # Set only while a reviewer has opened a 24h proof-update grace
+        # period (suspected underdelivery on a pool deal) — see
+        # services.open_proof_grace_period. None for every ordinary deal.
+        "proof_grace_deadline": d.proof_grace_deadline.isoformat() if d.proof_grace_deadline else None,
         "total_charged": total_charge_for(d)["total_charge"],   # fixed + pool combined, what the business pays
         "campaign_id": d.campaign_id,
         "platform_id": d.platform_id,

@@ -112,6 +112,16 @@ class User(Base):
     # Public "who we are" profile content (editable from My Account / campaign setup).
     about_text = Column(Text)
     links = Column(JSON, default=list)          # [{label, url}, …] — no cap
+
+    # Private — never returned from any public/other-party endpoint (see
+    # routers/reviews.py:public_profile, which builds its own dict and never
+    # touches this). Optional emergency-contact channel, used only for the
+    # rare time-sensitive case where a reviewer needs to reach a platform
+    # owner directly (e.g. an open proof-update grace period, see
+    # Deal.proof_grace_deadline) — not used for marketing or bulk SMS, and
+    # PromoSlot currently has no automated SMS/voice integration, so in
+    # practice this means a reviewer sees it and can choose to call by hand.
+    phone = Column(String)
     # {"review": iso8601, "payouts": iso8601, "support": iso8601} — when this admin
     # last opened each shared queue. Drives "new since you looked" nav dots.
     # Messages isn't here: Message.read already tracks that per-recipient.

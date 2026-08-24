@@ -173,6 +173,58 @@ def welcome_email(display_name: str = "", is_business: bool = False,
     return subject, html, text
 
 
+def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") -> tuple:
+    """(subject, html, text) telling a platform owner they have 24 hours to
+    add more delivery proof before a reviewer finalizes a per_view/
+    per_impression deal using only what's already submitted.
+
+    Sent alongside the in-app notification (see services.open_proof_grace_period)
+    for exactly the reason every other time-sensitive account action in this
+    file also gets one — a browser tab isn't a reliable place to expect
+    someone to be watching a 24-hour clock. note is the reviewer's own
+    explanation of what's missing or unclear; never invented copy standing
+    in for it.
+    """
+    title = f"Action needed on Deal #{deal_id} — 24 hours to add delivery proof"
+    note_block_html = (f'''
+        <p style="color:#334155;margin-bottom:6px"><b>What the reviewer said</b></p>
+        <div style="border-left:3px solid #4f46e5;padding:2px 0 2px 14px;color:#334155;
+                    white-space:pre-wrap;font-size:14px">{_esc(note)}</div>'''
+        if note else "")
+    html = f"""
+      <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
+        <h2 style="color:#0f172a">{title}</h2>
+        <p style="color:#334155">A PromoSlot reviewer looked at the delivery evidence on
+           Deal #{deal_id} and wants a chance to see more before finalizing the payout
+           amount. You have until <b>{deadline_iso}</b> (24 hours) to add anything
+           further to your submitted proof.</p>
+        {note_block_html}
+        <p style="color:#334155">If nothing further is added before the deadline, the
+           reviewer will finalize the deal using only what's already been formally
+           submitted — never on anything not visible in your own submission.</p>
+        <p style="margin:26px 0">
+          <a href="{settings.app_base_url}" style="background:#4f46e5;color:#fff;text-decoration:none;
+             padding:12px 22px;border-radius:10px;font-weight:700;display:inline-block">
+            Add proof to Deal #{deal_id}</a>
+        </p>
+        <p style="color:#64748b;font-size:13px">This is a routine check, not an accusation —
+           it happens whenever a reviewer wants more certainty on a number before money
+           moves. Questions? Reply to this email or contact {settings.support_email}.</p>
+      </div>"""
+    text = (f"{title}\n\n"
+            f"A PromoSlot reviewer looked at the delivery evidence on Deal #{deal_id} and "
+            f"wants a chance to see more before finalizing the payout amount. You have "
+            f"until {deadline_iso} (24 hours) to add anything further to your submitted proof.\n\n"
+            + (f"What the reviewer said:\n{note}\n\n" if note else "")
+            + "If nothing further is added before the deadline, the reviewer will finalize "
+              "the deal using only what's already been formally submitted — never on "
+              "anything not visible in your own submission.\n\n"
+            f"Add proof: {settings.app_base_url}\n\n"
+            "This is a routine check, not an accusation. Questions? Reply to this email "
+            f"or contact {settings.support_email}.")
+    return title, html, text
+
+
 def support_ticket_email(ticket_id: int, name: str, email: str = "", mobile: str = "",
                          subject: str = "", body: str = "") -> tuple:
     """(subject, html, text) alerting the support inbox to a new ticket."""

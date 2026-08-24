@@ -10,7 +10,7 @@ finance-only role can be introduced later without redesigning this.
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -19,11 +19,13 @@ from ..config import settings
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
 from ..deal_state import assert_not_final, assert_payout_eligible, assert_transition
+from ..mailer import proof_grace_period_email, send_email
 from ..models import ConnectedAccount, Deal, DealStatus, Proof, User, Verification
 from ..permissions import Perm, is_super_admin
 from ..services import (create_deal_payout, deal_money_for, onboarding_complete,
-                        pool_settlement_for, refund_deal, settle_pool_deal,
-                        sync_connected_account, try_instant_payout, verify_delivery)
+                        open_proof_grace_period, pool_settlement_for, refund_deal,
+                        settle_pool_deal, sync_connected_account, try_instant_payout,
+                        verify_delivery)
 from ..stripe_client import client
 
 router = APIRouter(prefix="/review", tags=["review"])
@@ -60,6 +62,13 @@ class VerifyIn(BaseModel):
     # Meaningless for a plain fixed deal, so left optional here and only
     # enforced below for the pricing models that need it.
     verified_quantity: Optional[int] = Field(default=None, ge=0)
+    # Opt-in, only meaningful alongside decision="changes_requested" on a
+    # per_view/per_impression deal — see services.open_proof_grace_period.
+    # A reviewer requesting changes for an ordinary reason (blurry screenshot,
+    # wrong link, etc.) leaves this false; it's specifically for "I suspect
+    # this undersells actual delivery, give the owner a fixed window to add
+    # more before I finalize using only what's here."
+    open_grace_period: bool = False
 
 
 class ReleaseIn(BaseModel):
@@ -155,7 +164,7 @@ def completed_deals(reviewer: User = Depends(RequirePerm(Perm.DEAL_VIEW_EVIDENCE
 
 
 @router.post("/deals/{deal_id}/verify")
-def verify(deal_id: int, body: VerifyIn, request: Request,
+def verify(deal_id: int, body: VerifyIn, request: Request, background: BackgroundTasks,
            reviewer: User = Depends(RequirePerm(Perm.DEAL_VERIFY)),
            db: Session = Depends(get_db)):
     """Record a verification decision. Never moves money."""
@@ -169,6 +178,10 @@ def verify(deal_id: int, body: VerifyIn, request: Request,
     if not body.evidence_reviewed:
         raise HTTPException(status_code=422,
                             detail="You must confirm you reviewed the delivery evidence.")
+    if body.open_grace_period and body.decision != "changes_requested":
+        raise HTTPException(
+            status_code=422,
+            detail="open_grace_period only applies to a 'changes_requested' decision")
 
     d = _deal_or_404(db, deal_id)
     _assert_not_party(reviewer, d)
@@ -178,6 +191,22 @@ def verify(deal_id: int, body: VerifyIn, request: Request,
         raise HTTPException(status_code=409, detail="Deal is not funded")
     if d.verified_at is not None:
         raise HTTPException(status_code=409, detail="Deal already verified")
+    if body.open_grace_period and d.pricing_model not in ("per_view", "per_impression"):
+        raise HTTPException(
+            status_code=409,
+            detail="The proof-update grace period only applies to per_view/per_impression deals")
+    # The one exception to "changes_requested must go through a resubmission
+    # before it can be approved": once an open grace period's deadline has
+    # actually passed, the reviewer can approve straight from CHANGES_REQUESTED
+    # using whatever was already submitted (see deal_state.py comment). While
+    # the deadline is still in the future, settling for less friction here
+    # would defeat the entire point of having offered the window.
+    if (body.decision == "approved" and d.status == DealStatus.CHANGES_REQUESTED
+            and d.proof_grace_deadline is not None and d.proof_grace_deadline > datetime.utcnow()):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Open proof-update grace period until {d.proof_grace_deadline.isoformat()} "
+                   "— wait for it to close, or for the owner to resubmit, before approving.")
 
     real_proofs = db.query(Proof).filter(
         Proof.deal_id == d.id,
@@ -213,12 +242,25 @@ def verify(deal_id: int, body: VerifyIn, request: Request,
         db.commit()
         db.refresh(d)
 
+    grace_deadline = None
+    if body.open_grace_period:
+        grace_deadline = open_proof_grace_period(db, d, reviewer, note=body.notes or "")
+        owner = db.get(User, d.platform_owner_id)
+        if owner and owner.email:
+            subject, html, text = proof_grace_period_email(
+                d.id, grace_deadline.isoformat(), body.notes or "")
+            background.add_task(send_email, owner.email, subject, html, text)
+        audit.record(db, actor=reviewer, action="deal.grace_period_opened",
+                     target_type="deal", target_id=d.id, previous_state=before,
+                     new_state=_deal_snapshot(d), reason=body.reason, request=request)
+
     audit.record(db, actor=reviewer,
                  action=f"deal.{'verify' if body.decision == 'approved' else 'reject'}",
                  target_type="deal", target_id=d.id, previous_state=before,
                  new_state=_deal_snapshot(d), reason=body.reason, request=request)
     return {"deal_id": d.id, "status": d.status,
-            "verified": d.verified_at is not None, "decision": body.decision}
+            "verified": d.verified_at is not None, "decision": body.decision,
+            "proof_grace_deadline": grace_deadline.isoformat() if grace_deadline else None}
 
 
 def _ready_connected_account(db: Session, deal: Deal) -> ConnectedAccount:

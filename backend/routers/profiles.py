@@ -92,6 +92,12 @@ class ProfileIn(BaseModel):
     about_text: Optional[str] = Field(default=None, max_length=5000)
     links: Optional[List[dict]] = None      # [{label, url}, …] — no cap
     display_name: Optional[str] = Field(default=None, max_length=120)
+    # Private (see User.phone in models.py) — deliberately not part of the
+    # public "who we are" profile this endpoint otherwise edits. Shares the
+    # endpoint rather than getting its own because the update below only
+    # ever touches a field when it's actually present in the request body,
+    # so the "who we are" editor (which never sends phone) can't blank it.
+    phone: Optional[str] = Field(default=None, max_length=32)
 
 
 @router.post("/me/profile")
@@ -104,6 +110,8 @@ def update_profile(body: ProfileIn, user: User = Depends(get_current_user),
         user.display_name = name
     if body.about_text is not None:
         user.about_text = body.about_text.strip() or None
+    if body.phone is not None:
+        user.phone = body.phone.strip() or None
     if body.links is not None:
         clean = []
         for l in body.links:
@@ -113,7 +121,7 @@ def update_profile(body: ProfileIn, user: User = Depends(get_current_user),
         user.links = clean
     db.commit()
     return {"display_name": user.display_name or "", "about_text": user.about_text or "",
-            "links": user.links or []}
+            "links": user.links or [], "phone": user.phone or ""}
 
 
 class DeleteAccountIn(BaseModel):

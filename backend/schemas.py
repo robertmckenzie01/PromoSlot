@@ -86,6 +86,10 @@ class UserOut(BaseModel):
     is_reviewer: bool = False
     avatar_url: Optional[str] = None
     intro_video_url: Optional[str] = None
+    # Private — see User.phone in models.py. UserOut only ever serves the
+    # authenticated account's own record (get_current_user), never another
+    # party's, so including it here is safe.
+    phone: Optional[str] = None
     linked_account: Optional[LinkedAccountBrief] = None
 
     @model_validator(mode="after")

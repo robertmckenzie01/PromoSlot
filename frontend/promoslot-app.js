@@ -2325,6 +2325,7 @@ async function renderRealDeal(dealId){
   const isReviewer = can("deal.view_evidence");
   const bothApproved = d.business_approved && d.owner_approved;
   const disputeOpen = !!d.payment_dispute_open;
+  const graceOpen = !!d.proof_grace_deadline && new Date(d.proof_grace_deadline) > new Date();
   let proofs=[];
   if(d.funded && (meBiz||meOwner||isReviewer)){ try{ proofs=await PSApi.get("/deals/"+dealId+"/proofs"); }catch(e){} }
   let checklist=[];
@@ -2387,6 +2388,10 @@ async function renderRealDeal(dealId){
       : `<p class="mut" style="font-size:12.5px">No delivery evidence submitted yet.</p>`;
     main=`<h3 class="deal-h">Funded — ${gbpP(d.total_charged)} held pending verification 🔒</h3>
     <p class="deal-sub">Money held by PromoSlot. The owner delivers &amp; submits proof → a reviewer verifies → the owner is paid ${gbpP(d.net_to_owner)} (listed price − ${d.seller_fee_percent}% seller fee).</p>
+    ${graceOpen ? `<div class="note">⏳ <b>Proof-update grace period open until ${new Date(d.proof_grace_deadline).toLocaleString("en-GB")}.</b>
+      ${meOwner ? "A reviewer wants a chance to see more delivery proof before this is finalized — add anything further to your submitted evidence below before the deadline." : ""}
+      ${meBiz ? "PromoSlot has asked the platform owner for additional delivery proof before finalizing payout. This is routine caution, not an accusation." : ""}
+      ${isReviewer ? "Settlement/approval is blocked until this closes, or the owner resubmits." : ""}</div>` : ""}
     ${doc}
     <div class="det-sec" style="margin-top:18px"><h5>Progress</h5>
       <div class="proof-item got"><span class="pi-ico">🔒</span>Payment Protection funded<span class="ok">✓</span></div>
@@ -2513,6 +2518,8 @@ async function realPay(){
 }
 function reviewerControls(d, proofCount){
   let inner;
+  const isPool = d.pricing_model==="per_view" || d.pricing_model==="per_impression";
+  const graceOpen = !!d.proof_grace_deadline && new Date(d.proof_grace_deadline) > new Date();
   if(!d.verified){
     // Verification step — three distinct outcomes. Verifying does NOT pay out.
     inner = proofCount>0
@@ -2521,7 +2528,9 @@ function reviewerControls(d, proofCount){
            <button class="btn btn-g btn-sm" onclick="realVerify(${d.id},'approved')">✓ Verify — evidence meets terms</button>
            <button class="btn btn-o btn-sm" onclick="realVerify(${d.id},'rejected')">↩︎ Send back for revision</button>
            <button class="btn btn-danger btn-sm" onclick="realRefund(${d.id})">✕ Disapprove &amp; refund business</button>
-         </div>`
+         </div>
+         ${isPool && !graceOpen ? `<div style="margin-top:9px"><button class="btn btn-ghost btn-sm" onclick="realOpenGracePeriod(${d.id})">⏳ Suspect underdelivery — give the owner 24h to add proof</button></div>` : ""}
+         ${isPool && graceOpen ? `<p class="mut" style="font-size:12.5px;margin-top:9px">Grace period already open until ${new Date(d.proof_grace_deadline).toLocaleString("en-GB")} — wait for it to close, or for the owner to resubmit, before approving.</p>` : ""}`
       : `<p class="mut" style="font-size:12.5px">Waiting for the owner to submit evidence before you can verify.</p>`;
   } else if(!d.paid){
     // Verified but unpaid — payout is a separate, deliberate action (also on the Awaiting Payouts page).
@@ -2621,6 +2630,19 @@ async function realVerify(dealId, decision){
   toast(decision==="approved"
     ? "Verified ✓ — moved to Awaiting Payouts (release payout separately when ready)"
     : "Sent back to the owner for revision", true);
+  loadNotifications();
+  renderRealDeal(dealId);
+}
+async function realOpenGracePeriod(dealId){
+  const reason=adminReasonPrompt("Open a 24-hour proof-update grace period"); if(reason===null) return;
+  const note=window.prompt("Message to the platform owner — what should they add or clarify? (sent to them by app and email)","");
+  if(note===null) return;
+  if(!note.trim()){ toast("A message to the owner is required"); return; }
+  try{
+    await PSApi.post(`/review/deals/${dealId}/verify`,
+      {decision:"changes_requested", reason, notes:note.trim(), evidence_reviewed:true, open_grace_period:true});
+  }catch(err){ toast(err.message||"Could not open grace period"); return; }
+  toast("Grace period opened — owner notified, 24 hours to add proof",true);
   loadNotifications();
   renderRealDeal(dealId);
 }
@@ -3763,7 +3785,7 @@ const NOTIF_FEED=[
  {ico:"✨",tag:"New campaign",txt:"See how a complete business campaign looks — open the Example Campaign.",ref:"cx-ex"}
 ];
 let notifOpen=false;
-const NOTIF_ICON={deal_funded:"🔒",delivery_checklist_ready:"📋",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️",message:"💬",campaign_application:"📩",deal_declined:"🚫",deal_approved:"🤝",review_received:"⭐",listing_removed:"🗑️",campaign_removed:"🗑️",account_restored:"👋",
+const NOTIF_ICON={deal_funded:"🔒",delivery_checklist_ready:"📋",proof_grace_period_opened:"⏳",proof_grace_period_opened_business:"⏳",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️",message:"💬",campaign_application:"📩",deal_declined:"🚫",deal_approved:"🤝",review_received:"⭐",listing_removed:"🗑️",campaign_removed:"🗑️",account_restored:"👋",
   dispute_opened:"🛡️",dispute_opened_admin:"🛡️",dispute_closed:"✅",dispute_closed_admin:"✅",dispute_info_requested:"❓"};
 function setBell(n){ const b=$("bellCnt"); if(!b) return; b.classList.toggle("hide",n<=0); b.textContent=n>9?"9+":n; }
 function bellSync(){ if(!S.account) setBell(0); }
@@ -5007,6 +5029,35 @@ async function saveDisplayName(){
     openAccount();
   }catch(err){ e.textContent=err.message||"Could not update name"; e.classList.remove("hide"); }
 }
+function openEditPhone(){
+  const cur=(S.account&&S.account.phone)||"";
+  openModal(`<div class="m-pad"><h3 class="m-title">Emergency contact phone</h3>
+    <p class="m-sub">Optional and private — never shown on your public profile or to the other party in a deal. Only used in the rare case PromoSlot needs to reach you urgently, e.g. a time-limited window to add delivery proof before a deal is finalized.</p>
+    <div class="frm"><label>Phone number</label>
+      <input type="tel" id="ph-num" value="${esc(cur)}" placeholder="e.g. +44 7700 900123" onkeydown="if(event.key==='Enter')savePhone()"></div>
+    <div class="hint-err hide" id="ph-err"></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Cancel</button>
+      ${cur?`<button class="btn btn-ghost" onclick="clearPhone()">Remove</button>`:""}
+      <button class="btn btn-p" onclick="savePhone()">Save</button></div></div>`);
+}
+async function savePhone(){
+  const input=$("ph-num"); const e=$("ph-err");
+  const v=(input.value||"").trim();
+  try{
+    const r=await PSApi.post("/me/profile",{phone:v});
+    S.account.phone=r.phone;
+    closeModal();
+    toast(v?"Phone number saved":"Phone number removed",true);
+    openAccount();
+  }catch(err){ e.textContent=err.message||"Could not save phone number"; e.classList.remove("hide"); }
+}
+async function clearPhone(){
+  try{ const r=await PSApi.post("/me/profile",{phone:""}); S.account.phone=r.phone; }
+  catch(err){ toast(err.message||"Could not remove phone number"); return; }
+  closeModal();
+  toast("Phone number removed",true);
+  openAccount();
+}
 // Real completeness track for the My Account identity header — every item
 // is read from data that actually exists on the account (S.account,
 // S._who from /users/{id}/public, S.myPlatforms, S.myCampaigns). Nothing
@@ -5083,6 +5134,10 @@ function openAccount(){
                   <button type="button" class="acct2-name-edit" onclick="openEditDisplayName()">Edit name</button>
                 </div>
                 <p class="acct2-email">${esc(a.email)}<span class="acct2-email-tag">Sign-in email</span></p>
+                <div class="acct2-name-row" style="margin-top:2px">
+                  <p class="acct2-email" style="margin:0">${a.phone?esc(a.phone):"No phone on file"}<span class="acct2-email-tag">Private — emergency contact only</span></p>
+                  <button type="button" class="acct2-name-edit" onclick="openEditPhone()">${a.phone?"Edit":"Add"}</button>
+                </div>
                 <div class="acct2-tags">
                   ${isPlat?`<span class="acct2-tag">Platform owner</span>`:""}
                   ${isBiz?`<span class="acct2-tag">Business</span>`:""}

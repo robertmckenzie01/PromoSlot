@@ -260,13 +260,56 @@ def verify_delivery(db: Session, deal: Deal, reviewer: User, decision: str,
                             ref=str(deal.id)))
     else:
         deal.status = DealStatus.IN_DELIVERY
-        db.add(Notification(user_id=deal.platform_owner_id, type="deal_revision",
-                            body=f"Deal #{deal.id} evidence needs revision before it can be verified.",
-                            ref=str(deal.id)))
+        db.add(Notification(
+            user_id=deal.platform_owner_id, type="deal_revision",
+            body=(f"Deal #{deal.id} evidence needs revision before it can be verified."
+                  + (f" Reviewer note: {notes.strip()}" if notes and notes.strip() else "")),
+            ref=str(deal.id)))
 
     db.commit()
     db.refresh(deal)
     return v
+
+
+def open_proof_grace_period(db: Session, deal: Deal, reviewer: User,
+                            note: str = "", hours: int = 24) -> datetime:
+    """Give a platform owner a fixed window to add more delivery proof before
+    a per_view/per_impression deal is finalized, when a reviewer suspects the
+    submitted evidence undersells actual delivery.
+
+    Only ever called from the reviewer-only /review/deals/{id}/verify
+    endpoint, alongside a "changes_requested" decision — this is a distinct,
+    explicit action a reviewer opts into, never automatic. Sets
+    Deal.proof_grace_deadline, which two places then enforce: routers/review.py
+    blocks approving straight out of CHANGES_REQUESTED while it's still in the
+    future, and settle_pool_deal's caller blocks final settlement the same way.
+    If nothing further is added before it closes, the reviewer approves using
+    only what was already formally submitted — never a reviewer's own private
+    research, since that's the one thing the business can't independently see
+    in the deal record (see routers/proofs.py's _is_party check).
+
+    Deliberately does NOT attempt to auto-classify the eventual outcome as
+    fraud vs. an honest mistake — that's a human judgment call for whoever
+    reviews what happens (or doesn't) during the window, made with PromoSlot's
+    existing suspension/audit tools, not something this function decides.
+    """
+    deadline = datetime.utcnow() + timedelta(hours=hours)
+    deal.proof_grace_deadline = deadline
+    db.add(Notification(
+        user_id=deal.platform_owner_id, type="proof_grace_period_opened",
+        body=(f"Deal #{deal.id}: you have until {deadline.isoformat()} to add more "
+              "delivery proof before it's finalized with what's already submitted."
+              + (f" Reviewer note: {note.strip()}" if note and note.strip() else "")),
+        ref=str(deal.id)))
+    db.add(Notification(
+        user_id=deal.business_id, type="proof_grace_period_opened_business",
+        body=(f"Deal #{deal.id}: PromoSlot has asked the platform owner for additional "
+              "delivery proof before finalizing payout. This is routine caution, not an "
+              "accusation — you'll be updated once it's resolved."),
+        ref=str(deal.id)))
+    db.commit()
+    db.refresh(deal)
+    return deadline
 
 
 def create_deal_payout(db: Session, deal: Deal, destination: str) -> Transfer:
