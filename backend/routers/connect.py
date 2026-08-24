@@ -30,18 +30,30 @@ def onboarding_return():
     """Browser lands here after the platform owner finishes Stripe onboarding.
 
     No auth dependency here on purpose — Stripe redirects the raw browser,
-    which may not be carrying our session in a way we want to depend on.
-    The frontend has no hash-based router, so this just gets the person
-    back into the app rather than a bare 404; the dashboard re-checks real
-    status via GET /connect/status on load, Stripe is the source of truth.
+    which may not be carrying our session in a way we want to depend on. The
+    ?connect=return query param is just a hint for the frontend to act on
+    once IT independently confirms who's logged in (see PSBoot() in
+    promoslot-app.js) — this endpoint never trusts or looks up the user
+    itself. The dashboard re-checks real status via GET /connect/status on
+    load either way, Stripe is the source of truth, not this redirect.
+
+    Previously redirected to a bare "/", which always dropped the owner back
+    on the homepage regardless of where they'd been — the dashboard, where
+    the Connect/payout status actually lives, re-checking status meant
+    nothing if they never landed there in the first place.
     """
-    return RedirectResponse(url="/")
+    return RedirectResponse(url="/?connect=return")
 
 
 @router.get("/refresh")
 def onboarding_refresh():
-    """Browser lands here if the onboarding link expired or was abandoned."""
-    return RedirectResponse(url="/")
+    """Browser lands here if the onboarding link expired or was abandoned.
+
+    Same hint as /return above — abandoning or expiring mid-flow doesn't
+    change where the owner was trying to get back to (their dashboard, to
+    retry), so it gets the same treatment rather than a bare homepage drop.
+    """
+    return RedirectResponse(url="/?connect=return")
 
 # v2 account fields to expand on reads.
 _INCLUDE = ["configuration.recipient", "requirements", "identity"]

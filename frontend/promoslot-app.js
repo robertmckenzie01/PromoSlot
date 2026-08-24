@@ -5955,6 +5955,18 @@ function PSBoot(){
   // shareable addresses rather than ones that only work if you navigated
   // here from within the app. Home ("/") falls through to the normal
   // sessionStorage-based restore unchanged, same as any authenticated view.
+  // Stripe's onboarding return/refresh (backend/routers/connect.py) lands here
+  // as /?connect=return — previously a bare "/", which always dropped the
+  // platform owner on the homepage regardless of where they'd actually been,
+  // even though that's exactly the moment they'd want to land back on their
+  // dashboard (see Rob's testing note: "after the stripe connection process
+  // ... redirect the user to their dashboard right away, since that is where
+  // they would have last been"). Same anti-replay handling as the ?reset=/
+  // ?verify= tokens further down: stripped from the address bar immediately
+  // so a later refresh of this same tab can't keep re-triggering it.
+  const _connectReturn = new URLSearchParams(location.search).get("connect")==="return";
+  if(_connectReturn) history.replaceState({}, "", location.pathname);
+
   const _initialRoute=PATH_ROUTES[location.pathname];
   if(_initialRoute && _initialRoute!=="home"){
     if(_initialRoute==="market") openMarket();
@@ -5967,6 +5979,20 @@ function PSBoot(){
     else if(_initialRoute==="privacy") goPrivacy();
     else if(_initialRoute==="refund") goRefundPolicy();
     restoreSession();          // still establishes real auth state for the nav
+  } else if(_connectReturn){
+    // Skip the normal remembered-route restore entirely — this is an explicit,
+    // one-shot signal that takes priority over whatever was in sessionStorage
+    // (which may not even be from this tab: Stripe's hosted onboarding often
+    // runs as its own tab/window, and sessionStorage doesn't carry over to a
+    // fresh one). Guarded on the ACTUAL restored account/role rather than
+    // trusting the redirect blindly — only a platform owner could ever have
+    // reached Stripe Connect in the first place (see connect.py's
+    // _require_platform_owner), but if the session didn't come back at all,
+    // or came back on a linked business identity instead, this quietly
+    // does nothing and they land on the homepage same as before this change.
+    restoreSession().then(()=>{
+      if(S.account && S.account.is_platform_owner) openDash();
+    });
   } else {
     restoreSession().then(restoreRoute);
   }
