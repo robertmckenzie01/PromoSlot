@@ -112,6 +112,66 @@ def onboarding_complete(row: ConnectedAccount) -> bool:
     return bool(row and row.transfers_active)
 
 
+# Delivery Checklist — composable, not a full platform x payment-model
+# matrix. A small always-required base applies to every deal; ONE extra
+# item is added only for pool-priced deals (per_view/per_impression),
+# since that's the only case with an actual number needing backing
+# evidence. The platform a listing is on only changes the wording of
+# that one item (which native analytics tool to screenshot), not the
+# item count — this keeps authoring/maintenance to ~20 short strings
+# instead of 18 platforms x 3 pricing models of bespoke copy.
+#
+# This checklist is PromoSlot-defined and NOT configurable by the
+# business or platform owner. PromoSlot always independently verifies
+# delivery regardless of what's ticked here — it exists to make sure
+# the platform owner submits the right proof the first time, not to be
+# trusted on its own.
+DELIVERY_CHECKLIST_BASE = [
+    {"id": "live_url", "label": "Direct link/URL to where the content or placement is live"},
+    {"id": "live_screenshot", "label": "Screenshot showing the content is live, with a visible date or timestamp"},
+    {"id": "brand_visible", "label": "Screenshot showing the business's brand, product, or campaign clearly featured in the content"},
+]
+
+# Wording only, keyed on the exact platform_type strings the frontend's
+# PLATFORM_META sends (see frontend/promoslot-app.js ALL_PLATFORMS).
+_PLATFORM_ANALYTICS_TOOL = {
+    "TikTok": "TikTok Analytics",
+    "Instagram": "Instagram Insights",
+    "Discord": "Discord server insights (or a member-count/message-view screenshot if insights aren't available)",
+    "Newsletter": "your email platform's open/click report (e.g. Mailchimp, ConvertKit, Substack)",
+    "YouTube": "YouTube Studio Analytics",
+    "Livestream": "the stream platform's viewer/analytics dashboard (e.g. Twitch Analytics, YouTube Live analytics)",
+    "Reddit": "Reddit's post or community analytics",
+    "Quora": "Quora's answer/space analytics if available, or the view count shown on the post",
+    "X": "X Analytics",
+    "LinkedIn": "LinkedIn Analytics",
+    "Pinterest": "Pinterest Analytics",
+    "Blog/Website": "your site's traffic analytics for the page (e.g. Google Analytics, Plausible)",
+    "Podcast": "your podcast host's listen/download analytics (e.g. Spotify for Podcasters, Apple Podcasts Connect)",
+    "Facebook": "Facebook Page Insights",
+    "Telegram": "Telegram's channel statistics",
+    "Threads": "Threads insights",
+    "Forum/Community": "the platform's own view/reply count on the post or thread",
+    "Other": "whatever native analytics tool the platform provides",
+}
+
+
+def delivery_checklist_for(deal: Deal) -> list:
+    """Compose the Delivery Checklist for a specific deal. See module
+    comment above DELIVERY_CHECKLIST_BASE for the design rationale.
+    """
+    items = list(DELIVERY_CHECKLIST_BASE)
+    if deal.pricing_model in ("per_view", "per_impression"):
+        platform_type = getattr(deal.platform, "platform_type", None)
+        tool = _PLATFORM_ANALYTICS_TOOL.get(platform_type, "the platform's own analytics/insights tool")
+        metric = "view" if deal.pricing_model == "per_view" else "impression"
+        items.append({
+            "id": "analytics_screenshot",
+            "label": f"Screenshot of {tool} showing the {metric} count, dated within the campaign window",
+        })
+    return items
+
+
 def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
     """Mark a deal funded — ONLY if Stripe confirms the PaymentIntent succeeded.
 
@@ -152,6 +212,16 @@ def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
         user_id=deal.platform_owner_id,
         type="deal_funded",
         body=f"Deal #{deal.id} is funded and held pending verification.",
+        ref=str(deal.id),
+    ))
+    # Dedicated follow-up notification pointing the platform owner at the
+    # Delivery Checklist — sent right after the funded notification (same
+    # ref/deep-link pattern) so it's clear what to do next, rather than
+    # leaving them to work it out from the deal page alone.
+    db.add(Notification(
+        user_id=deal.platform_owner_id,
+        type="delivery_checklist_ready",
+        body=f"Deal #{deal.id}: see the Delivery Checklist for exactly what proof to submit.",
         ref=str(deal.id),
     ))
     db.commit()

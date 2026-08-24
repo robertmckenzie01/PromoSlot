@@ -15,7 +15,10 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import ConnectedAccount, Deal, DealStatus, Notification, Payment, User
-from ..services import deal_money, deal_money_for, mark_deal_funded_from_pi, total_charge_for, try_instant_payout
+from ..services import (
+    deal_money, deal_money_for, delivery_checklist_for, mark_deal_funded_from_pi,
+    total_charge_for, try_instant_payout,
+)
 from ..stripe_client import stripe
 
 router = APIRouter(prefix="/deals", tags=["deals"])
@@ -165,6 +168,7 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
     if owner.suspended_at is not None or owner.banned_at is not None:
         raise HTTPException(status_code=409, detail="That platform owner is not currently available.")
     listing_ref = (body.terms or {}).get("listing_id")
+    listing_platform_id = None
     if listing_ref and str(listing_ref).startswith("p"):
         from ..models import Platform as _P
         _p = db.get(_P, int(str(listing_ref)[1:]))
@@ -173,6 +177,13 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
         if _p is not None and _p.removed_at is not None:
             raise HTTPException(status_code=409,
                                 detail="That listing has been removed by its owner and cannot be booked.")
+        # Deal.platform_id was previously never set on this path even though
+        # the listing is already looked up right here — left the FK null on
+        # every direct-invite deal, silently degrading anything that reads
+        # deal.platform (e.g. the Delivery Checklist's platform-specific
+        # wording) to its generic fallback. Reuse the lookup we already did.
+        if _p is not None:
+            listing_platform_id = _p.id
 
     if body.pricing_model not in PRICING_MODELS:
         raise HTTPException(status_code=422,
@@ -203,6 +214,7 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
     d = Deal(
         business_id=user.id,
         platform_owner_id=owner.id,
+        platform_id=listing_platform_id,
         listed_price=body.listed_price,
         currency=body.currency.lower(),
         seller_fee_percent=settings.seller_fee_percent,
@@ -244,6 +256,19 @@ def get_deal(deal_id: int, user: User = Depends(get_current_user), db: Session =
             and not has_permission(user, Perm.DEAL_VIEW_EVIDENCE)):
         raise HTTPException(status_code=403, detail="Not a party to this deal")
     return deal_dict(d)
+
+
+@router.get("/{deal_id}/delivery-checklist")
+def get_delivery_checklist(deal_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    d = db.get(Deal, deal_id)
+    if d is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    # Same viewing rule as the deal itself: both parties, plus evidence-review admins.
+    from ..permissions import Perm, has_permission
+    if (user.id not in (d.business_id, d.platform_owner_id)
+            and not has_permission(user, Perm.DEAL_VIEW_EVIDENCE)):
+        raise HTTPException(status_code=403, detail="Not a party to this deal")
+    return {"deal_id": d.id, "items": delivery_checklist_for(d)}
 
 
 @router.post("/{deal_id}/approve")
