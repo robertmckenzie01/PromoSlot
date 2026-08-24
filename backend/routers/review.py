@@ -7,6 +7,7 @@ or a deal party clicking through their own flow.
 `deal.verify` and `payout.release` are deliberately separate permissions, so a
 finance-only role can be introduced later without redesigning this.
 """
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -18,10 +19,11 @@ from ..config import settings
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
 from ..deal_state import assert_not_final, assert_payout_eligible, assert_transition
-from ..models import ConnectedAccount, Deal, DealStatus, Proof, User
+from ..models import ConnectedAccount, Deal, DealStatus, Proof, User, Verification
 from ..permissions import Perm, is_super_admin
 from ..services import (create_deal_payout, deal_money_for, onboarding_complete,
-                        refund_deal, sync_connected_account, try_instant_payout, verify_delivery)
+                        pool_settlement_for, refund_deal, settle_pool_deal,
+                        sync_connected_account, try_instant_payout, verify_delivery)
 from ..stripe_client import client
 
 router = APIRouter(prefix="/review", tags=["review"])
@@ -219,6 +221,32 @@ def verify(deal_id: int, body: VerifyIn, request: Request,
             "verified": d.verified_at is not None, "decision": body.decision}
 
 
+def _ready_connected_account(db: Session, deal: Deal) -> ConnectedAccount:
+    """Shared by every payout path (plain release, pool settlement) so the two
+    can never drift apart on what "ready to be paid" means.
+    """
+    ca = db.query(ConnectedAccount).filter_by(user_id=deal.platform_owner_id).first()
+    if ca is None:
+        raise HTTPException(status_code=409, detail="Platform owner has not connected a payout account")
+    try:
+        acct = client.v2.core.accounts.retrieve(ca.stripe_account_id, {"include": _INCLUDE})
+        ca = sync_connected_account(db, acct) or ca
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Stripe error checking payout account: {e}")
+    if not onboarding_complete(ca):
+        raise HTTPException(status_code=409,
+                            detail="Platform owner's payouts are not enabled yet (onboarding incomplete)")
+    return ca
+
+
+def _assert_within_admin_limit(reviewer: User, net_to_owner: int) -> None:
+    if net_to_owner > settings.payout_admin_limit_pence and not is_super_admin(reviewer):
+        raise HTTPException(
+            status_code=403,
+            detail=(f"Payouts above £{settings.payout_admin_limit_pence/100:,.2f} "
+                    "require Super-Admin approval."))
+
+
 @router.post("/deals/{deal_id}/release")
 def release_payout(deal_id: int, body: ReleaseIn, request: Request,
                    reviewer: User = Depends(RequirePerm(Perm.PAYOUT_RELEASE)),
@@ -230,6 +258,10 @@ def release_payout(deal_id: int, body: ReleaseIn, request: Request,
     connected account (checked live), the admin is not a party to the deal, and
     — above the configured threshold — Super-Admin authority. The payout amount
     is derived from the deal's locked terms; it can never be edited here.
+
+    Fixed-price deals only — a per_view/per_impression (or hybrid) deal
+    settles through /settle-pool below instead, since it can involve a
+    partial refund alongside the payout, which this endpoint doesn't do.
     """
     if not body.evidence_reviewed:
         raise HTTPException(status_code=422,
@@ -239,27 +271,15 @@ def release_payout(deal_id: int, body: ReleaseIn, request: Request,
     _assert_no_open_dispute(d)
     if d.funded_at is None:
         raise HTTPException(status_code=409, detail="Deal is not funded")
+    if d.pricing_model in ("per_view", "per_impression"):
+        raise HTTPException(status_code=409,
+                            detail="This deal has a pool — settle it via /settle-pool instead")
     assert_payout_eligible(d)
     assert_transition(d.status, DealStatus.PAID)
 
     m = deal_money_for(d)
-    if m["net_to_owner"] > settings.payout_admin_limit_pence and not is_super_admin(reviewer):
-        raise HTTPException(
-            status_code=403,
-            detail=(f"Payouts above £{settings.payout_admin_limit_pence/100:,.2f} "
-                    "require Super-Admin approval."))
-
-    ca = db.query(ConnectedAccount).filter_by(user_id=d.platform_owner_id).first()
-    if ca is None:
-        raise HTTPException(status_code=409, detail="Platform owner has not connected a payout account")
-    try:
-        acct = client.v2.core.accounts.retrieve(ca.stripe_account_id, {"include": _INCLUDE})
-        ca = sync_connected_account(db, acct) or ca
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Stripe error checking payout account: {e}")
-    if not onboarding_complete(ca):
-        raise HTTPException(status_code=409,
-                            detail="Platform owner's payouts are not enabled yet (onboarding incomplete)")
+    _assert_within_admin_limit(reviewer, m["net_to_owner"])
+    ca = _ready_connected_account(db, d)
 
     before = _deal_snapshot(d)
     try:
@@ -315,3 +335,82 @@ def refund(deal_id: int, body: ReleaseIn, request: Request,
                  target_id=d.id, previous_state=before, new_state=_deal_snapshot(d),
                  reason=body.reason, request=request)
     return {"deal_id": d.id, "status": d.status, "refund_id": rf.id}
+
+
+@router.post("/deals/{deal_id}/settle-pool")
+def settle_pool(deal_id: int, body: ReleaseIn, request: Request,
+                reviewer: User = Depends(RequirePerm(Perm.PAYOUT_RELEASE)),
+                db: Session = Depends(get_db)):
+    """Settle a per_view/per_impression (or hybrid) deal: one combined Transfer
+    to the platform owner (fixed portion, if any, + released pool slice) plus
+    one partial Refund of the unused pool balance to the business, if any is
+    left. There is exactly one settlement event per pool deal — no incremental/
+    repeated releases — so this can only ever be called once per deal
+    (paid_at gates it, same as the plain /release endpoint).
+
+    Gated the same way /release is (verified, not paid, payout-ready account,
+    not a party, no open dispute, admin-limit check on the total payout),
+    plus: must actually be a pool deal, must not still be inside an open
+    proof-update grace period, and must have a verified_quantity on record
+    from the approval decision (verify() already requires this to approve a
+    pool deal, so its absence here would mean something upstream is broken,
+    not a normal user-facing case).
+    """
+    if not body.evidence_reviewed:
+        raise HTTPException(status_code=422,
+                            detail="You must confirm you reviewed the delivery evidence.")
+    d = _deal_or_404(db, deal_id)
+    _assert_not_party(reviewer, d)
+    _assert_no_open_dispute(d)
+    if d.funded_at is None:
+        raise HTTPException(status_code=409, detail="Deal is not funded")
+    if d.pricing_model not in ("per_view", "per_impression"):
+        raise HTTPException(status_code=409,
+                            detail="This deal has no pool — use /release instead")
+    if d.proof_grace_deadline is not None and d.proof_grace_deadline > datetime.utcnow():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Open proof-update grace period until {d.proof_grace_deadline.isoformat()} "
+                   "— settlement can't finalize yet.")
+    assert_payout_eligible(d)
+    assert_transition(d.status, DealStatus.PAID)
+
+    verification = (db.query(Verification)
+                    .filter_by(deal_id=d.id, decision="approved")
+                    .order_by(Verification.id.desc()).first())
+    if verification is None or verification.verified_quantity is None:
+        raise HTTPException(status_code=409,
+                            detail="No verified_quantity on record for this deal — cannot settle")
+
+    fixed = deal_money_for(d)
+    pool = pool_settlement_for(d, verification.verified_quantity)
+    _assert_within_admin_limit(reviewer, fixed["net_to_owner"] + pool["pool_net_to_owner"])
+    ca = _ready_connected_account(db, d)
+
+    before = _deal_snapshot(d)
+    try:
+        result = settle_pool_deal(db, d, ca.stripe_account_id, verification.verified_quantity)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Stripe settlement failed: {e}")
+
+    if ca.instant_payout_opt_in:
+        try:
+            try_instant_payout(db, d, ca)
+        except Exception:
+            pass
+
+    audit.record(db, actor=reviewer, action="payout.settle_pool", target_type="deal",
+                 target_id=d.id, previous_state=before, new_state=_deal_snapshot(d),
+                 reason=body.reason, request=request)
+    return {
+        "deal_id": d.id, "status": d.status, "paid": d.paid_at is not None,
+        "transfer_id": result["transfer"].id,
+        "refund_id": result["refund"].id if result["refund"] else None,
+        "verified_quantity": verification.verified_quantity,
+        "units": pool["units"], "pool_gross": pool["pool_gross"],
+        "pool_net_to_owner": pool["pool_net_to_owner"],
+        "pool_platform_take": pool["pool_platform_take"],
+        "refund_to_business": pool["refund_to_business"],
+        "fixed_net_to_owner": fixed["net_to_owner"],
+        "total_net_to_owner": result["total_net_to_owner"],
+    }

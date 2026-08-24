@@ -214,6 +214,106 @@ def create_deal_payout(db: Session, deal: Deal, destination: str) -> Transfer:
     return tr
 
 
+def pool_settlement_for(deal: Deal, verified_quantity: int) -> dict:
+    """Pure math for settling a per_view/per_impression pool — no Stripe, no DB.
+
+    Pays only for complete priced units, floor-rounded (agreed explicitly:
+    real view counts are never round, so payout is always in whole units of
+    rate_unit_quantity rather than trying to force reality to be tidy).
+    Fee is only ever taken on the released slice — reuses deal_money() twice
+    (once for the full pool, once for the released slice) rather than a new
+    formula, so refund = (what was charged for the pool) - (what's kept for
+    the released slice) can never drift from what deal_money() would compute
+    for either amount on its own.
+    """
+    units = verified_quantity // deal.rate_unit_quantity if deal.rate_unit_quantity else 0
+    gross = units * deal.rate_unit_pence
+    gross = min(gross, deal.pool_max_budget or 0)   # can never release more than was funded
+
+    charged_for_pool = deal_money(deal.pool_max_budget or 0, deal.seller_fee_percent, deal.buyer_fee_percent)
+    kept_for_released = deal_money(gross, deal.seller_fee_percent, deal.buyer_fee_percent)
+
+    return {
+        "verified_quantity": verified_quantity,
+        "units": units,
+        "pool_gross": gross,
+        "pool_net_to_owner": kept_for_released["net_to_owner"],
+        "pool_platform_take": kept_for_released["platform_take"],
+        "refund_to_business": charged_for_pool["charge_amount"] - kept_for_released["charge_amount"],
+    }
+
+
+def settle_pool_deal(db: Session, deal: Deal, destination: str, verified_quantity: int) -> dict:
+    """Settle a per_view/per_impression (or hybrid — same model with
+    listed_price also >0) deal: one combined Transfer (fixed portion, if any,
+    + released pool slice) to the platform owner, plus one partial Refund
+    (unused pool + its unused fee) back to the business if anything's left.
+
+    Transfer happens first and is committed to the DB before the refund is
+    even attempted — if the refund call then fails, the deal must still
+    correctly show as paid (money already moved for real), not be lost or
+    rolled back, so a failed refund never hides a successful transfer.
+    Caller must have already verified: verified + not paid + destination
+    payout-enabled + pricing_model is a pool model + no open grace period.
+    """
+    fixed = deal_money_for(deal)                       # listed_price side, unaffected by any of this
+    pool = pool_settlement_for(deal, verified_quantity)
+
+    total_net_to_owner = fixed["net_to_owner"] + pool["pool_net_to_owner"]
+
+    tr = stripe.Transfer.create(
+        amount=total_net_to_owner,
+        currency=deal.currency,
+        destination=destination,
+        source_transaction=deal.charge_id,
+        transfer_group=f"deal_{deal.id}",
+        metadata={"deal_id": str(deal.id), "promoslot": "pool_deal_payout",
+                 "verified_quantity": str(verified_quantity)},
+    )
+    deal.transfer_id = tr.id
+    deal.paid_at = datetime.utcnow()
+    deal.status = DealStatus.PAID
+    deal.pool_released_amount = pool["pool_gross"]
+    deal.pool_settled_at = datetime.utcnow()
+    db.add(Transfer(deal_id=deal.id, stripe_transfer_id=tr.id, destination_account=destination,
+                    amount=total_net_to_owner, currency=deal.currency, status="paid"))
+    db.add(Notification(user_id=deal.platform_owner_id, type="payout_sent",
+                        body=f"Payout of {deal.currency.upper()} {total_net_to_owner/100:.2f} sent for "
+                             f"deal #{deal.id} ({pool['units']} verified unit(s) of "
+                             f"{deal.rate_unit_quantity} + any fixed base).",
+                        ref=str(deal.id)))
+    # Commit now — the Transfer already happened for real in Stripe, so this
+    # must be durable regardless of what the refund call below does next.
+    db.commit()
+    db.refresh(deal)
+
+    refund_amount = pool["refund_to_business"]
+    rf = None
+    if refund_amount > 0:
+        rf = stripe.Refund.create(
+            payment_intent=deal.payment_intent_id,
+            amount=refund_amount,
+            reason="requested_by_customer",
+            metadata={"deal_id": str(deal.id), "promoslot": "pool_unused_refund"},
+        )
+        deal.refund_id = rf.id
+        deal.pool_refunded_amount = refund_amount
+        db.add(Notification(user_id=deal.business_id, type="deal_completed",
+                            body=f"Deal #{deal.id} settled — unused pool balance of "
+                                 f"{deal.currency.upper()} {refund_amount/100:.2f} refunded to you.",
+                            ref=str(deal.id)))
+    else:
+        deal.pool_refunded_amount = 0
+        db.add(Notification(user_id=deal.business_id, type="deal_completed",
+                            body=f"Deal #{deal.id} settled — full pool budget was earned, no refund due.",
+                            ref=str(deal.id)))
+    db.commit()
+    db.refresh(deal)
+
+    return {"transfer": tr, "refund": rf, "fixed": fixed, "pool": pool,
+            "total_net_to_owner": total_net_to_owner}
+
+
 def check_instant_eligibility(stripe_account_id: str) -> dict:
     """Live check: does this connected account have any external account
     (bank or card) Stripe will do an Instant Payout to right now?
