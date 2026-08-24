@@ -82,7 +82,7 @@ def password_reset_email(reset_url: str) -> tuple:
             Set a new password</a>
         </p>
         <p style="color:#64748b;font-size:13px">If you didn't request this, you can safely
-           ignore this email — your password won't change.</p>
+           ignore this email. Your password won't change.</p>
         <p style="color:#94a3b8;font-size:12px;word-break:break-all">{reset_url}</p>
       </div>"""
     text = (f"Reset your PromoSlot password\n\n{reset_url}\n\n"
@@ -117,7 +117,7 @@ def welcome_email(display_name: str = "", is_business: bool = False,
                       "Add your audience numbers, the services you offer and your prices, "
                       "so businesses can find you and buy directly."))
     steps.append(("Fill in your profile",
-                  "Add a profile picture and a short 'who we are' — it's what the other "
+                  "Add a profile picture and a short 'who we are': it's what the other "
                   "side sees before deciding to work with you."))
 
     items = "".join(
@@ -140,7 +140,7 @@ def welcome_email(display_name: str = "", is_business: bool = False,
       <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
         <h2 style="color:#0f172a">{hello}</h2>
         <p style="color:#334155">Your account is ready. PromoSlot connects businesses with
-           the people who own the audiences — and holds the money pending verification until the
+           the people who own the audiences, and holds the money pending verification until the
            work is delivered and confirmed, so neither side has to trust the other up front.</p>
         {verify_block}
         <h3 style="color:#0f172a;font-size:15px;margin-bottom:8px">Then, where to start</h3>
@@ -150,7 +150,7 @@ def welcome_email(display_name: str = "", is_business: bool = False,
              padding:12px 22px;border-radius:10px;font-weight:700;display:inline-block">
             Open PromoSlot</a>
         </p>'''}
-        <p style="color:#64748b;font-size:13px">Fees are only charged when a deal completes —
+        <p style="color:#64748b;font-size:13px">Fees are only charged when a deal completes:
            10% from the seller, 5% buyer protection from the buyer. Nothing is charged for
            creating an account or publishing.</p>
       </div>"""
@@ -166,7 +166,7 @@ def welcome_email(display_name: str = "", is_business: bool = False,
             f"{'Then, where' if verify_url else 'Where'} to start:\n"
             f"{text_steps}\n\n"
             f"{'' if verify_url else settings.app_base_url + chr(10) + chr(10)}"
-            "Fees are only charged when a deal completes — 10% from the seller, 5% buyer "
+            "Fees are only charged when a deal completes: 10% from the seller, 5% buyer "
             "protection from the buyer.")
     subject = ("Verify your email to finish setting up PromoSlot" if verify_url
                else "Welcome to PromoSlot")
@@ -185,7 +185,7 @@ def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") ->
     explanation of what's missing or unclear; never invented copy standing
     in for it.
     """
-    title = f"Action needed on Deal #{deal_id} — 24 hours to add delivery proof"
+    title = f"Action needed on Deal #{deal_id}: 24 hours to add delivery proof"
     note_block_html = (f'''
         <p style="color:#334155;margin-bottom:6px"><b>What the reviewer said</b></p>
         <div style="border-left:3px solid #4f46e5;padding:2px 0 2px 14px;color:#334155;
@@ -201,13 +201,13 @@ def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") ->
         {note_block_html}
         <p style="color:#334155">If nothing further is added before the deadline, the
            reviewer will finalize the deal using only what's already been formally
-           submitted — never on anything not visible in your own submission.</p>
+           submitted, never on anything not visible in your own submission.</p>
         <p style="margin:26px 0">
           <a href="{settings.app_base_url}" style="background:#4f46e5;color:#fff;text-decoration:none;
              padding:12px 22px;border-radius:10px;font-weight:700;display:inline-block">
             Add proof to Deal #{deal_id}</a>
         </p>
-        <p style="color:#64748b;font-size:13px">This is a routine check, not an accusation —
+        <p style="color:#64748b;font-size:13px">This is a routine check, not an accusation:
            it happens whenever a reviewer wants more certainty on a number before money
            moves. Questions? Reply to this email or contact {settings.support_email}.</p>
       </div>"""
@@ -217,7 +217,7 @@ def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") ->
             f"until {deadline_iso} (24 hours) to add anything further to your submitted proof.\n\n"
             + (f"What the reviewer said:\n{note}\n\n" if note else "")
             + "If nothing further is added before the deadline, the reviewer will finalize "
-              "the deal using only what's already been formally submitted — never on "
+              "the deal using only what's already been formally submitted, never on "
               "anything not visible in your own submission.\n\n"
             f"Add proof: {settings.app_base_url}\n\n"
             "This is a routine check, not an accusation. Questions? Reply to this email "
@@ -261,12 +261,12 @@ def support_reply_email(ticket_id: int, subject: str, reply: str) -> tuple:
         <p style="color:#64748b;font-size:13px;margin-top:22px">
           Just reply to this email and it comes straight back to us on this
           ticket. Prefer to keep it in PromoSlot? Log in and reply from your
-          Messages inbox instead — either reaches the same team.</p>
+          Messages inbox instead. Either way reaches the same team.</p>
       </div>"""
     text = (f"Re: {subject}\n\n{reply}\n\n"
             "Just reply to this email and it comes straight back to us on this "
             "ticket. Prefer to keep it in PromoSlot? Log in and reply from your "
-            "Messages inbox instead — either reaches the same team.")
+            "Messages inbox instead. Either way reaches the same team.")
     return f"Re: {subject}" if subject else "A reply from PromoSlot support", html, text
 
 
@@ -414,14 +414,14 @@ def account_restored_email(display_name: str = "") -> tuple:
     name = (display_name or "").strip()
     hello = f"Welcome back, {name}" if name else "Welcome back"
     hello_html = f"Welcome back, {_esc(name)}" if name else "Welcome back"
-    title = "Your account is active again — welcome back"
+    title = "Your account is active again, welcome back"
     url = settings.app_base_url
 
     html = f"""
       <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px">
         <h2 style="color:#0f172a">{hello_html}</h2>
         <p style="color:#334155">The suspension on your PromoSlot account has been
-           lifted. You can sign in again, and everything is where you left it —
+           lifted. You can sign in again, and everything is where you left it:
            your profile, your listings and campaigns, and any deals in progress.</p>
         <p style="margin:22px 0">
           <a href="{url}" style="background:#4f46e5;color:#fff;text-decoration:none;
@@ -434,7 +434,7 @@ def account_restored_email(display_name: str = "") -> tuple:
       </div>"""
     text = (f"{hello}\n\n"
             "The suspension on your PromoSlot account has been lifted. You can sign "
-            "in again, and everything is where you left it — your profile, your "
+            "in again, and everything is where you left it: your profile, your "
             "listings and campaigns, and any deals in progress.\n\n"
             f"Sign in: {url}\n\n"
             "It's good to have you back. If anything looks off when you sign in, "
@@ -507,7 +507,7 @@ def account_deleted_email(reason: str = "") -> tuple:
         {reason_block}
         <p style="color:#334155;margin-top:22px">Records of any completed deals stay
            in our system, as our Privacy Policy explains, for accounting and dispute
-           purposes — but they're no longer linked to your name or this email address.</p>
+           purposes, but they're no longer linked to your name or this email address.</p>
         <p style="color:#64748b;font-size:13px">Didn't request this? Contact
            {settings.support_email} straight away.</p>
       </div>"""
@@ -517,7 +517,7 @@ def account_deleted_email(reason: str = "") -> tuple:
             "disconnected from the account.\n\n"
             + (f"Note:\n{reason}\n\n" if reason else "")
             + "Records of any completed deals stay in our system, as our Privacy "
-              "Policy explains, for accounting and dispute purposes — but they're no "
+              "Policy explains, for accounting and dispute purposes, but they're no "
               "longer linked to your name or this email address.\n\n"
               f"Didn't request this? Contact {settings.support_email} straight away.")
     return title, html, text
