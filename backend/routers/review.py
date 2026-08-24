@@ -51,6 +51,13 @@ class VerifyIn(BaseModel):
     notes: Optional[str] = None
     reason: str = Field(min_length=3, max_length=1000)
     evidence_reviewed: bool = False                  # explicit confirmation
+    # Required on approval for a per_view/per_impression (or hybrid = same
+    # model + listed_price>0) deal — the actual quantity a reviewer confirms,
+    # independently of what the platform owner submitted. The later pool
+    # settlement step reads this rather than having an admin re-derive it.
+    # Meaningless for a plain fixed deal, so left optional here and only
+    # enforced below for the pricing models that need it.
+    verified_quantity: Optional[int] = Field(default=None, ge=0)
 
 
 class ReleaseIn(BaseModel):
@@ -177,6 +184,18 @@ def verify(deal_id: int, body: VerifyIn, request: Request,
     if real_proofs == 0:
         raise HTTPException(status_code=409, detail="No submitted evidence to verify")
 
+    # A per_view/per_impression pool (or a hybrid deal on the same model with
+    # listed_price also >0) can't be settled without a confirmed quantity —
+    # the payout calculation has nothing to work from otherwise. Only
+    # enforced on approval; a reviewer requesting changes or rejecting isn't
+    # claiming a number yet.
+    if (body.decision == "approved"
+            and d.pricing_model in ("per_view", "per_impression")
+            and body.verified_quantity is None):
+        raise HTTPException(
+            status_code=422,
+            detail="verified_quantity is required to approve a per_view/per_impression deal")
+
     target = {"approved": DealStatus.VERIFIED,
               "rejected": DealStatus.REJECTED,
               "changes_requested": DealStatus.CHANGES_REQUESTED}[body.decision]
@@ -184,7 +203,8 @@ def verify(deal_id: int, body: VerifyIn, request: Request,
 
     before = _deal_snapshot(d)
     if body.decision == "approved":
-        verify_delivery(db, d, reviewer, "approved", body.notes)
+        verify_delivery(db, d, reviewer, "approved", body.notes,
+                        verified_quantity=body.verified_quantity)
     else:
         verify_delivery(db, d, reviewer, "rejected", body.notes)
         d.status = target                 # rejected vs changes_requested

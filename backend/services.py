@@ -131,15 +131,23 @@ def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
 
 
 def verify_delivery(db: Session, deal: Deal, reviewer: User, decision: str,
-                    notes: Optional[str] = None) -> Verification:
+                    notes: Optional[str] = None,
+                    verified_quantity: Optional[int] = None) -> Verification:
     """Record a human reviewer's verification decision on submitted evidence.
 
     Only ever called from the reviewer-only endpoint, on a funded deal that has
     real stored proof. Sets verified_at on approval — never by a timer, a step
     being reached, or a deal party clicking through their own flow.
+
+    verified_quantity is the reviewer's own confirmed number (views/
+    impressions) for a per_view/per_impression deal — recorded here, on the
+    decision itself, not on Proof (which is only ever what the platform owner
+    submitted, unverified). The later pool-settlement step reads this value
+    rather than re-deriving it. Always None for a plain fixed deal.
     """
     v = Verification(deal_id=deal.id, reviewer_id=reviewer.id,
-                     decision=decision, notes=notes)
+                     decision=decision, notes=notes,
+                     verified_quantity=verified_quantity)
     db.add(v)
 
     if decision == "approved":
