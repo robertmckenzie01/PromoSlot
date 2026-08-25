@@ -249,7 +249,11 @@ def verify(deal_id: int, body: VerifyIn, request: Request, background: Backgroun
         if owner and owner.email:
             subject, html, text = proof_grace_period_email(
                 d.id, grace_deadline.isoformat(), body.notes or "")
-            background.add_task(send_email, owner.email, subject, html, text)
+            # The copy invites a reply ("reply to this email or contact
+            # support") — MAIL_FROM is a no-reply sender, so Reply-To has to
+            # actually point at support or that promise is empty.
+            background.add_task(send_email, owner.email, subject, html, text,
+                                reply_to=settings.support_email)
         audit.record(db, actor=reviewer, action="deal.grace_period_opened",
                      target_type="deal", target_id=d.id, previous_state=before,
                      new_state=_deal_snapshot(d), reason=body.reason, request=request)

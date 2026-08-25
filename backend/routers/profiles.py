@@ -181,7 +181,11 @@ def delete_my_account(body: DeleteAccountIn, request: Request, response: Respons
 
 def _notify_deleted(email: str, reason: str) -> None:
     subj, html, text = account_deleted_email(reason)
-    ok, detail = send_email(email, subj, html, text)
+    # Copy points them at support_email directly ("contact ... straight
+    # away"), not "reply to this email" — but Reply-To is set anyway so a
+    # reply out of habit still reaches a real inbox instead of the no-reply
+    # MAIL_FROM sender. Matches the admin-triggered deletion path below.
+    ok, detail = send_email(email, subj, html, text, reply_to=settings.support_email)
     if not ok:
         log.warning("account-deleted email not sent to %s: %s", email, detail)
 
@@ -236,7 +240,10 @@ def deactivate_my_account(body: DeactivateAccountIn, request: Request, response:
 
 def _notify_deactivated(email: str, reason: str) -> None:
     subj, html, text = account_deactivated_email(reason)
-    ok, detail = send_email(email, subj, html, text)
+    # Same reasoning as _notify_deleted above: the copy names support_email
+    # directly rather than saying "reply", but Reply-To is set so a reply
+    # anyway still lands somewhere real.
+    ok, detail = send_email(email, subj, html, text, reply_to=settings.support_email)
     if not ok:
         log.warning("account-deactivated email not sent to %s: %s", email, detail)
 
