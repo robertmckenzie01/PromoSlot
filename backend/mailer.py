@@ -319,12 +319,21 @@ def receipts_campaign_email(unsubscribe_url: str) -> tuple:
     unsubscribe_url from marketing.create_unsubscribe_token(db, user); this
     function only renders the message.
 
-    Concept: "We've got the receipts" — an itemised-receipt visual tied to two
-    real PromoSlot mechanics (recurring deals, Payment Protection), not a
-    decorative pun. The receipt's numbers are a labelled illustrative example,
-    not a real user's data or an aggregate platform stat — PromoSlot is
-    pre-launch/founding-cohort stage with no real usage numbers to quote yet,
-    so the stat ticker states real, fixed product terms (the 10%/5% fee split,
+    Concept: "We've got the receipts" — an itemised-receipt visual tied to real
+    PromoSlot mechanics (repeat buyers via Past Campaigns/reviews, Payment
+    Protection), not a decorative pun. Deliberately NOT built around
+    "recurring deals" — PromoSlot has no subscription/recurring-deal concept
+    (deals are one-off, single-settlement transactions; see backend/assets.py's
+    own "no subscription, no listing fee" positioning), so this instead uses a
+    same-buyer repeat deal as the receipt's proof point, which is real
+    (Past Campaigns + reviews are genuinely tied to completed deals). The
+    receipt's numbers are a labelled illustrative example, not a real user's
+    data or an aggregate platform stat, and the "£2,000+ a month" headline
+    figure is a marketing benchmark/aspiration (like an ad for a golf club
+    quoting a 300-yard drive), not a claim about an actual observed cohort —
+    confirmed with the user this framing is intentional. PromoSlot is
+    pre-launch/founding-cohort stage with no real usage numbers to quote, so
+    the stat ticker states real, fixed product terms (the 10% seller fee,
     escrow-style Payment Protection, free listing) rather than invented
     traction numbers. Pure table markup throughout (no flexbox, no CSS
     position/transform, no external web fonts) so it renders correctly in
@@ -339,8 +348,8 @@ def receipts_campaign_email(unsubscribe_url: str) -> tuple:
     resources_url = f"{base}/resources"
     prefs_url = f"{base}/"
 
-    subject = "The platform owners earning £2,000+ a month aren't doing more deals"
-    preheader = "They're doing fewer, bigger ones - and they've got the receipts to prove it."
+    subject = "The platform owners earning £2,000+ a month aren't chasing more buyers"
+    preheader = "They're building relationships with fewer, better ones - and they've got the receipts to prove it."
 
     logo_1x, logo_2x = _img_url("logo.png"), _img_url("logo@2x.png")
 
@@ -355,13 +364,16 @@ def receipts_campaign_email(unsubscribe_url: str) -> tuple:
     )
 
     # ---- hero ----
+    # Wrapped in a redundant <center> tag on top of the td's align="center" /
+    # text-align:center — belt-and-suspenders against clients that handle one
+    # or the other inconsistently for an auto-width nested table.
     hero_button = (
-        '<table role="presentation" cellpadding="0" cellspacing="0" border="0">'
+        '<center><table role="presentation" cellpadding="0" cellspacing="0" border="0">'
         f'<tr><td bgcolor="#4f46e5" style="background:#4f46e5;border-radius:999px">'
         f'<a href="{how_it_works_url}" style="display:inline-block;padding:14px 28px;'
         f'font-family:{_SANS};font-size:12px;font-weight:700;letter-spacing:0.11em;'
         'text-transform:uppercase;color:#ffffff;text-decoration:none;'
-        'border-radius:999px">See how it works</a></td></tr></table>'
+        'border-radius:999px">See how it works</a></td></tr></table></center>'
     )
     hero_wrap = (
         '<tr><td bgcolor="#ffffff" align="center" style="background:#ffffff;'
@@ -371,10 +383,11 @@ def receipts_campaign_email(unsubscribe_url: str) -> tuple:
         'letter-spacing:0.14em;text-transform:uppercase;color:#4f46e5">For platform '
         f'owners</p><h1 style="margin:0 0 14px;font-family:{_SERIF};font-size:28px;'
         'line-height:1.26;font-weight:600;color:#14273f;letter-spacing:-0.01em">'
-        'The platform owners earning &pound;2,000+ a month aren\'t doing '
-        '<em style="font-style:italic;color:#4f46e5">more</em> deals.</h1>'
+        'The platform owners earning &pound;2,000+ a month aren\'t chasing '
+        '<em style="font-style:italic;color:#4f46e5">more</em> buyers.</h1>'
         f'<p style="margin:0 0 22px;font-family:{_SANS};font-size:16px;line-height:1.6;'
-        'color:#3a4658">They\'re doing fewer, bigger ones, and they\'ve got the receipts '
+        'color:#3a4658">They\'re building relationships with fewer, better ones, and '
+        'they\'ve got the receipts '
         f'to prove it works.</p>{hero_button}</td></tr>'
     )
 
@@ -385,8 +398,8 @@ def receipts_campaign_email(unsubscribe_url: str) -> tuple:
         f'font-family:{_MONO};font-size:11px;font-weight:{weight};color:{color}">'
         f'{value}</td></tr>')
     receipt_rows = (
-        receipt_line("1x Recurring campaign", "&pound;2,000/mo")
-        + receipt_line("1x Newsletter feature", "&pound;450")
+        receipt_line("1x Product launch campaign", "&pound;2,000")
+        + receipt_line("1x Repeat deal, same buyer", "&pound;450")
         + receipt_line("Delivery proof", "VERIFIED", "#4f46e5")
         + receipt_line("Payment Protection", "ACTIVE", "#4f46e5")
         + receipt_line("Seller fee (10%, on completion)", "&minus;&pound;245", "#8b8579", "400")
@@ -442,8 +455,9 @@ def receipts_campaign_email(unsubscribe_url: str) -> tuple:
         '</td></tr></table>'
     )
     features_html = (
-        feature("&#8635;", "Recurring deals, not one-offs",
-                "One good buyer booked monthly beats chasing five new ones.")
+        feature("&#8635;", "Repeat buyers, not one-off chases",
+                "A business that trusts you once tends to come back. Your reviews "
+                "and Past Campaigns are what gets you picked again.")
         + feature("&#10003;", "Verified delivery proof on every job",
                   "Upload it once. It backs you up if a payout's ever disputed.")
         + feature("&pound;", "Funds held before work starts",
@@ -464,16 +478,20 @@ def receipts_campaign_email(unsubscribe_url: str) -> tuple:
     )
 
     # ---- second CTA ----
+    # Same redundant <center> wrapper as hero_button, in case the visual
+    # miscentering reported on this specific button was a client-rendering
+    # quirk not visible in the static markup (it was structurally identical
+    # to hero_button already).
     cta2_wrap = (
         '<tr><td bgcolor="#ffffff" align="center" style="background:#ffffff;'
         'border-left:1px solid #e4e8ee;border-right:1px solid #e4e8ee;'
         'padding:24px 34px 36px;text-align:center">'
-        '<table role="presentation" cellpadding="0" cellspacing="0" border="0">'
+        '<center><table role="presentation" cellpadding="0" cellspacing="0" border="0">'
         f'<tr><td bgcolor="#4f46e5" style="background:#4f46e5;border-radius:999px">'
         f'<a href="{marketplace_url}" style="display:inline-block;padding:15px 26px;'
         f'font-family:{_SANS};font-size:12px;font-weight:700;letter-spacing:0.11em;'
         'text-transform:uppercase;color:#ffffff;text-decoration:none;'
-        'border-radius:999px">Start your first recurring deal</a></td></tr></table>'
+        'border-radius:999px">Browse open campaigns</a></td></tr></table></center>'
         f'<p style="margin:12px 0 0;font-family:{_SANS};font-size:11.5px;'
         'color:#8b93a1">Free to list. No setup fees.</p></td></tr>'
     )
@@ -552,26 +570,27 @@ def receipts_campaign_email(unsubscribe_url: str) -> tuple:
 </html>"""
 
     text = (
-        "The platform owners earning £2,000+ a month aren't doing more deals.\n\n"
-        "They're doing fewer, bigger ones, and they've got the receipts to prove it works.\n\n"
+        "The platform owners earning £2,000+ a month aren't chasing more buyers.\n\n"
+        "They're building relationships with fewer, better ones, and they've got the "
+        "receipts to prove it works.\n\n"
         f"See how it works: {how_it_works_url}\n\n"
         "AN ILLUSTRATIVE EXAMPLE RECEIPT\n"
-        "1x Recurring campaign — £2,000/mo\n"
-        "1x Newsletter feature — £450\n"
+        "1x Product launch campaign — £2,000\n"
+        "1x Repeat deal, same buyer — £450\n"
         "Delivery proof — VERIFIED\n"
         "Payment Protection — ACTIVE\n"
         "Seller fee (10%, on completion) — -£245\n"
         "TOTAL PAID OUT — £2,205\n\n"
         "Here's what's on their receipt that isn't on yours:\n"
-        "- Recurring deals, not one-offs: one good buyer booked monthly beats chasing "
-        "five new ones.\n"
+        "- Repeat buyers, not one-off chases: a business that trusts you once tends to "
+        "come back. Your reviews and Past Campaigns are what gets you picked again.\n"
         "- Verified delivery proof on every job: upload it once, it backs you up if a "
         "payout's ever disputed.\n"
         "- Funds held before work starts: Payment Protection means the money's already "
         "there. Post, then get paid.\n"
         "- Every completed deal is a receipt: something concrete to point to when it's "
         "time to raise your rate.\n\n"
-        f"Start your first recurring deal: {marketplace_url}\n"
+        f"Browse open campaigns: {marketplace_url}\n"
         "Free to list. No setup fees.\n\n"
         "10% seller fee, charged only on completion. Payment held until delivery is "
         "verified. Free to list, no setup fees.\n\n"
