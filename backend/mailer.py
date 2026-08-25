@@ -115,6 +115,28 @@ def _url_line(url: str) -> str:
             f'line-height:1.5;color:#8291a6;word-break:break-all">{url}</p>')
 
 
+# Shared one-click marketing opt-in nudge, reused across every transactional
+# email judged tonally right for it (see marketing.optin_nudge_url() for the
+# "should we even offer it" check — never shown to someone already opted
+# in). Deliberately NOT used on account_suspended_email/account_banned_email/
+# account_deleted_email/support_ticket_email: a marketing pitch inside a ban,
+# suspension, or deletion notice reads tone-deaf right as the relationship is
+# ending, and support_ticket_email goes to the support inbox, not a user.
+def _optin_nudge_html(optin_url: str, margin: str = "10px 0 0") -> str:
+    return (_fine(
+        f'Want occasional product updates and tips, nothing frequent? '
+        f'<a href="{optin_url}" style="color:#4f46e5;text-decoration:none">'
+        f'Opt in here</a>. Entirely optional, and you can turn it off again '
+        f'any time from My Account.', margin=margin)
+    ) if optin_url else ""
+
+
+def _optin_nudge_text(optin_url: str) -> str:
+    return (f"\n\nWant occasional product updates and tips, nothing frequent? Opt in "
+            f"here: {optin_url}\nEntirely optional, and you can turn it off again any "
+            f"time from My Account.") if optin_url else ""
+
+
 def _eyebrow(text: str) -> str:
     return (f'<p style="margin:26px 0 8px;font-family:{_SANS};font-size:11px;'
             f'line-height:1;font-weight:700;letter-spacing:0.1em;'
@@ -606,8 +628,14 @@ def receipts_campaign_email(unsubscribe_url: str) -> tuple:
     return subject, html, text
 
 
-def password_reset_email(reset_url: str) -> tuple:
-    """(subject, html, text) for a password-reset message."""
+def password_reset_email(reset_url: str, optin_url: str = "") -> tuple:
+    """(subject, html, text) for a password-reset message.
+
+    optin_url, when given, is the same one-click marketing-consent nudge as
+    welcome_email — only ever passed by the caller when the recipient hasn't
+    already opted in. One quiet line at the very bottom, after the actual
+    reset link and its safety note, never ahead of them.
+    """
     subject = "Reset your PromoSlot password"
     body = (
         _h1("Reset your password")
@@ -618,11 +646,13 @@ def password_reset_email(reset_url: str) -> tuple:
         + _fine("If you didn't request this, you can safely ignore this email. "
                 "Your password won't change.")
         + _url_line(reset_url)
+        + _optin_nudge_html(optin_url, margin="20px 0 0")
     )
     html = _shell("This link expires in 1 hour and can only be used once.", body)
     text = (f"Reset your PromoSlot password\n\n{reset_url}\n\n"
             "This link expires in 1 hour and can only be used once. "
-            "If you didn't request it, ignore this email.")
+            "If you didn't request it, ignore this email."
+            + _optin_nudge_text(optin_url))
     return subject, html, text
 
 
@@ -676,12 +706,7 @@ def welcome_email(display_name: str = "", is_business: bool = False,
 
     open_button_html = "" if verify_url else _button(settings.app_base_url, "Open PromoSlot")
 
-    optin_line_html = (
-        _fine(f"Want occasional product updates and tips, nothing frequent? "
-              f"<a href=\"{optin_url}\" style=\"color:#4f46e5;text-decoration:none\">"
-              f"Opt in here</a>. Entirely optional, and you can turn it off "
-              f"again any time from My Account.", margin="10px 0 0")
-    ) if optin_url else ""
+    optin_line_html = _optin_nudge_html(optin_url)
 
     body = (
         _h1(hello_html)
@@ -717,15 +742,14 @@ def welcome_email(display_name: str = "", is_business: bool = False,
             f"{'' if verify_url else settings.app_base_url + chr(10) + chr(10)}"
             "Fees are only charged when a deal completes: 10% from the seller, 5% buyer "
             "protection from the buyer."
-            + (f"\n\nWant occasional product updates and tips, nothing frequent? Opt in "
-               f"here: {optin_url}\nEntirely optional, and you can turn it off again any "
-               f"time from My Account." if optin_url else ""))
+            + _optin_nudge_text(optin_url))
     subject = ("Verify your email to finish setting up PromoSlot" if verify_url
                else "Welcome to PromoSlot")
     return subject, html, text
 
 
-def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") -> tuple:
+def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "",
+                             optin_url: str = "") -> tuple:
     """(subject, html, text) telling a platform owner they have 24 hours to
     add more delivery proof before a reviewer finalizes a per_view/
     per_impression deal using only what's already submitted.
@@ -735,7 +759,8 @@ def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") ->
     file also gets one, a browser tab isn't a reliable place to expect
     someone to be watching a 24-hour clock. note is the reviewer's own
     explanation of what's missing or unclear; never invented copy standing
-    in for it.
+    in for it. optin_url is the same one-click marketing nudge as
+    welcome_email — only passed when the recipient hasn't already opted in.
     """
     title = f"Action needed on Deal #{deal_id}: 24 hours to add delivery proof"
     note_block_html = (_eyebrow("What the reviewer said") + _quote(_esc(note))) if note else ""
@@ -757,6 +782,7 @@ def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") ->
                 f"Questions? Reply to this email or contact "
                 f"<a href=\"mailto:{settings.support_email}\" style=\"color:#4f46e5;"
                 f"text-decoration:none\">{settings.support_email}</a>.")
+        + _optin_nudge_html(optin_url)
     )
     html = _shell(f"You have until {deadline_iso} to add more delivery proof on "
                   f"Deal #{deal_id}.", body)
@@ -770,7 +796,8 @@ def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") ->
               "anything not visible in your own submission.\n\n"
             f"Add proof: {settings.app_base_url}/?deal={deal_id}\n\n"
             "This is a routine check, not an accusation. Questions? Reply to this email "
-            f"or contact {settings.support_email}.")
+            f"or contact {settings.support_email}."
+            + _optin_nudge_text(optin_url))
     return title, html, text
 
 
@@ -801,20 +828,26 @@ def support_ticket_email(ticket_id: int, name: str, email: str = "", mobile: str
     return f"[Support #{ticket_id}] {subject or 'New ticket'}", html, text
 
 
-def support_reply_email(ticket_id: int, subject: str, reply: str) -> tuple:
-    """(subject, html, text) for a reviewer's reply to the person who wrote in."""
+def support_reply_email(ticket_id: int, subject: str, reply: str, optin_url: str = "") -> tuple:
+    """(subject, html, text) for a reviewer's reply to the person who wrote in.
+
+    optin_url is the same one-click marketing nudge as welcome_email — only
+    passed when the recipient hasn't already opted in.
+    """
     body = (
         _h1(f"Re: {_esc(subject)}")
         + _p(_esc(reply).replace("\n", "<br>"))
         + _fine("Just reply to this email and it comes straight back to us on "
                 "this ticket. Prefer to keep it in PromoSlot? Log in and reply "
                 "from your Messages inbox instead. Either way reaches the same team.")
+        + _optin_nudge_html(optin_url)
     )
     html = _shell("A reply on your PromoSlot support ticket.", body)
     text = (f"Re: {subject}\n\n{reply}\n\n"
             "Just reply to this email and it comes straight back to us on this "
             "ticket. Prefer to keep it in PromoSlot? Log in and reply from your "
-            "Messages inbox instead. Either way reaches the same team.")
+            "Messages inbox instead. Either way reaches the same team."
+            + _optin_nudge_text(optin_url))
     return f"Re: {subject}" if subject else "A reply from PromoSlot support", html, text
 
 
@@ -952,13 +985,14 @@ def account_banned_email(reason: str = "") -> tuple:
     return _account_action_email("banned", reason)
 
 
-def account_restored_email(display_name: str = "") -> tuple:
+def account_restored_email(display_name: str = "", optin_url: str = "") -> tuple:
     """(subject, html, text) telling someone their suspension has been lifted.
 
     Deliberately not built on _account_action_email: that one exists to deliver
     bad news precisely, and this is the opposite errand. No reason block, the
     restore is the whole message, and it ends on a way back in rather than on
-    an appeals address.
+    an appeals address. optin_url is the same one-click marketing nudge as
+    welcome_email — only passed when the recipient hasn't already opted in.
     """
     name = (display_name or "").strip()
     hello = f"Welcome back, {name}" if name else "Welcome back"
@@ -976,6 +1010,7 @@ def account_restored_email(display_name: str = "") -> tuple:
         + _fine(f"It's good to have you back. If anything looks off when you sign "
                 f"in, {settings.support_email} will sort it out.", margin="20px 0 0")
         + _url_line(url)
+        + _optin_nudge_html(optin_url)
     )
     html = _shell("The suspension on your PromoSlot account has been lifted.", body)
     text = (f"{hello}\n\n"
@@ -984,17 +1019,20 @@ def account_restored_email(display_name: str = "") -> tuple:
             "listings and campaigns, and any deals in progress.\n\n"
             f"Sign in: {url}\n\n"
             "It's good to have you back. If anything looks off when you sign in, "
-            f"{settings.support_email} will sort it out.")
+            f"{settings.support_email} will sort it out."
+            + _optin_nudge_text(optin_url))
     return title, html, text
 
 
-def account_deactivated_email(reason: str = "") -> tuple:
+def account_deactivated_email(reason: str = "", optin_url: str = "") -> tuple:
     """(subject, html, text) confirming a self-service deactivation.
 
     Reversible, unlike account_deleted_email below, the whole point of the
     copy is "log back in whenever you're ready", not a permanent goodbye.
     Reactivation itself doesn't get its own email; logging back in with the
-    account's own password is the confirmation.
+    account's own password is the confirmation. optin_url is the same
+    one-click marketing nudge as welcome_email — only passed when the
+    recipient hasn't already opted in.
     """
     title = "Your PromoSlot account has been deactivated"
     reason_block_html = (_eyebrow("Note") + _quote(_esc(reason))) if reason else ""
@@ -1012,6 +1050,7 @@ def account_deactivated_email(reason: str = "") -> tuple:
                 f"<a href=\"mailto:{settings.support_email}\" style=\"color:#4f46e5;"
                 f"text-decoration:none\">{settings.support_email}</a> straight away.",
                 margin="18px 0 0")
+        + _optin_nudge_html(optin_url)
     )
     html = _shell("Your account has been deactivated. Log back in any time to "
                   "reactivate it.", body)
@@ -1022,7 +1061,8 @@ def account_deactivated_email(reason: str = "") -> tuple:
             + (f"Note:\n{reason}\n\n" if reason else "")
             + "Log back in any time with your usual email and password to pick up "
               "exactly where you left off.\n\n"
-              f"Didn't request this? Contact {settings.support_email} straight away.")
+              f"Didn't request this? Contact {settings.support_email} straight away."
+            + _optin_nudge_text(optin_url))
     return title, html, text
 
 

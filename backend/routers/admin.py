@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .. import audit
+from .. import audit, marketing
 from ..account_deletion import delete_account_cascade
 from ..config import settings
 from ..db import get_db
@@ -417,8 +417,8 @@ def suspend_user(user_id: int, body: ReasonIn, request: Request,
     return user_admin_dict(target)
 
 
-def _notify_account_restored(email: str, display_name: str) -> None:
-    subject, html, text = account_restored_email(display_name)
+def _notify_account_restored(email: str, display_name: str, optin_url: str = "") -> None:
+    subject, html, text = account_restored_email(display_name, optin_url=optin_url)
     ok, detail = send_email(email, subject, html, text,
                             reply_to=settings.support_email)
     if not ok:
@@ -443,8 +443,11 @@ def unsuspend_user(user_id: int, body: ReasonIn, request: Request,
                  new_state=_user_snapshot(target), reason=body.reason, request=request)
     # The in-app notice only lands once they sign in, and they were signed out
     # when suspended — so the email is what actually tells them they can.
+    # optin_nudge_url is computed now, synchronously, while target/db are
+    # still live — a background task can't safely touch a request-scoped
+    # ORM object or session after the response has gone out.
     background.add_task(_notify_account_restored, target.email,
-                        target.display_name or "")
+                        target.display_name or "", marketing.optin_nudge_url(db, target))
     return user_admin_dict(target)
 
 
@@ -616,7 +619,8 @@ def unban_user(user_id: int, body: ReasonIn, request: Request,
     # only way this reaches them — same pattern as unsuspend_user. A no-op
     # if the account was deleted (target.email is a placeholder by then, so
     # nothing sends), which is correct: there's no live inbox to notify.
-    background.add_task(_notify_account_restored, target.email, target.display_name or "")
+    background.add_task(_notify_account_restored, target.email, target.display_name or "",
+                        marketing.optin_nudge_url(db, target))
     return user_admin_dict(target)
 
 

@@ -246,15 +246,19 @@ def deactivate_my_account(body: DeactivateAccountIn, request: Request, response:
                                "sessions_revoked": revoked},
                      reason=audit_reason, request=request)
 
+    # Computed once off the acting user — linked identities (if any) share
+    # one real inbox and, per marketing.py, the same consent state, so one
+    # check covers every address in to_notify.
+    optin_link = marketing.optin_nudge_url(db, user)
     for email in to_notify:
-        background.add_task(_notify_deactivated, email, email_note)
+        background.add_task(_notify_deactivated, email, email_note, optin_link)
 
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"ok": True, "accounts_deactivated": len(touched)}
 
 
-def _notify_deactivated(email: str, reason: str) -> None:
-    subj, html, text = account_deactivated_email(reason)
+def _notify_deactivated(email: str, reason: str, optin_url: str = "") -> None:
+    subj, html, text = account_deactivated_email(reason, optin_url=optin_url)
     # Same reasoning as _notify_deleted above: the copy names support_email
     # directly rather than saying "reply", but Reply-To is set so a reply
     # anyway still lands somewhere real.

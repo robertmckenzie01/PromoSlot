@@ -66,6 +66,26 @@ def create_optin_token(db: Session, user: User) -> str:
     return token
 
 
+def optin_url(token: str) -> str:
+    """The one-click opt-in URL for a given token — the same shape every
+    caller needs, so it's built in exactly one place rather than each router
+    re-deriving it from settings.app_base_url."""
+    return f"{settings.app_base_url.rstrip('/')}/?optin={token}"
+
+
+def optin_nudge_url(db: Session, user: Optional[User]) -> str:
+    """The URL to hand a transactional email's optin_url= parameter, or ""
+    if this recipient shouldn't be offered the nudge at all — either because
+    there's no real user (e.g. the support-ticket alert, which goes to the
+    support inbox, not a person) or because they've already opted in. Every
+    call site that adds the nudge to a new email template should go through
+    this rather than checking user.marketing_opt_in inline, so the rule
+    lives in one place."""
+    if user is None or user.marketing_opt_in:
+        return ""
+    return optin_url(create_optin_token(db, user))
+
+
 def create_unsubscribe_token(db: Session, user: User) -> str:
     """A permanent link for a marketing email's unsubscribe footer. No
     expiry — PECR requires opting out to stay easy at any time, a stale

@@ -14,7 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from .. import audit
+from .. import audit, marketing
 from ..config import settings
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
@@ -248,7 +248,8 @@ def verify(deal_id: int, body: VerifyIn, request: Request, background: Backgroun
         owner = db.get(User, d.platform_owner_id)
         if owner and owner.email:
             subject, html, text = proof_grace_period_email(
-                d.id, grace_deadline.isoformat(), body.notes or "")
+                d.id, grace_deadline.isoformat(), body.notes or "",
+                optin_url=marketing.optin_nudge_url(db, owner))
             # The copy invites a reply ("reply to this email or contact
             # support") — MAIL_FROM is a no-reply sender, so Reply-To has to
             # actually point at support or that promise is empty.

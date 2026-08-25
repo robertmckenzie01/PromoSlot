@@ -157,21 +157,18 @@ def signup(body: SignupIn, request: Request, response: Response, background: Bac
     # verify_email() below, which stamps verified_at on the linked row too.
     token = _new_verification_token(db, user)
     # Only offered when they didn't already opt in on the form — no point
-    # inviting someone to do the thing they just did.
-    optin_url = (None if body.marketing_opt_in else
-                _marketing_optin_url(marketing.create_optin_token(db, user)))
+    # inviting someone to do the thing they just did. marketing.optin_nudge_url
+    # already does that check (user.marketing_opt_in), so it's redundant here
+    # but harmless — it'll just return "" either way once they've opted in.
+    optin_link = marketing.optin_nudge_url(db, user)
     # Best effort, and after the response is sent: send_email never raises, but
     # it can block up to its timeout, and a slow mail provider must never delay
     # or fail account creation.
     background.add_task(_send_welcome, user.email, user.display_name,
-                        user.is_business, user.is_platform_owner, token, optin_url)
+                        user.is_business, user.is_platform_owner, token, optin_link)
     return {"ok": True, "verification_required": True, "email": user.email,
             "message": "Account created. Check your email for the link to verify "
                        "your address — you'll be signed in as soon as you use it."}
-
-
-def _marketing_optin_url(token: str) -> str:
-    return f"{settings.app_base_url.rstrip('/')}/?optin={token}"
 
 
 def _send_welcome(email: str, display_name: str, is_business: bool,
@@ -461,7 +458,8 @@ def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
             expires_at=datetime.utcnow() + timedelta(minutes=RESET_TTL_MIN)))
         db.commit()
         reset_url = f"{settings.app_base_url.rstrip('/')}/?reset={token}"
-        subject, html, text = password_reset_email(reset_url)
+        subject, html, text = password_reset_email(
+            reset_url, optin_url=marketing.optin_nudge_url(db, user))
         ok, detail = send_email(user.email, subject, html, text)
         if not ok:
             # Real failure -> tell the truth; don't leave the user waiting on nothing.

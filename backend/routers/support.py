@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from datetime import datetime
 
-from .. import audit
+from .. import audit, marketing
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_reviewer, get_current_user_optional
@@ -296,7 +296,9 @@ def reply_to_ticket(ticket_id: int, body: ReplyIn, request: Request,
                             detail="This ticket has no email address to reply to.")
 
     text = body.body.strip()
-    subj, html, txt = support_reply_email(t.id, t.subject, text)
+    ticket_user = db.get(User, t.user_id) if t.user_id else None
+    subj, html, txt = support_reply_email(
+        t.id, t.subject, text, optin_url=marketing.optin_nudge_url(db, ticket_user))
     # From the support inbox, not the generic no-reply sender.
     # Reply-To is per ticket, so hitting reply in a mail client lands the answer
     # back on THIS ticket (routers/inbound.py).
