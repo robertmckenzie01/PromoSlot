@@ -311,6 +311,282 @@ def marketing_shell(subject: str, preheader: str, body_html: str,
     return subject, html, text
 
 
+def receipts_campaign_email(unsubscribe_url: str) -> tuple:
+    """(subject, html, text) — the first real marketing/campaign email, built
+    on marketing_shell()'s infrastructure. Audience: platform owners who have
+    marketing_opt_in == True (see marketing.py). The caller is responsible for
+    only sending to consented recipients and for passing a real per-user
+    unsubscribe_url from marketing.create_unsubscribe_token(db, user); this
+    function only renders the message.
+
+    Concept: "We've got the receipts" — an itemised-receipt visual tied to two
+    real PromoSlot mechanics (recurring deals, Payment Protection), not a
+    decorative pun. The receipt's numbers are a labelled illustrative example,
+    not a real user's data or an aggregate platform stat — PromoSlot is
+    pre-launch/founding-cohort stage with no real usage numbers to quote yet,
+    so the stat ticker states real, fixed product terms (the 10%/5% fee split,
+    escrow-style Payment Protection, free listing) rather than invented
+    traction numbers. Pure table markup throughout (no flexbox, no CSS
+    position/transform, no external web fonts) so it renders correctly in
+    Outlook as well as Gmail/Apple Mail. No social links: PromoSlot has no
+    real social profiles live yet.
+    """
+    base = settings.app_base_url.rstrip("/")
+    how_it_works_url = f"{base}/how-it-works"
+    marketplace_url = f"{base}/marketplace"
+    pricing_url = f"{base}/pricing"
+    payment_protection_url = f"{base}/payment-protection"
+    resources_url = f"{base}/resources"
+    prefs_url = f"{base}/"
+
+    subject = "The platform owners earning £2,000+ a month aren't doing more deals"
+    preheader = "They're doing fewer, bigger ones - and they've got the receipts to prove it."
+
+    logo_1x, logo_2x = _img_url("logo.png"), _img_url("logo@2x.png")
+
+    # ---- header: centered logo, own band (this campaign doesn't reuse the
+    # left-aligned transactional _header()) ----
+    header_html = (
+        '<tr><td bgcolor="#ffffff" align="center" style="background:#ffffff;'
+        'border:1px solid #e4e8ee;border-bottom:none;border-radius:14px 14px 0 0;'
+        f'padding:28px 36px 24px"><img src="{logo_1x}" srcset="{logo_1x} 1x, '
+        f'{logo_2x} 2x" width="150" height="37" alt="PromoSlot" '
+        'style="display:block;border:0;max-width:150px"></td></tr>'
+    )
+
+    # ---- hero ----
+    hero_button = (
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0">'
+        f'<tr><td bgcolor="#4f46e5" style="background:#4f46e5;border-radius:999px">'
+        f'<a href="{how_it_works_url}" style="display:inline-block;padding:14px 28px;'
+        f'font-family:{_SANS};font-size:12px;font-weight:700;letter-spacing:0.11em;'
+        'text-transform:uppercase;color:#ffffff;text-decoration:none;'
+        'border-radius:999px">See how it works</a></td></tr></table>'
+    )
+    hero_wrap = (
+        '<tr><td bgcolor="#ffffff" align="center" style="background:#ffffff;'
+        'border-left:1px solid #e4e8ee;border-right:1px solid #e4e8ee;'
+        'padding:6px 34px 34px;text-align:center">'
+        f'<p style="margin:0 0 10px;font-family:{_MONO};font-size:11px;font-weight:700;'
+        'letter-spacing:0.14em;text-transform:uppercase;color:#4f46e5">For platform '
+        f'owners</p><h1 style="margin:0 0 14px;font-family:{_SERIF};font-size:28px;'
+        'line-height:1.26;font-weight:600;color:#14273f;letter-spacing:-0.01em">'
+        'The platform owners earning &pound;2,000+ a month aren\'t doing '
+        '<em style="font-style:italic;color:#4f46e5">more</em> deals.</h1>'
+        f'<p style="margin:0 0 22px;font-family:{_SANS};font-size:16px;line-height:1.6;'
+        'color:#3a4658">They\'re doing fewer, bigger ones, and they\'ve got the receipts '
+        f'to prove it works.</p>{hero_button}</td></tr>'
+    )
+
+    # ---- receipt visual (illustrative example, clearly labelled as such) ----
+    receipt_line = lambda label, value, color="#14273f", weight="700": (
+        f'<tr><td style="padding:6px 0;font-family:{_MONO};font-size:11px;'
+        f'color:#14273f">{label}</td><td align="right" style="padding:6px 0;'
+        f'font-family:{_MONO};font-size:11px;font-weight:{weight};color:{color}">'
+        f'{value}</td></tr>')
+    receipt_rows = (
+        receipt_line("1x Recurring campaign", "&pound;2,000/mo")
+        + receipt_line("1x Newsletter feature", "&pound;450")
+        + receipt_line("Delivery proof", "VERIFIED", "#4f46e5")
+        + receipt_line("Payment Protection", "ACTIVE", "#4f46e5")
+        + receipt_line("Seller fee (10%, on completion)", "&minus;&pound;245", "#8b8579", "400")
+    )
+    receipt_card = (
+        '<table role="presentation" width="300" cellpadding="0" cellspacing="0" '
+        'border="0" bgcolor="#ffffff" style="background:#ffffff;width:300px;'
+        'max-width:300px;border:1px dashed #cfc9bb;box-shadow:0 10px 28px '
+        'rgba(20,39,63,0.10)"><tr><td style="padding:22px 22px 24px">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'border="0"><tr><td align="center" style="padding:0 0 14px;border-bottom:'
+        f'1px dashed #cfc9bb"><div style="font-family:{_SERIF};font-size:16px;'
+        'font-weight:700;letter-spacing:0.03em;color:#14273f">PROMOSLOT</div>'
+        '<div style="margin-top:3px;font-family:'
+        f'{_MONO};font-size:9px;letter-spacing:0.12em;color:#8b8579">DEAL RECEIPT '
+        '&middot; ILLUSTRATIVE EXAMPLE</div></td></tr></table>'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'border="0" style="margin-top:12px">{receipt_rows}</table>'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'border="0" style="margin-top:12px;border-top:1px dashed #cfc9bb">'
+        '<tr><td style="padding-top:12px;font-family:'
+        f'{_MONO};font-size:10px;letter-spacing:0.12em;color:#14273f">TOTAL PAID '
+        f'OUT</td><td align="right" style="padding-top:12px;font-family:{_SERIF};'
+        'font-size:20px;font-weight:600;color:#14273f">&pound;2,205</td></tr>'
+        '</table></td></tr></table>'
+    )
+    verified_badge = (
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        'style="margin-top:14px"><tr><td style="border:2px solid #4f46e5;'
+        'border-radius:8px;padding:7px 14px;font-family:'
+        f'{_MONO};font-size:13px;font-weight:700;letter-spacing:0.14em;color:#4f46e5">'
+        'VERIFIED &#10003;</td></tr></table>'
+    )
+    receipt_wrap = (
+        '<tr><td bgcolor="#f5f1e8" align="center" style="background:#f5f1e8;'
+        'border-left:1px solid #e4e8ee;border-right:1px solid #e4e8ee;'
+        f'padding:34px 24px 38px">{receipt_card}{verified_badge}</td></tr>'
+    )
+
+    # ---- feature cards ----
+    feature = lambda icon, title, desc: (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'border="0" bgcolor="#f7f5f0" style="background:#f7f5f0;border-radius:14px;'
+        'margin-bottom:10px"><tr><td width="46" valign="top" style="padding:16px 0 '
+        f'16px 16px"><table role="presentation" cellpadding="0" cellspacing="0" '
+        'border="0"><tr><td width="30" height="30" bgcolor="#4f46e5" align="center" '
+        'valign="middle" style="background:#4f46e5;border-radius:9px;font-family:'
+        f'{_SANS};font-size:14px;color:#ffffff;line-height:30px">{icon}</td></tr>'
+        f'</table></td><td valign="top" style="padding:16px 16px 16px 12px">'
+        f'<div style="font-family:{_SANS};font-size:14px;font-weight:700;'
+        f'color:#14273f;margin-bottom:3px">{title}</div><div style="font-family:'
+        f'{_SANS};font-size:13px;line-height:1.55;color:#6b7484">{desc}</div>'
+        '</td></tr></table>'
+    )
+    features_html = (
+        feature("&#8635;", "Recurring deals, not one-offs",
+                "One good buyer booked monthly beats chasing five new ones.")
+        + feature("&#10003;", "Verified delivery proof on every job",
+                  "Upload it once. It backs you up if a payout's ever disputed.")
+        + feature("&pound;", "Funds held before work starts",
+                  "Payment Protection means the money's already there. Post, then "
+                  "get paid.")
+        + feature("&#9670;", "Every completed deal is a receipt",
+                  "Something concrete to point to when it's time to raise your rate.")
+    )
+    features_wrap = (
+        '<tr><td bgcolor="#ffffff" style="background:#ffffff;border-left:1px solid '
+        '#e4e8ee;border-right:1px solid #e4e8ee;padding:38px 34px 6px">'
+        f'<p style="margin:0 0 4px;font-family:{_SERIF};font-size:22px;line-height:1.3;'
+        'font-weight:600;color:#14273f;letter-spacing:-0.01em;text-align:center">'
+        'Here\'s what\'s on their receipt that isn\'t on yours.</p>'
+        f'<p style="margin:0 0 22px;font-family:{_SANS};font-size:13.5px;line-height:1.6;'
+        f'color:#7b8494;text-align:center">Four line items. That\'s the whole '
+        f'difference.</p>{features_html}</td></tr>'
+    )
+
+    # ---- second CTA ----
+    cta2_wrap = (
+        '<tr><td bgcolor="#ffffff" align="center" style="background:#ffffff;'
+        'border-left:1px solid #e4e8ee;border-right:1px solid #e4e8ee;'
+        'padding:24px 34px 36px;text-align:center">'
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0">'
+        f'<tr><td bgcolor="#4f46e5" style="background:#4f46e5;border-radius:999px">'
+        f'<a href="{marketplace_url}" style="display:inline-block;padding:15px 26px;'
+        f'font-family:{_SANS};font-size:12px;font-weight:700;letter-spacing:0.11em;'
+        'text-transform:uppercase;color:#ffffff;text-decoration:none;'
+        'border-radius:999px">Start your first recurring deal</a></td></tr></table>'
+        f'<p style="margin:12px 0 0;font-family:{_SANS};font-size:11.5px;'
+        'color:#8b93a1">Free to list. No setup fees.</p></td></tr>'
+    )
+
+    # ---- ticker: real, fixed product terms, never invented usage numbers ----
+    ticker_item = lambda t: (f'<span>{t}</span>')
+    ticker_sep = '<span style="color:#4f46e5">&#10022;</span>'
+    ticker_wrap = (
+        '<tr><td bgcolor="#f5f1e8" align="center" style="background:#f5f1e8;'
+        'border-left:1px solid #e4e8ee;border-right:1px solid #e4e8ee;'
+        f'padding:16px 20px;font-family:{_SANS};font-size:10px;font-weight:700;'
+        'letter-spacing:0.11em;color:#14273f">'
+        + ticker_item("10% SELLER FEE, CHARGED ONLY ON COMPLETION") + " " + ticker_sep + " "
+        + ticker_item("PAYMENT HELD UNTIL DELIVERY IS VERIFIED") + " " + ticker_sep + " "
+        + ticker_item("FREE TO LIST, NO SETUP FEES")
+        + '</td></tr>'
+    )
+
+    # ---- footer: product nav (not the transactional legal footer), plus the
+    # same real company/registration details and a real, working unsubscribe
+    # link. No social icons: PromoSlot has no live social profiles yet. ----
+    nav_link = lambda href, label: (f'<a href="{href}" style="color:#14273f;'
+                                    f'text-decoration:underline;font-family:{_SANS};'
+                                    'font-size:12px">' + label + '</a>')
+    nav_row = (
+        nav_link(marketplace_url, "Marketplace") + '&nbsp;&nbsp;&nbsp;'
+        + nav_link(how_it_works_url, "How it Works") + '&nbsp;&nbsp;&nbsp;'
+        + nav_link(pricing_url, "Pricing") + '&nbsp;&nbsp;&nbsp;'
+        + nav_link(payment_protection_url, "Payment Protection") + '&nbsp;&nbsp;&nbsp;'
+        + nav_link(resources_url, "Resources")
+    )
+    incorporated = 2026
+    now_year = datetime.now(timezone.utc).year
+    year = str(now_year) if now_year <= incorporated else f"{incorporated}–{now_year}"
+    footer_wrap = (
+        '<tr><td bgcolor="#ffffff" align="center" style="background:#ffffff;'
+        'border:1px solid #e4e8ee;border-top:none;border-radius:0 0 14px 14px;'
+        f'padding:30px 30px 26px;text-align:center">'
+        f'<p style="margin:0 0 18px;line-height:2">{nav_row}</p>'
+        f'<p style="margin:0 0 8px;font-family:{_SANS};font-size:10.5px;'
+        f'line-height:1.6;color:#9aa1ac"><a href="{prefs_url}" style="color:#9aa1ac;'
+        'text-decoration:underline">Adjust preferences.</a> No longer want these '
+        f'emails? <a href="{unsubscribe_url}" style="color:#9aa1ac;'
+        'text-decoration:underline">Unsubscribe.</a></p>'
+        f'<p style="margin:0;font-family:{_SANS};font-size:10.5px;line-height:1.6;'
+        'color:#9aa1ac">PromoSlot Ltd &middot; Registered in Scotland &middot; No. '
+        f'SC899931<br>8B Drumsheugh Gardens, Edinburgh EH3 7QJ<br>&copy; {year} '
+        'PromoSlot Ltd</p></td></tr>'
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>PromoSlot</title>
+</head>
+<body style="margin:0;padding:0;background:#f2f4f7;-webkit-text-size-adjust:100%">
+<div style="display:none;font-size:1px;color:#f2f4f7;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden">{_esc(preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f2f4f7" style="background:#f2f4f7">
+<tr><td align="center" style="padding:32px 16px 44px">
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:640px;max-width:640px">
+{header_html}
+{hero_wrap}
+{receipt_wrap}
+{features_wrap}
+{cta2_wrap}
+{ticker_wrap}
+{footer_wrap}
+</table>
+</td></tr></table>
+</body>
+</html>"""
+
+    text = (
+        "The platform owners earning £2,000+ a month aren't doing more deals.\n\n"
+        "They're doing fewer, bigger ones, and they've got the receipts to prove it works.\n\n"
+        f"See how it works: {how_it_works_url}\n\n"
+        "AN ILLUSTRATIVE EXAMPLE RECEIPT\n"
+        "1x Recurring campaign — £2,000/mo\n"
+        "1x Newsletter feature — £450\n"
+        "Delivery proof — VERIFIED\n"
+        "Payment Protection — ACTIVE\n"
+        "Seller fee (10%, on completion) — -£245\n"
+        "TOTAL PAID OUT — £2,205\n\n"
+        "Here's what's on their receipt that isn't on yours:\n"
+        "- Recurring deals, not one-offs: one good buyer booked monthly beats chasing "
+        "five new ones.\n"
+        "- Verified delivery proof on every job: upload it once, it backs you up if a "
+        "payout's ever disputed.\n"
+        "- Funds held before work starts: Payment Protection means the money's already "
+        "there. Post, then get paid.\n"
+        "- Every completed deal is a receipt: something concrete to point to when it's "
+        "time to raise your rate.\n\n"
+        f"Start your first recurring deal: {marketplace_url}\n"
+        "Free to list. No setup fees.\n\n"
+        "10% seller fee, charged only on completion. Payment held until delivery is "
+        "verified. Free to list, no setup fees.\n\n"
+        f"Marketplace: {marketplace_url}\nHow it Works: {how_it_works_url}\n"
+        f"Pricing: {pricing_url}\nPayment Protection: {payment_protection_url}\n"
+        f"Resources: {resources_url}\n\n"
+        f"Adjust preferences: {prefs_url}\n"
+        f"Unsubscribe: {unsubscribe_url}\n\n"
+        f"PromoSlot Ltd, Registered in Scotland, No. SC899931\n"
+        f"8B Drumsheugh Gardens, Edinburgh EH3 7QJ\n"
+        f"© {year} PromoSlot Ltd"
+    )
+    return subject, html, text
+
+
 def password_reset_email(reset_url: str) -> tuple:
     """(subject, html, text) for a password-reset message."""
     subject = "Reset your PromoSlot password"
