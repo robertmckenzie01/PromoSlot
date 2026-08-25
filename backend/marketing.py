@@ -136,15 +136,19 @@ def send_campaign_now(db: Session) -> dict:
         else:
             fail_count += 1
 
-    # A campaign with real recipients that ALL failed (e.g. Resend/email
-    # outage) is not "done" — recording it here would permanently skip it,
-    # since a slug once in marketing_campaign_sends never gets picked again
-    # (see next_campaign()). Only mark it done when at least one person
-    # actually got it, or when there was genuinely nobody to send to (an
-    # empty opted-in list isn't a failure, there's nothing to retry).
-    total_failure = recipients and ok_count == 0
-    if total_failure:
-        return {"sent": False, "reason": "send_failed",
+    # A campaign only counts as "done" once it's actually reached a real
+    # person — recording it in marketing_campaign_sends here would
+    # permanently retire it, since a slug already in that table never gets
+    # picked again (see next_campaign()). That matters in both directions:
+    # a real audience that ALL failed (e.g. a Resend outage) shouldn't be
+    # silently written off, and — just as important pre-launch, when
+    # opted-in users can genuinely be zero — an empty audience shouldn't
+    # burn through the campaign queue before anyone's actually subscribed
+    # to read any of it. Either way, this stays pending and the next trigger
+    # (next month, or a manual retry) tries the same campaign again.
+    if ok_count == 0:
+        return {"sent": False,
+                "reason": "no_recipients" if not recipients else "send_failed",
                 "campaign": slug, "recipients_attempted": len(recipients)}
 
     db.add(MarketingCampaignSend(campaign_slug=slug, recipient_count=ok_count,
