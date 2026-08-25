@@ -29,6 +29,41 @@ MIN_CAMPAIGN_DAYS = 1
 MAX_CAMPAIGN_DAYS = 60
 
 
+def validate_pricing_fields(pricing_model: str, listed_price: int,
+                            rate_unit_pence: Optional[int], rate_unit_quantity: Optional[int],
+                            pool_max_budget: Optional[int],
+                            campaign_duration_days: Optional[int]) -> None:
+    """Shared money-shape validation for every path that can originate a real
+    Deal: a business buying a listing (create_deal below) and a platform owner
+    applying to a campaign (routers/campaigns.py — the owner originates the
+    Deal there, proposing these same fields for the business to approve).
+    Raises HTTPException(422) on any invalid combination; returns nothing on success.
+    """
+    if pricing_model not in PRICING_MODELS:
+        raise HTTPException(status_code=422,
+                            detail=f"pricing_model must be one of {PRICING_MODELS}")
+    if pricing_model == "fixed":
+        if listed_price < 100:
+            raise HTTPException(status_code=422, detail="listed_price must be at least 100 (£1.00)")
+        if any([rate_unit_pence, rate_unit_quantity, pool_max_budget, campaign_duration_days]):
+            raise HTTPException(status_code=422,
+                                detail="A fixed-price deal can't also carry pool fields")
+    else:  # per_view / per_impression
+        if listed_price != 0 and listed_price < 100:
+            raise HTTPException(status_code=422,
+                                detail="listed_price must be 0 (no fixed floor) or at least 100 (£1.00)")
+        missing = [name for name, val in
+                  [("rate_unit_pence", rate_unit_pence),
+                   ("rate_unit_quantity", rate_unit_quantity),
+                   ("pool_max_budget", pool_max_budget),
+                   ("campaign_duration_days", campaign_duration_days)]
+                  if val is None]
+        if missing:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{pricing_model} deals require: {', '.join(missing)}")
+
+
 class DealCreateIn(BaseModel):
     platform_owner_id: int
     # 0 is only valid for a pure per_view/per_impression deal with no fixed
@@ -189,31 +224,9 @@ def create_deal(body: DealCreateIn, user: User = Depends(get_current_user),
         if _p is not None:
             listing_platform_id = _p.id
 
-    if body.pricing_model not in PRICING_MODELS:
-        raise HTTPException(status_code=422,
-                            detail=f"pricing_model must be one of {PRICING_MODELS}")
-
-    if body.pricing_model == "fixed":
-        if body.listed_price < 100:
-            raise HTTPException(status_code=422, detail="listed_price must be at least 100 (£1.00)")
-        if any([body.rate_unit_pence, body.rate_unit_quantity, body.pool_max_budget,
-               body.campaign_duration_days]):
-            raise HTTPException(status_code=422,
-                                detail="A fixed-price deal can't also carry pool fields")
-    else:  # per_view / per_impression
-        if body.listed_price != 0 and body.listed_price < 100:
-            raise HTTPException(status_code=422,
-                                detail="listed_price must be 0 (no fixed floor) or at least 100 (£1.00)")
-        missing = [name for name, val in
-                  [("rate_unit_pence", body.rate_unit_pence),
-                   ("rate_unit_quantity", body.rate_unit_quantity),
-                   ("pool_max_budget", body.pool_max_budget),
-                   ("campaign_duration_days", body.campaign_duration_days)]
-                  if val is None]
-        if missing:
-            raise HTTPException(
-                status_code=422,
-                detail=f"{body.pricing_model} deals require: {', '.join(missing)}")
+    validate_pricing_fields(body.pricing_model, body.listed_price, body.rate_unit_pence,
+                            body.rate_unit_quantity, body.pool_max_budget,
+                            body.campaign_duration_days)
 
     d = Deal(
         business_id=user.id,

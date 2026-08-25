@@ -61,6 +61,22 @@ const ALL_AGES = ["13-17","18-24","25-34","35-44","45-54","55+"];
 const ALL_PAY_MODELS = ["Fixed price","Per view","Per impression","Time-based","Affiliate","Hybrid","Custom quote"];
 const CREATOR_SIZES = ["Nano (1K–10K)","Micro (10K–50K)","Mid (50K–250K)","Macro (250K–1M)","Mega (1M+)"];
 const PM_LABEL = {fixed:"Fixed price","per-view":"Per view","per-imp":"Per impression",time:"Time-based",affiliate:"Affiliate",hybrid:"Hybrid",custom:"Custom quote"};
+// The price badge on a listing card / profile pricing row. A per-view/per-imp
+// tier with rate_pence set is real and buyable (see openPoolBuyModal) even
+// when its guaranteed floor (amount) is £0 — a pure performance tier with no
+// guarantee is a deliberate, allowed choice (backend validates listed_price
+// as "0, or >=100", never anything in between). Falling through to the old
+// amount>0-only check for those would wrongly show "Quote", implying the
+// buyer has to request custom terms when they can just buy it now.
+function priceTagHtml(p){
+  if(p.rate_pence>0){
+    const rate=(Number(p.rate_pence)/100).toFixed(2);
+    const unit=p.type==="per-imp"?"impressions":"views";
+    const floor=Number(p.amount)||0;
+    return `£${rate}/1,000 ${esc(unit)}${floor>0?` +£${floor} min`:""}`;
+  }
+  return p.amount>0 ? gbp(p.amount)+(p.type==="per-view"||p.type==="hybrid"?"+":p.type==="per-imp"?" est.":"") : "Quote";
+}
 
 /* ==================== INFRASTRUCTURE CAPABILITY FLAGS ====================
    Real, trust-/money-critical infrastructure is NOT built yet. Nothing in the
@@ -1604,12 +1620,31 @@ function eAddCustomChip(field,label){
   const addBtn=wrap.querySelector(".chip-add");
   if(addBtn) wrap.insertBefore(btn,addBtn); else wrap.appendChild(btn);
 }
+// Real per-view/per-impression rate input, only shown for those two types —
+// filling this in (and saving) is what makes this tier real-money-usable via
+// buyOffer() (see openPoolBuyModal below), not just descriptive text like
+// every other type here. Left blank, the row still saves exactly as before
+// (decorative only) — no existing listing is forced to add this.
+function editPriceRateHtml(i,type,ratePence){
+  if(type!=="per-view" && type!=="per-imp") return "";
+  const unit = type==="per-imp" ? "impressions" : "views";
+  const val = ratePence ? (Number(ratePence)/100) : "";
+  return `<div><label>Rate per 1,000 verified ${unit} (£, leave blank if this is descriptive-only)</label><input type="number" id="ep-rate-${i}" value="${val}"></div>`;
+}
+function editPriceTypeChange(i){
+  const type=($("ep-type-"+i)||{}).value||"fixed";
+  const host=$("ep-rate-wrap-"+i); if(host) host.innerHTML=editPriceRateHtml(i,type,null);
+  const lbl=$("ep-amt-label-"+i);
+  if(lbl) lbl.textContent = (type==="per-view"||type==="per-imp") ? "Guaranteed floor (£, optional)" : "Amount (£)";
+}
 function editPriceRow(i,p){
   p=p||{type:"fixed",label:"",detail:"",amount:0};
+  const isPool = p.type==="per-view"||p.type==="per-imp";
   return `<div class="pm-slot" data-idx="${i}">
     <div class="row2">
-      <div><label>Type</label><select id="ep-type-${i}">${PM_ORDER.map(k=>`<option value="${k}" ${p.type===k?"selected":""}>${PM_MODELS[k].label}</option>`).join("")}</select></div>
-      <div><label>Amount (£)</label><input type="number" id="ep-amount-${i}" value="${Number(p.amount)||0}"></div></div>
+      <div><label>Type</label><select id="ep-type-${i}" onchange="editPriceTypeChange(${i})">${PM_ORDER.map(k=>`<option value="${k}" ${p.type===k?"selected":""}>${PM_MODELS[k].label}</option>`).join("")}</select></div>
+      <div><label id="ep-amt-label-${i}">${isPool?"Guaranteed floor (£, optional)":"Amount (£)"}</label><input type="number" id="ep-amount-${i}" value="${Number(p.amount)||0}"></div></div>
+    <div id="ep-rate-wrap-${i}">${editPriceRateHtml(i,p.type,p.rate_pence)}</div>
     <div><label>What's included</label><input type="text" id="ep-label-${i}" value="${esc(p.label||"")}" placeholder="1 promotional video"></div>
     <div><label>Details</label><input type="text" id="ep-detail-${i}" value="${esc(p.detail||"")}" placeholder="1 revision · draft approval"></div>
     <div style="margin-top:6px"><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.pm-slot').remove()">Remove</button></div></div>`;
@@ -1626,7 +1661,14 @@ function collectEditPricing(){
     const label=(($("ep-label-"+i)||{}).value||"").trim();
     const detail=(($("ep-detail-"+i)||{}).value||"").trim();
     const amount=Number((($("ep-amount-"+i)||{}).value)||0);
-    if(label||amount>0) out.push({type,label:label||PM_MODELS[type].label,detail,amount});
+    const isPool = type==="per-view"||type==="per-imp";
+    const ratePounds = isPool ? Number((($("ep-rate-"+i)||{}).value)||0) : 0;
+    if(ratePounds>0){
+      out.push({type,label:label||PM_MODELS[type].label,detail,amount,
+        rate_pence:Math.round(ratePounds*100), rate_qty:1000});
+    } else if(label||amount>0){
+      out.push({type,label:label||PM_MODELS[type].label,detail,amount});
+    }
   });
   return out;
 }
@@ -1893,7 +1935,7 @@ function renderListingModal(l,tab){
       ${l.pricing.map((p,i)=>`<div class="offer-row">
         <span class="tag ind offer-kind">${PM_LABEL[p.type]}</span>
         <div class="oi"><b>${esc(p.label)}</b><small>${esc(p.detail)}</small></div>
-        <span class="op">${p.amount>0?gbp(p.amount)+(p.type==="per-view"||p.type==="hybrid"?"+":p.type==="per-imp"?" est.":""):"Quote"}</span>
+        <span class="op">${priceTagHtml(p)}</span>
         <button class="btn btn-p btn-sm" onclick="event.stopPropagation();buyOffer('${l.id}',${i})">${p.type==="custom"?"Request quote":"Buy offer"}</button>
       </div>`).join("")}
       <div class="note blue">🔒 Payment is held pending verification before work starts and released only when the agreed delivery conditions are verified. PromoSlot's fee is 10% seller fee + 5% buyer protection fee, both on the agreed price.</div></div>`;
@@ -2282,11 +2324,57 @@ async function buyOffer(listingId, priceIdx){
   // case marketCtaClick() had — a platform-owner-active account browsing the
   // marketplace can reach "buy" on a listing same as anyone else.
   if(!S.roles.includes("biz")){ requireRole("biz", ()=>buyOffer(listingId,priceIdx)); return; }
+  // A real per-view/per-impression tier (rate_pence set via the "Edit
+  // listing"/onboarding pricing editor) needs a budget + duration from the
+  // buyer before it can become a real Deal — see openPoolBuyModal below.
+  // amount alone can legitimately be 0 here (a pure per-view tier with no
+  // guaranteed floor), so the old "amount<=0 → quote" check would have
+  // wrongly sent these to Request a quote; check rate_pence first.
+  if(p.rate_pence>0){ openPoolBuyModal(listingId,priceIdx); return; }
   const amount=Number(p.amount)||0;
   if(amount<=0){ toast("Commission / custom offers, use “Request a quote”."); requestQuote(listingId); return; }
   const listed_price=Math.round(amount*100); // offer amount is in pounds → pence
   try{
     const deal=await PSApi.post("/deals",{platform_owner_id:parseInt(l.ownerId,10),listed_price,currency:"gbp",
+      terms:{offer:p.label,detail:p.detail,deliverables:p.label,platform:l.platform,owner:l.name,listing_id:l.id}});
+    closeModal(); showView("view-deal"); renderRealDeal(deal.id);
+    toast("Deal created, review & approve the agreement",true);
+  }catch(err){ toast(err.message||"Could not create deal"); }
+}
+// Second step for a per-view/per-impression tier: the listing only defines
+// the rate (and optional guaranteed floor); the budget commitment and
+// campaign duration are the buyer's own choice, made here at purchase time —
+// matches Deal.pricing_model in backend/models.py, which collects
+// pool_max_budget/campaign_duration_days at deal creation, not listing time.
+function openPoolBuyModal(listingId, priceIdx){
+  const l=findListing(listingId); const p=l.pricing[priceIdx];
+  const unit = p.type==="per-imp" ? "impressions" : "views";
+  const rate = ((Number(p.rate_pence)||0)/100).toFixed(2);
+  const floor = Number(p.amount)||0;
+  openModal(`<div class="m-pad"><h3 class="m-title">${esc(p.label||"Performance deal")}</h3>
+    <p class="m-sub">£${rate} per 1,000 verified ${unit}${floor>0?` · £${floor} guaranteed floor`:""}. Choose a budget and duration — you're only ever charged up to your budget, held in Payment Protection until delivery is verified.</p>
+    <div class="frm"><div class="row2">
+      <div><label>Budget to commit (£)</label><input type="number" id="pb-budget" value="${Math.max(50,Math.ceil(floor))}"></div>
+      <div><label>Campaign duration (days)</label><input type="number" id="pb-days" value="30" min="1" max="60"></div>
+    </div></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="confirmPoolBuy('${listingId}',${priceIdx})">Continue</button></div></div>`);
+}
+async function confirmPoolBuy(listingId, priceIdx){
+  const l=findListing(listingId); const p=l.pricing[priceIdx];
+  const budget=Number((($("pb-budget")||{}).value)||0);
+  const days=Math.round(Number((($("pb-days")||{}).value)||0));
+  if(!(budget>=1)){ toast("Enter a budget of at least £1"); return; }
+  if(!(days>=1 && days<=60)){ toast("Duration must be between 1 and 60 days"); return; }
+  const floor=Number(p.amount)||0;
+  try{
+    const deal=await PSApi.post("/deals",{platform_owner_id:parseInt(l.ownerId,10),
+      listed_price: floor>0 ? Math.round(floor*100) : 0,
+      currency:"gbp",
+      pricing_model: p.type==="per-imp" ? "per_impression" : "per_view",
+      rate_unit_pence: p.rate_pence, rate_unit_quantity: p.rate_qty||1000,
+      pool_max_budget: Math.round(budget*100),
+      campaign_duration_days: days,
       terms:{offer:p.label,detail:p.detail,deliverables:p.label,platform:l.platform,owner:l.name,listing_id:l.id}});
     closeModal(); showView("view-deal"); renderRealDeal(deal.id);
     toast("Deal created, review & approve the agreement",true);
@@ -2330,7 +2418,7 @@ async function openProfile(userId, backRef){
       ${l.services&&l.services.length?`<div class="tagrow" style="margin-bottom:8px">${l.services.map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
       ${(l.pricing||[]).map(pr=>`<div class="offer-row"><span class="tag ind offer-kind">${esc(PM_LABEL[pr.type]||pr.type||"")}</span>
         <div class="oi"><b>${esc(pr.label||"")}</b><small>${esc(pr.detail||"")}</small></div>
-        <span class="op">${pr.amount>0?gbp(pr.amount):"Quote"}</span></div>`).join("")}</div>`).join("");
+        <span class="op">${priceTagHtml(pr)}</span></div>`).join("")}</div>`).join("");
   const aud = (p.listings||[]).map(l=>
     `<div class="det-sec"><h5>Audience &amp; analytics: ${esc(l.name)} ${l.verified?'<span class="tag grn">Verified ✔</span>':'<span class="tag">Self-reported</span>'}</h5>
       <div class="statrow big"><div><b>${fmtN(l.audience)}</b><span>Followers</span></div>
@@ -2412,7 +2500,17 @@ async function renderRealDeal(dealId){
     <div class="ad-head"><span>📄 Deal ${d.id}${ctxLabel}</span><span>${partyLink(d.business_id,d.business_name)} ⇄ ${partyLink(d.platform_owner_id,d.owner_name)}</span></div>
     ${d.terms&&d.terms.kind==="application"?`<div class="ad-row"><span class="k">Source</span><span class="v">Application to “${esc(d.terms.campaign_title||"campaign")}”</span></div>`:""}
     ${d.terms&&d.terms.kind==="application"&&d.terms.pitch?`<div class="ad-row"><span class="k">Applicant pitch</span><span class="v">${esc(d.terms.pitch)}</span></div>`:""}
-    <div class="ad-row"><span class="k">Listed price</span><span class="v">${gbpP(d.listed_price)}</span></div>
+    <div class="ad-row"><span class="k">Listed price${d.pricing_model!=="fixed"?" (guaranteed floor)":""}</span><span class="v">${gbpP(d.listed_price)}</span></div>
+    ${d.pricing_model!=="fixed"?`
+    <div class="ad-row"><span class="k">Pricing model</span><span class="v">${d.pricing_model==="per_impression"?"Per impression":"Per view"}${d.listed_price>0?" + guaranteed floor":""}</span></div>
+    <div class="ad-row"><span class="k">Rate</span><span class="v">£${((d.rate_unit_pence||0)/100).toFixed(2)} per ${fmtN(d.rate_unit_quantity||1000)} verified ${d.pricing_model==="per_impression"?"impressions":"views"}</span></div>
+    <div class="ad-row"><span class="k">Budget committed</span><span class="v">${gbpP(d.pool_max_budget||0)}</span></div>
+    <div class="ad-row"><span class="k">Campaign duration</span><span class="v">${d.campaign_duration_days||0} days${d.campaign_starts_at?` · starts ${new Date(d.campaign_starts_at).toLocaleDateString("en-GB")}`:""}</span></div>`:""}
+    <!-- Fixed-portion fee breakdown below (buyer protection fee / seller fee / net to
+         owner / platform take) is exactly that — the fixed/guaranteed slice only.
+         For a pool deal, "Total charged to business" already includes the pool's
+         own fees; there is no separate per-pool fee row since the pool only
+         settles (and only then incurs its fee) once verified quantity is known. -->
     <div class="ad-row"><span class="k">Buyer protection fee (${d.buyer_fee_percent}%)</span><span class="v">${gbpP(d.buyer_protection_fee)}</span></div>
     <div class="ad-row"><span class="k">Total charged to business</span><span class="v"><b>${gbpP(d.total_charged)}</b></span></div>
     <div class="ad-row"><span class="k">Seller fee (${d.seller_fee_percent}%)</span><span class="v">− ${gbpP(d.seller_fee)}</span></div>
@@ -2748,23 +2846,34 @@ async function realSubmitReview(dealId){
 // Payment-method models — same set as the platform-listing pricing builder,
 // reused here so an applicant can propose one or more payment methods, each with
 // its own relevant fields. The upfront/guaranteed portion is escrowed.
+// "per-view"/"per-imp" are the only two that create a REAL structured pool
+// deal (see Deal.pricing_model in backend/models.py) — "budget"/"days" here
+// are the applicant's own proposed pool_max_budget/campaign_duration_days,
+// since applying originates the whole Deal (owner_approved=True immediately).
+// "min" doubles as the optional guaranteed floor; >0 is what backend calls a
+// "hybrid" deal — there's deliberately no separate Hybrid option any more,
+// see collectApplyPricing/submitApplication below for how it's wired through.
+// Every other type here (fixed/time/affiliate/custom) has no backend
+// settlement support yet and stays exactly as decorative as it always was.
 const PM_MODELS={
   fixed:{label:"Fixed price",fields:[{id:"label",l:"What's included",t:"text",d:"1 promotional post"},{id:"price",l:"Amount (£)",t:"number",d:"100"}],
     amount:v=>Number(v.price)||0, detail:v=>`${v.label||"1 post"} · £${v.price||0} fixed`},
-  "per-view":{label:"Per view",fields:[{id:"min",l:"Minimum guaranteed (£)",t:"number",d:"30"},{id:"rate",l:"Rate per 1,000 views (£)",t:"number",d:"8"},{id:"views",l:"Expected views",t:"number",d:"10000"},{id:"cap",l:"Maximum payout (£)",t:"number",d:"250"}],
-    amount:v=>Number(v.min)||0, detail:v=>`£${v.min||0} min + £${v.rate||0} per 1,000 views (expected ${v.views||0}) · capped £${v.cap||0}`},
-  "per-imp":{label:"Per impression",fields:[{id:"rate",l:"Rate per 1,000 impressions (£)",t:"number",d:"3"},{id:"imps",l:"Expected impressions",t:"number",d:"50000"}],
-    amount:v=>Number(v.rate)||0, detail:v=>`£${v.rate||0} per 1,000 impressions (expected ${v.imps||0})`},
+  "per-view":{label:"Per view",fields:[{id:"min",l:"Guaranteed floor (£, optional)",t:"number",d:"0"},{id:"rate",l:"Rate per 1,000 verified views (£)",t:"number",d:"8"},{id:"budget",l:"Your proposed budget cap (£)",t:"number",d:"250"},{id:"days",l:"Campaign duration (days)",t:"number",d:"30"}],
+    amount:v=>Number(v.min)||0, detail:v=>`${Number(v.min)?`£${v.min} guaranteed + `:""}£${v.rate||0} per 1,000 verified views · up to £${v.budget||0} over ${v.days||0} days`},
+  "per-imp":{label:"Per impression",fields:[{id:"min",l:"Guaranteed floor (£, optional)",t:"number",d:"0"},{id:"rate",l:"Rate per 1,000 verified impressions (£)",t:"number",d:"3"},{id:"budget",l:"Your proposed budget cap (£)",t:"number",d:"250"},{id:"days",l:"Campaign duration (days)",t:"number",d:"30"}],
+    amount:v=>Number(v.min)||0, detail:v=>`${Number(v.min)?`£${v.min} guaranteed + `:""}£${v.rate||0} per 1,000 verified impressions · up to £${v.budget||0} over ${v.days||0} days`},
   time:{label:"Time-based",fields:[{id:"price",l:"Price (£)",t:"number",d:"40"},{id:"unit",l:"Per",t:"select",opts:["day","week","month"],d:"week"},{id:"dur",l:"Duration",t:"number",d:"4"}],
     amount:v=>Number(v.price)||0, detail:v=>`£${v.price||0} per ${v.unit||"week"} · ${v.dur||1} ${v.unit||"week"}(s)`},
   affiliate:{label:"Affiliate",fields:[{id:"pct",l:"% per sale",t:"number",d:"12"},{id:"cookie",l:"Cookie window (days)",t:"number",d:"30"},{id:"min",l:"Min payout (£)",t:"number",d:"0"}],
     amount:v=>Number(v.min)||0, detail:v=>`${v.pct||0}% per sale · ${v.cookie||30}-day cookie${Number(v.min)?` · £${v.min} min`:""}`},
+  // Kept only so PM_LABEL/PM_MODELS lookups don't break on any pre-existing
+  // stored "hybrid" tier — no longer reachable via PM_ORDER, see above.
   hybrid:{label:"Hybrid (guaranteed + performance)",fields:[{id:"guar",l:"Guaranteed (£)",t:"number",d:"50"},{id:"extra",l:"Plus performance terms",t:"text",d:"£5 per 1,000 views"}],
     amount:v=>Number(v.guar)||0, detail:v=>`£${v.guar||0} guaranteed + ${v.extra||"performance"}`},
   custom:{label:"Custom",fields:[{id:"note",l:"Describe the terms",t:"text",d:""}],
     amount:()=>0, detail:v=>v.note||"Custom terms"},
 };
-const PM_ORDER=["fixed","per-view","per-imp","time","affiliate","hybrid","custom"];
+const PM_ORDER=["fixed","per-view","per-imp","time","affiliate","custom"];
 function pmFieldsHtml(idx,type){
   const m=PM_MODELS[type]||PM_MODELS.fixed;
   return `<div class="row2">${m.fields.map(f=>f.t==="select"
@@ -2787,13 +2896,30 @@ function addPmSlot(){
 }
 function collectApplyPricing(){
   const pricing=[]; let total=0;
+  // At most one per-view/per-imp slot actually drives a real structured Deal
+  // (Deal.pricing_model is a single column) — see submitApplication below,
+  // which rejects a second one rather than silently dropping it.
+  let structured=null, structuredConflict=false;
   document.querySelectorAll("#pm-slots .pm-slot").forEach(s=>{
     const idx=s.dataset.idx, type=($("pm-type-"+idx)||{}).value||"fixed", m=PM_MODELS[type];
     const v={}; m.fields.forEach(f=>{ const el=$(`pm-${idx}-${f.id}`); v[f.id]=el?el.value:""; });
-    const amount=m.amount(v); total+=amount;
+    const amount=m.amount(v);
+    if(type==="per-view"||type==="per-imp"){
+      if(structured) structuredConflict=true;
+      else structured={
+        pricing_model: type==="per-imp" ? "per_impression" : "per_view",
+        floor: Number(v.min)||0,
+        rate_pence: Math.round((Number(v.rate)||0)*100),
+        rate_qty: 1000,
+        budget_pence: Math.round((Number(v.budget)||0)*100),
+        days: Math.round(Number(v.days))||0,
+      };
+    } else {
+      total+=amount;   // structured slot's floor is carried on `structured`, not summed here
+    }
     pricing.push({type, label:m.label, detail:m.detail(v), amount, fields:v});
   });
-  return {pricing, total};
+  return {pricing, total, structured, structuredConflict};
 }
 async function applyCampaign(campId){
   const c=findCampaign(campId); if(!c) return;
@@ -2821,15 +2947,33 @@ async function applyCampaign(campId){
     <div class="m-actions"><button class="btn btn-o" onclick="openCampaign('${c.id}')">Back</button><button class="btn btn-p" onclick="submitApplication('${String(c.id).replace(/^c/,'')}')">Send application</button></div></div>`);
 }
 async function submitApplication(cid){
-  const {pricing, total}=collectApplyPricing();
+  const {pricing, total, structured, structuredConflict}=collectApplyPricing();
   if(!pricing.length){ toast("Add at least one payment method"); return; }
-  const listed_price=Math.round(total*100);
-  if(!(listed_price>=100)){ toast("At least one method needs an upfront/guaranteed amount (min £1) to hold pending verification."); return; }
+  if(structuredConflict){ toast("Only one performance-based (per-view or per-impression) payment method can be proposed per application — remove the extra one."); return; }
   const platSel=$("ap-plat");
   const platform_id = platSel ? parseInt(platSel.value,10) : null;
   const pitch=(($("ap-pitch")||{}).value||"").trim();
+  let payload;
+  if(structured){
+    if(!(structured.rate_pence>0)){ toast("Enter a rate per 1,000 for your performance-based method."); return; }
+    if(!(structured.budget_pence>=100)){ toast("Enter a proposed budget cap of at least £1 for your performance-based method."); return; }
+    if(!(structured.days>=1 && structured.days<=60)){ toast("Campaign duration must be between 1 and 60 days."); return; }
+    payload={
+      listed_price: structured.floor>0 ? Math.round(structured.floor*100) : 0,
+      platform_id: platform_id||null, pitch, pricing,
+      pricing_model: structured.pricing_model,
+      rate_unit_pence: structured.rate_pence,
+      rate_unit_quantity: structured.rate_qty,
+      pool_max_budget: structured.budget_pence,
+      campaign_duration_days: structured.days,
+    };
+  } else {
+    const listed_price=Math.round(total*100);
+    if(!(listed_price>=100)){ toast("At least one method needs an upfront/guaranteed amount (min £1) to hold pending verification."); return; }
+    payload={listed_price, platform_id:platform_id||null, pitch, pricing};
+  }
   try{
-    const deal=await PSApi.post(`/campaigns/${cid}/apply`,{listed_price, platform_id:platform_id||null, pitch, pricing});
+    const deal=await PSApi.post(`/campaigns/${cid}/apply`,payload);
     closeModal(); showView("view-deal"); renderRealDeal(deal.id);
     toast("Application sent, the business will review & approve",true);
   }catch(err){ toast(err.message||"Could not apply"); }
@@ -3313,15 +3457,14 @@ function wizStepHtml(step){
       `<div class="frm"><div><label>Available services</label>${wchipsHtml("pServices",ALL_SERVICES)}</div>
       <div><label>Pricing models (select one or more)</label>
       ${pmBox("fixed","Fixed price","e.g. £100 for one promotional video",pmIn("pm-fx-label","Offer name","1 promotional video","text")+pmIn("pm-fx-price","Your price (£)","180"))}
-      ${pmBox("per-view","Price per view","Guaranteed minimum + rate per 1,000 verified views",
-        pmIn("pm-pv-min","Minimum guaranteed (£)","30")+pmIn("pm-pv-rate","Rate per 1,000 views (£)","8")+pmIn("pm-pv-cap","Maximum campaign payout (£)","250")+pmIn("pm-pv-days","Measurement period (days)","14"))}
-      ${pmBox("per-imp","Price per impression","Great for newsletters & communities",pmIn("pm-pi-rate","Rate per 1,000 impressions (£)","5"))}
+      ${pmBox("per-view","Price per view","Optional guaranteed floor + rate per 1,000 verified views — buyers pick their own budget & duration when they buy",
+        pmIn("pm-pv-min","Guaranteed floor (£, optional)","0")+pmIn("pm-pv-rate","Rate per 1,000 verified views (£)","8"))}
+      ${pmBox("per-imp","Price per impression","Optional guaranteed floor + rate per 1,000 verified impressions — great for newsletters & communities",
+        pmIn("pm-pi-min","Guaranteed floor (£, optional)","0")+pmIn("pm-pi-rate","Rate per 1,000 verified impressions (£)","5"))}
       ${pmBox("time","Time-based placement","Pinned posts, link-in-bio, banners",
         pmIn("pm-tm-price","Price (£)","40")+`<div><label>Per</label><select id="pm-tm-unit"><option>day</option><option selected>week</option><option>month</option></select></div>`+pmIn("pm-tm-min","Minimum duration","1")+pmIn("pm-tm-max","Maximum duration","4")+`<div><label>Renewal</label><select id="pm-tm-renew"><option selected>Renewable</option><option>Not renewable</option></select></div>`)}
       ${pmBox("affiliate","Affiliate commission","Earn per verified sale or lead",
         pmIn("pm-af-pct","% per verified sale","15")+pmIn("pm-af-lead","Flat per qualified lead (£, optional)","0")+pmIn("pm-af-cookie","Cookie / attribution (days)","30")+pmIn("pm-af-min","Minimum payout (£)","20"))}
-      ${pmBox("hybrid","Hybrid","Guaranteed + performance mix",
-        pmIn("pm-hy-guar","Guaranteed (£)","50")+pmIn("pm-hy-extra","Plus (e.g. 10% of sales, or £6 per 1,000 views)","10% commission on tracked sales","text"))}
       ${pmBox("custom","Custom quote","Invite businesses to request a personalised proposal","<div style='grid-column:1/-1;font-size:12.5px;color:var(--mut)'>Businesses will see a “Request quote” button on this listing.</div>")}
       </div></div>`,
       collect:collectPricing,
@@ -3343,11 +3486,17 @@ function collectPricing(){
   const on=k=>document.getElementById("pmb-"+k)?.classList.contains("on");
   const v=id=>document.getElementById(id)?.value||"";
   if(on("fixed")) d.pricing.push({key:"fixed",type:"fixed",label:v("pm-fx-label")||"1 promotional post",detail:"1 revision included · draft approval before posting",amount:Number(v("pm-fx-price"))||0});
-  if(on("per-view")) d.pricing.push({key:"per-view",type:"per-view",label:"Performance deal: per view",detail:`£${v("pm-pv-min")} minimum guaranteed + £${v("pm-pv-rate")} per 1,000 verified views · measured ${v("pm-pv-days")} days after posting · capped at £${v("pm-pv-cap")}`,amount:Number(v("pm-pv-min"))||0});
-  if(on("per-imp")) d.pricing.push({key:"per-imp",type:"per-imp",label:"Per-impression sponsorship",detail:`£${v("pm-pi-rate")} per 1,000 verified impressions · measured at 7 days`,amount:Number(v("pm-pi-rate"))||0});
+  // rate_pence/rate_qty are what makes this tier real-money-usable via
+  // buyOffer() (see openPoolBuyModal) — amount stays the optional guaranteed
+  // floor, >0 being what backend calls a "hybrid" deal (no separate option).
+  if(on("per-view")) d.pricing.push({key:"per-view",type:"per-view",label:"Performance deal: per view",
+    detail:`${Number(v("pm-pv-min"))?`£${v("pm-pv-min")} guaranteed + `:""}£${v("pm-pv-rate")} per 1,000 verified views`,
+    amount:Number(v("pm-pv-min"))||0, rate_pence:Math.round((Number(v("pm-pv-rate"))||0)*100), rate_qty:1000});
+  if(on("per-imp")) d.pricing.push({key:"per-imp",type:"per-imp",label:"Per-impression sponsorship",
+    detail:`${Number(v("pm-pi-min"))?`£${v("pm-pi-min")} guaranteed + `:""}£${v("pm-pi-rate")} per 1,000 verified impressions`,
+    amount:Number(v("pm-pi-min"))||0, rate_pence:Math.round((Number(v("pm-pi-rate"))||0)*100), rate_qty:1000});
   if(on("time")) d.pricing.push({key:"time",type:"time",label:`Placement: per ${v("pm-tm-unit")}`,detail:`£${v("pm-tm-price")} per ${v("pm-tm-unit")} · min ${v("pm-tm-min")}, max ${v("pm-tm-max")} ${v("pm-tm-unit")}s · ${v("pm-tm-renew").toLowerCase()}`,amount:Number(v("pm-tm-price"))||0});
   if(on("affiliate")) d.pricing.push({key:"affiliate",type:"affiliate",label:"Affiliate promotion",detail:`${v("pm-af-pct")}% per verified sale${Number(v("pm-af-lead"))?` · £${v("pm-af-lead")} per qualified lead`:""} · ${v("pm-af-cookie")}-day cookie · £${v("pm-af-min")} min payout`,amount:0});
-  if(on("hybrid")) d.pricing.push({key:"hybrid",type:"hybrid",label:"Hybrid: guaranteed + performance",detail:`£${v("pm-hy-guar")} guaranteed + ${v("pm-hy-extra")}`,amount:Number(v("pm-hy-guar"))||0});
   if(on("custom")) d.pricing.push({key:"custom",type:"custom",label:"Custom quote",detail:"Invite businesses to request a personalised proposal",amount:0});
 }
 function buildMyListing(){
@@ -3355,7 +3504,11 @@ function buildMyListing(){
   return {id:"my-p"+(S.myPlatforms.length+1),ownerId:"you",owner:"You",brand:d.pBrand,name:d.pName,handle:"@"+d.pName.toLowerCase().replace(/[^a-z0-9]/g,""),
     platform:d.pType,niches:[...d.pNiches],bio:d.pDesc,audience:Number(d.aud)||0,avgViews:Number(d.views)||0,impressions:Number(d.imps)||0,er:Number(d.er)||0,
     countries:[...d.pCountries],ages:[...d.ages],interests:[...d.interests],rating:null,reviewCount:0,verified:false,
-    services:[...d.pServices],pricing:d.pricing.map(p=>({type:p.type,label:p.label,detail:p.detail,amount:p.amount})),
+    // rate_pence/rate_qty carried through (not stripped) — dropping them here
+    // would silently publish a first listing whose per-view/per-imp tiers
+    // look real but can never actually be bought via openPoolBuyModal.
+    services:[...d.pServices],pricing:d.pricing.map(p=>({type:p.type,label:p.label,detail:p.detail,amount:p.amount,
+      ...(p.rate_pence?{rate_pence:p.rate_pence,rate_qty:p.rate_qty}:{})})),
     past:[]};
 }
 function renderWiz(dir){
@@ -6901,7 +7054,8 @@ const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggl
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,closeVerifyWait,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
-openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,wAddCustomChip,eAddCustomChip,
+openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,editPriceTypeChange,wAddCustomChip,eAddCustomChip,
+openPoolBuyModal,confirmPoolBuy,
 openAdmin,adminSetRole,adminSuspend,adminUnsuspend,adminSearchUsers,can,loadPerms,
 renderActionCodePanel,saveActionCode,
 adminSuspendListing,adminUnsuspendListing,adminSuspendCampaign,adminUnsuspendCampaign,

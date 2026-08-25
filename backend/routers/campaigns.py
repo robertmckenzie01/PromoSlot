@@ -19,7 +19,7 @@ from ..deps import get_current_user
 from ..models import Campaign, Deal, DealStatus, Notification, Platform, Review, User
 from ..services import deal_money_for
 from ..storage import delete_stored, save_generic, serve_stored, stored_exists
-from .deals import deal_dict
+from .deals import PRICING_MODELS, MAX_CAMPAIGN_DAYS, MIN_CAMPAIGN_DAYS, deal_dict, validate_pricing_fields
 
 _IMG_MAX = 2 * 1024 * 1024 * 1024  # campaign pictures: no meaningful size limit
 
@@ -222,14 +222,32 @@ def get_campaign_image(campaign_id: int, db: Session = Depends(get_db)):
 # -------------------- Applications (owner-initiated deals) --------------------
 
 class ApplyIn(BaseModel):
-    listed_price: int = Field(ge=100, description="Protected amount held pending verification (sum of upfront/guaranteed), in pence")
+    # ge=0 (not 100): a pure per_view/per_impression proposal with no guaranteed
+    # floor is valid here the same as it is on a bought listing — see
+    # validate_pricing_fields below, which enforces "0, or >=100" once
+    # pricing_model is known. A plain fixed proposal still needs >=100 in
+    # practice; that's enforced there too since it depends on pricing_model.
+    listed_price: int = Field(ge=0, description="Protected amount held pending verification (sum of upfront/guaranteed), in pence")
     platform_id: Optional[int] = None      # which of the owner's listings they'd promote on
     pitch: Optional[str] = None
     currency: str = "gbp"
     # Proposed payment methods (same shape as platform listing pricing). The
     # upfront/guaranteed portion is escrowed as listed_price; performance terms
-    # are recorded for both parties.
+    # are recorded for both parties. Kept alongside the structured fields below
+    # (not replaced by them) so multiple proposed methods can still be shown
+    # side-by-side in the deal room even though only one — the structured
+    # one, if any — actually drives real settlement. See Deal.pricing_model.
     pricing: Optional[List[dict]] = None
+
+    # Composable pricing — identical shape and meaning to DealCreateIn in
+    # routers/deals.py, just originated by the owner here instead of the
+    # business. "hybrid" is still not its own value; it's a per_view/
+    # per_impression proposal where listed_price is also >0.
+    pricing_model: str = "fixed"
+    rate_unit_pence: Optional[int] = Field(default=None, ge=1)
+    rate_unit_quantity: Optional[int] = Field(default=None, ge=1)
+    pool_max_budget: Optional[int] = Field(default=None, ge=100)
+    campaign_duration_days: Optional[int] = Field(default=None, ge=MIN_CAMPAIGN_DAYS, le=MAX_CAMPAIGN_DAYS)
 
 
 @router.post("/{campaign_id:int}/apply", status_code=201)
@@ -272,6 +290,10 @@ def apply_to_campaign(campaign_id: int, body: ApplyIn,
             raise HTTPException(status_code=422, detail="That platform isn't one of yours")
         platform_id = p.id
 
+    validate_pricing_fields(body.pricing_model, body.listed_price, body.rate_unit_pence,
+                            body.rate_unit_quantity, body.pool_max_budget,
+                            body.campaign_duration_days)
+
     # Views promised come from the applicant's own per-view/impression terms.
     promised = None
     for pm in (body.pricing or []):
@@ -297,6 +319,11 @@ def apply_to_campaign(campaign_id: int, body: ApplyIn,
         status=DealStatus.AWAITING_APPROVAL,
         owner_approved=True,        # applying = agreeing to your own proposed terms
         business_approved=False,
+        pricing_model=body.pricing_model,
+        rate_unit_pence=body.rate_unit_pence,
+        rate_unit_quantity=body.rate_unit_quantity,
+        pool_max_budget=body.pool_max_budget,
+        campaign_duration_days=body.campaign_duration_days,
         terms={
             "kind": "application",
             "campaign_title": c.title,
