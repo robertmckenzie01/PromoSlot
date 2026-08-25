@@ -16,10 +16,12 @@ attacker's page can't READ its value to also set the matching header — so
 the two values won't match and the request is rejected before it reaches
 any route.
 
-Exempt: GET/HEAD/OPTIONS (never mutate anything), and /webhooks/* — those
-are server-to-server calls from Stripe and Resend, never a browser, with no
+Exempt: GET/HEAD/OPTIONS (never mutate anything), /webhooks/* — those are
+server-to-server calls from Stripe and Resend, never a browser, with no
 cookies to forge and their own signature verification (see webhooks.py /
-inbound.py).
+inbound.py) — and /marketing/cron/* for the same reason: it's called by an
+external scheduler with no browser/cookies involved at all, authenticated
+instead by a shared secret (see routers/marketing.py's cron_send_campaign).
 """
 import secrets
 
@@ -32,7 +34,7 @@ from .config import settings
 CSRF_COOKIE = "ps_csrf"
 CSRF_HEADER = "x-csrf-token"
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-_EXEMPT_PREFIXES = ("/webhooks/",)
+_EXEMPT_PREFIXES = ("/webhooks/", "/marketing/cron/")
 _COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days — matches the session cookie's lifetime
 
 

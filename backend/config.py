@@ -61,6 +61,17 @@ class Settings:
     # a key configured; real enforcement only turns on once this is set.
     turnstile_secret_key: str = os.environ.get("TURNSTILE_SECRET_KEY", "")
 
+    # Shared secret for the marketing-campaign batch-send trigger
+    # (routers/marketing.py's /marketing/cron/send-campaign). Same trust
+    # model as the Stripe/Resend webhook secrets above: a machine calling in
+    # from outside the login system, verified with a constant-time compare,
+    # never a user session. Blank -> the endpoint refuses to run at all.
+    marketing_cron_secret: str = os.environ.get("MARKETING_CRON_SECRET", "")
+
+    @property
+    def marketing_cron_configured(self) -> bool:
+        return bool(self.marketing_cron_secret)
+
     @property
     def inbound_configured(self) -> bool:
         return bool(self.resend_webhook_secret and self.reply_domain)

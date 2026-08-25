@@ -752,6 +752,27 @@ class MarketingOptToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class MarketingCampaignSend(Base):
+    """One row per campaign that has actually gone out, ever. This is the
+    whole state machine behind marketing.send_campaign_now(): the batch
+    sender looks at marketing.CAMPAIGN_REGISTRY (an ordered list of
+    (slug, render_fn) in mailer.py), finds the first slug with no row here,
+    and sends that one. A slug that already has a row is permanently done —
+    the sender is idempotent no matter how many times its trigger fires,
+    it never re-sends a campaign that's already gone out once.
+
+    recipient_count/failure_count are the real per-user send.ok() tally from
+    that run, not an estimate, so a partial-failure send is visible rather
+    than silently reported as a clean success.
+    """
+    __tablename__ = "marketing_campaign_sends"
+    id = Column(Integer, primary_key=True)
+    campaign_slug = Column(String, nullable=False, unique=True, index=True)
+    sent_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    recipient_count = Column(Integer, nullable=False, default=0)
+    failure_count = Column(Integer, nullable=False, default=0)
+
+
 class SupportTicket(Base):
     """A real 'Contact Support' submission — stored so an admin/reviewer can act
     on it (and can later be emailed out when SMTP is configured)."""
