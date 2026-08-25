@@ -5364,7 +5364,7 @@ function openAccount(){
                 </div>
                 <p class="acct2-email">${esc(a.email)}<span class="acct2-email-tag">Sign-in email</span></p>
                 <div class="acct2-name-row" style="margin-top:2px">
-                  <p class="acct2-email" style="margin:0">${a.phone?esc(a.phone):"No phone on file"}<span class="acct2-email-tag">Private: emergency contact only</span></p>
+                  <p class="acct2-email" style="margin:0">${a.phone?esc(a.phone):"No phone on file"}<span class="acct2-email-tag">This number will not be shown publicly</span></p>
                   <button type="button" class="acct2-name-edit" onclick="openEditPhone()">${a.phone?"Edit":"Add"}</button>
                 </div>
                 <div class="acct2-name-row" style="margin-top:2px">
@@ -6901,7 +6901,8 @@ psPickRole,psAmount,psAmountBlur,psPresetPick,psToggleDisclosure,
 resRender,resPickModel,resScenario,resVisOpen,resVisClose,resVisStep,
 refreshPayoutStatus,connectPayouts,refreshInstantStatus,toggleInstantPayout,openAddDebitCard,submitDebitCard,realInstantPayout,
 openDisputesQueue,openDispute,claimDispute,addDisputeNote,requestDisputeInfo,
-openEditDisplayName,saveDisplayName};
+openEditDisplayName,saveDisplayName,
+openEditPhone,savePhone,clearPhone,toggleMarketingPreference};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
