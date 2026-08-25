@@ -23,6 +23,7 @@ from .. import audit
 from ..db import get_db
 from ..deps import RequirePerm
 from ..models import Dispute, DisputeEvent, Notification, User
+from ..services import total_charge_for
 from ..permissions import Perm
 
 router = APIRouter(prefix="/disputes", tags=["disputes"])
@@ -70,7 +71,15 @@ def dispute_dict(d: Dispute, events=None) -> dict:
         "deal_status": deal.status if deal else None,
         "business": _who(deal.business) if deal else None,
         "owner": _who(deal.platform_owner) if deal else None,
+        # listed_price alone understates a pool deal's real charged amount
+        # (it's only the fixed/guaranteed floor — see Deal.pricing_model in
+        # models.py). d.amount above is the authoritative Stripe-reported
+        # dispute amount regardless; these are just for admin context so a
+        # pool deal's dispute doesn't look smaller than it actually was.
         "listed_price": deal.listed_price if deal else None,
+        "pricing_model": deal.pricing_model if deal else None,
+        "pool_max_budget": deal.pool_max_budget if deal else None,
+        "total_charged": total_charge_for(deal)["total_charge"] if deal else None,
     }
     if events is not None:
         out["events"] = [{
