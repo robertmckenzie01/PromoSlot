@@ -225,8 +225,12 @@ def _footer() -> str:
     privacy_url = f"{settings.app_base_url}/privacy"
     terms_url = f"{settings.app_base_url}/terms"
     # Computed per-render rather than cached, so a long-lived process never
-    # ships a stale copyright year across a New Year's boundary.
-    year = datetime.now(timezone.utc).year
+    # ships a stale copyright year across a New Year's boundary. PromoSlot
+    # Ltd was incorporated in 2026, so this reads as a single year until the
+    # real year rolls past it, then becomes a range automatically.
+    incorporated = 2026
+    now_year = datetime.now(timezone.utc).year
+    year = str(now_year) if now_year <= incorporated else f"{incorporated}–{now_year}"
     link = lambda href, label: (f'<a href="{href}" style="color:#c7d2fe;'
                                 f'text-decoration:none">{label}</a>')
     link_row = (
