@@ -3863,6 +3863,16 @@ async function toggleInstantPayout(cb){
   }catch(err){ toast(err.message||"Could not update preference"); cb.checked=!cb.checked; }
   cb.disabled=false;
 }
+async function toggleMarketingPreference(cb){
+  cb.disabled=true;
+  try{
+    const r=await PSApi.post("/me/marketing-preference", {enabled: cb.checked});
+    if(S.account) S.account.marketing_opt_in=r.opted_in;
+    toast(cb.checked?"You're opted in to occasional PromoSlot updates.":"Marketing emails turned off",true);
+    const label=cb.nextElementSibling; if(label) label.textContent=cb.checked?"On":"Off";
+  }catch(err){ toast(err.message||"Could not update preference"); cb.checked=!cb.checked; }
+  cb.disabled=false;
+}
 async function openAddDebitCard(){
   const btn=$("addCardBtn");
   try{ await ensureStripeJs(); }catch(e){ toast("Stripe.js failed to load"); return; }
@@ -4941,6 +4951,10 @@ function authModal(mode){
             <button type="button" class="chip" id="au-r-biz" onclick="this.classList.toggle('on');_authSyncNameFields()">Business</button>
             <button type="button" class="chip" id="au-r-plat" onclick="this.classList.toggle('on');_authSyncNameFields()">Platform owner</button>
           </div></div>`:""}
+          ${isSignup?`<label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;font-weight:400;cursor:pointer;margin-top:4px">
+            <input type="checkbox" id="au-marketing" style="margin-top:2px">
+            <span>Send me occasional product updates and tips. Optional, unsubscribe any time.</span>
+          </label>`:""}
           ${isSignup?`<div id="au-turnstile" style="margin-top:2px"></div>`:""}
           <div class="hint-err hide" id="au-err"></div>
           ${isSignup?"":`<p class="mut" style="font-size:12.5px;margin-top:2px">Signed up but never got the verification email?
@@ -4988,6 +5002,7 @@ async function doSignup(){
   const is_platform_owner=$("au-r-plat").classList.contains("on");
   const both = is_business && is_platform_owner;
   const second_display_name = both ? ($("au-name2").value||"").trim() : null;
+  const marketing_opt_in = !!($("au-marketing")||{}).checked;
   if(!email||!password){ _authErr("Email and password are required."); return; }
   if(!is_business && !is_platform_owner){ _authErr("Select at least one role."); return; }
   if(both){
@@ -5001,7 +5016,7 @@ async function doSignup(){
   let res;
   try{
     res=await PSApi.signup({email,password,display_name:display_name||null,is_business,is_platform_owner,
-      second_display_name,turnstile_token:S._turnstileToken});
+      second_display_name,turnstile_token:S._turnstileToken,marketing_opt_in});
   }catch(err){
     btn.disabled=false; btn.textContent="Create account"; _authErr(err.message||"Signup failed");
     // The token is single-use regardless of why signup failed — force a fresh
@@ -5093,6 +5108,20 @@ async function resendVerification(prefill){
   if(btn){ btn.disabled=false; btn.textContent="Send it again"; }
   // Deliberately the same wording whether or not the address needed verifying.
   toast(msg||"If that email needs verifying, a new link is on its way.",true);
+}
+
+// A marketing opt-in/unsubscribe link lands as /?optin=<token> or
+// /?unsubscribe=<token>: consume it against the API and just say what
+// happened. No modal, no sign-in needed — this is a low-stakes preference,
+// not an account action, so a toast is enough.
+async function marketingTokenFromLink(token, purpose){
+  try{
+    await PSApi.post(`/marketing/${purpose}`, {token});
+    toast(purpose==="optin" ? "You're opted in to occasional PromoSlot updates."
+                            : "You've been unsubscribed from PromoSlot marketing emails.", true);
+  }catch(e){
+    toast(e.message || "That link is invalid or has expired.");
+  }
 }
 
 // A real verification link lands as /?verify=<token>: confirm it, which also
@@ -5337,6 +5366,13 @@ function openAccount(){
                 <div class="acct2-name-row" style="margin-top:2px">
                   <p class="acct2-email" style="margin:0">${a.phone?esc(a.phone):"No phone on file"}<span class="acct2-email-tag">Private: emergency contact only</span></p>
                   <button type="button" class="acct2-name-edit" onclick="openEditPhone()">${a.phone?"Edit":"Add"}</button>
+                </div>
+                <div class="acct2-name-row" style="margin-top:2px">
+                  <p class="acct2-email" style="margin:0">Marketing emails<span class="acct2-email-tag">Occasional updates and tips, optional</span></p>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                    <input type="checkbox" id="mktToggle" ${a.marketing_opt_in?"checked":""} onchange="toggleMarketingPreference(this)">
+                    <b class="mut" style="font-size:12px">${a.marketing_opt_in?"On":"Off"}</b>
+                  </label>
                 </div>
                 <div class="acct2-tags">
                   ${isPlat?`<span class="acct2-tag">Platform owner</span>`:""}
@@ -6120,9 +6156,16 @@ function PSBoot(){
   const _rt=_q.get("reset");
   const _vt=_q.get("verify");
   const _dt=_q.get("deal");
-  if(_rt||_vt||_dt) history.replaceState({}, "", location.pathname);
+  // One-click marketing-consent links (opt-in invite in a transactional email,
+  // or a future marketing email's unsubscribe link) — public, token-based, no
+  // login required, same anti-replay stripping as reset/verify above.
+  const _ot=_q.get("optin");
+  const _ut=_q.get("unsubscribe");
+  if(_rt||_vt||_dt||_ot||_ut) history.replaceState({}, "", location.pathname);
   if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
   if(_vt) setTimeout(()=>verifyEmailFromLink(_vt),300);
+  if(_ot) setTimeout(()=>marketingTokenFromLink(_ot,"optin"),300);
+  if(_ut) setTimeout(()=>marketingTokenFromLink(_ut,"unsubscribe"),300);
   // A deal-notification email (the proof grace-period reminder) links straight
   // to /?deal=<id>. Waits on the real restoreSession() promise above rather
   // than a fixed timeout, since whether to open the deal directly or gate on

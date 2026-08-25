@@ -221,7 +221,7 @@ def _signature() -> str:
     )
 
 
-def _footer() -> str:
+def _footer(unsubscribe_url: str = None) -> str:
     privacy_url = f"{settings.app_base_url}/privacy"
     terms_url = f"{settings.app_base_url}/terms"
     # Computed per-render rather than cached, so a long-lived process never
@@ -233,12 +233,19 @@ def _footer() -> str:
     year = str(now_year) if now_year <= incorporated else f"{incorporated}–{now_year}"
     link = lambda href, label: (f'<a href="{href}" style="color:#c7d2fe;'
                                 f'text-decoration:none">{label}</a>')
+    # unsubscribe_url only ever comes from a real marketing send (see
+    # marketing_shell() below) — the 11 transactional emails never pass one,
+    # so this link never appears on them. PECR requires it to work every
+    # time it's shown, hence the unsubscribe token's no-expiry design in
+    # backend/marketing.py.
     link_row = (
         f'{link(privacy_url, "Privacy Policy")}'
         '<span style="color:#4a5b78">&nbsp;&nbsp;&middot;&nbsp;&nbsp;</span>'
         f'{link(f"mailto:{settings.support_email}", "Contact Support")}'
         '<span style="color:#4a5b78">&nbsp;&nbsp;&middot;&nbsp;&nbsp;</span>'
         f'{link(terms_url, "Terms of Service")}'
+        + (('<span style="color:#4a5b78">&nbsp;&nbsp;&middot;&nbsp;&nbsp;</span>'
+            + link(unsubscribe_url, "Unsubscribe")) if unsubscribe_url else "")
     )
     return (
         '<tr><td style="padding:18px 0 0"><table role="presentation" width="100%" '
@@ -256,7 +263,7 @@ def _footer() -> str:
     )
 
 
-def _shell(preheader: str, body_html: str) -> str:
+def _shell(preheader: str, body_html: str, unsubscribe_url: str = None) -> str:
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -277,11 +284,31 @@ def _shell(preheader: str, body_html: str) -> str:
 {body_html}
 </td></tr>
 {_signature()}
-{_footer()}
+{_footer(unsubscribe_url)}
 </table>
 </td></tr></table>
 </body>
 </html>"""
+
+
+def marketing_shell(subject: str, preheader: str, body_html: str,
+                    body_text: str, unsubscribe_url: str) -> tuple:
+    """(subject, html, text) wrapper for future marketing/campaign emails —
+    the shared shell, header, signature and footer as every transactional
+    email, but with a working Unsubscribe link in the footer, which none of
+    the 11 transactional emails carry (see _footer() above).
+
+    Infrastructure only: no campaign content lives here. A real marketing
+    email is body_html/body_text built the same way welcome_email() etc.
+    compose theirs (the _h1/_lead/_p/_button helpers above), then handed to
+    this function alongside a token from marketing.create_unsubscribe_token()
+    turned into a URL. Every recipient must actually have marketing_opt_in
+    True — this function only renders the message, it doesn't check or
+    enforce consent, that's the caller's job before it ever gets here.
+    """
+    html = _shell(preheader, body_html, unsubscribe_url=unsubscribe_url)
+    text = body_text + f"\n\nUnsubscribe: {unsubscribe_url}"
+    return subject, html, text
 
 
 def password_reset_email(reset_url: str) -> tuple:
@@ -305,7 +332,8 @@ def password_reset_email(reset_url: str) -> tuple:
 
 
 def welcome_email(display_name: str = "", is_business: bool = False,
-                  is_platform_owner: bool = False, verify_url: str = "") -> tuple:
+                  is_platform_owner: bool = False, verify_url: str = "",
+                  optin_url: str = "") -> tuple:
     """(subject, html, text) welcoming a brand-new account.
 
     Says nothing about what the account has done, it has just been created.
@@ -316,6 +344,11 @@ def welcome_email(display_name: str = "", is_business: bool = False,
     cannot be used until that link is clicked, so the link leads and the
     orientation follows. Sending a separate welcome alongside it would land two
     near-identical mails at once and bury the one that matters.
+
+    optin_url, when given, is a one-click marketing-consent invite — only
+    ever passed in when the signup form's consent checkbox was left unticked,
+    see routers/auth.py:signup(). One quiet line near the very bottom, after
+    everything the account actually needs, never the headline of the email.
     """
     name = (display_name or "").strip()
     hello = f"Welcome, {name}" if name else "Welcome to PromoSlot"
@@ -348,6 +381,13 @@ def welcome_email(display_name: str = "", is_business: bool = False,
 
     open_button_html = "" if verify_url else _button(settings.app_base_url, "Open PromoSlot")
 
+    optin_line_html = (
+        _fine(f"Want occasional product updates and tips, nothing frequent? "
+              f"<a href=\"{optin_url}\" style=\"color:#4f46e5;text-decoration:none\">"
+              f"Opt in here</a>. Entirely optional, and you can turn it off "
+              f"again any time from My Account.", margin="10px 0 0")
+    ) if optin_url else ""
+
     body = (
         _h1(hello_html)
         + hero_html
@@ -362,6 +402,7 @@ def welcome_email(display_name: str = "", is_business: bool = False,
         + _fine("Fees are only charged when a deal completes: 10% from the seller, "
                 "5% buyer protection from the buyer. Nothing is charged for creating "
                 "an account or publishing.")
+        + optin_line_html
     )
     preheader = ("Confirm your email to activate your PromoSlot account."
                 if verify_url else
@@ -380,7 +421,10 @@ def welcome_email(display_name: str = "", is_business: bool = False,
             f"{text_steps}\n\n"
             f"{'' if verify_url else settings.app_base_url + chr(10) + chr(10)}"
             "Fees are only charged when a deal completes: 10% from the seller, 5% buyer "
-            "protection from the buyer.")
+            "protection from the buyer."
+            + (f"\n\nWant occasional product updates and tips, nothing frequent? Opt in "
+               f"here: {optin_url}\nEntirely optional, and you can turn it off again any "
+               f"time from My Account." if optin_url else ""))
     subject = ("Verify your email to finish setting up PromoSlot" if verify_url
                else "Welcome to PromoSlot")
     return subject, html, text

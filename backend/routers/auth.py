@@ -15,6 +15,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import COOKIE_NAME, assert_active, get_current_user
 from ..mailer import password_reset_email, send_email, welcome_email
+from .. import marketing
 from ..models import (BannedEmail, EmailVerificationToken, PasswordResetToken,
                       Session as AuthSession, User)
 from ..ratelimit import (client_ip, limit_login, limit_password_reset_request,
@@ -117,12 +118,20 @@ def signup(body: SignupIn, request: Request, response: Response, background: Bac
 
     # The business identity is always created first when both roles are chosen
     # together, making it the "primary" identity (see find_by_email above).
+    # marketing_opt_in is only ever set here from an unticked checkbox they
+    # actively checked — see SignupIn.marketing_opt_in and the User model
+    # comment. Both linked identities (if any) share one real inbox, so both
+    # get the same consent state rather than asking twice for one address.
+    marketing_at = datetime.utcnow() if body.marketing_opt_in else None
     user = User(
         email=email,
         password_hash=hash_password(body.password),
         display_name=name1 or None,
         is_business=True if both else body.is_business,
         is_platform_owner=False if both else body.is_platform_owner,
+        marketing_opt_in=body.marketing_opt_in,
+        marketing_opt_in_at=marketing_at,
+        marketing_opt_in_source="signup" if body.marketing_opt_in else None,
     )
     db.add(user)
     db.flush()
@@ -132,6 +141,9 @@ def signup(body: SignupIn, request: Request, response: Response, background: Bac
             email=email, password_hash=user.password_hash,
             display_name=name2, is_business=False, is_platform_owner=True,
             linked_user_id=user.id,
+            marketing_opt_in=body.marketing_opt_in,
+            marketing_opt_in_at=marketing_at,
+            marketing_opt_in_source="signup" if body.marketing_opt_in else None,
         )
         db.add(secondary)
         db.flush()
@@ -144,20 +156,30 @@ def signup(body: SignupIn, request: Request, response: Response, background: Bac
     # One verification email covers both linked identities (same inbox) — see
     # verify_email() below, which stamps verified_at on the linked row too.
     token = _new_verification_token(db, user)
+    # Only offered when they didn't already opt in on the form — no point
+    # inviting someone to do the thing they just did.
+    optin_url = (None if body.marketing_opt_in else
+                _marketing_optin_url(marketing.create_optin_token(db, user)))
     # Best effort, and after the response is sent: send_email never raises, but
     # it can block up to its timeout, and a slow mail provider must never delay
     # or fail account creation.
     background.add_task(_send_welcome, user.email, user.display_name,
-                        user.is_business, user.is_platform_owner, token)
+                        user.is_business, user.is_platform_owner, token, optin_url)
     return {"ok": True, "verification_required": True, "email": user.email,
             "message": "Account created. Check your email for the link to verify "
                        "your address — you'll be signed in as soon as you use it."}
 
 
+def _marketing_optin_url(token: str) -> str:
+    return f"{settings.app_base_url.rstrip('/')}/?optin={token}"
+
+
 def _send_welcome(email: str, display_name: str, is_business: bool,
-                  is_platform_owner: bool, verify_token: str = "") -> None:
+                  is_platform_owner: bool, verify_token: str = "",
+                  optin_url: str = None) -> None:
     subject, html, text = welcome_email(display_name, is_business, is_platform_owner,
-                                        verify_url=_verify_url(verify_token) if verify_token else "")
+                                        verify_url=_verify_url(verify_token) if verify_token else "",
+                                        optin_url=optin_url or "")
     ok, detail = send_email(email, subject, html, text)
     if not ok:
         # Not configured, or the provider rejected it. Logged, never surfaced as

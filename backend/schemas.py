@@ -21,6 +21,9 @@ class SignupIn(BaseModel):
     # backend/turnstile.py — blank/invalid is rejected only once a secret key
     # is actually configured (settings.turnstile_configured).
     turnstile_token: Optional[str] = None
+    # Unticked by default on the form — see User.marketing_opt_in in
+    # models.py. Only ever True here when the person actually checked the box.
+    marketing_opt_in: bool = False
 
 
 class LinkProfileIn(BaseModel):
@@ -111,5 +114,8 @@ class UserOut(BaseModel):
     product_tour_version: Optional[str] = None
     # Drives the homepage checklist's "set up your public profile" step.
     profile_setup_viewed_at: Optional[datetime] = None
+    # Marketing-email consent — see User.marketing_opt_in in models.py. Read
+    # by the My Account toggle to show current state on load.
+    marketing_opt_in: bool = False
 
     model_config = {"from_attributes": True}

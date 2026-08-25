@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from .. import audit
+from .. import audit, marketing
 from ..account_deactivation import deactivate_account_cascade
 from ..account_deletion import delete_account_cascade
 from ..config import settings
@@ -122,6 +122,21 @@ def update_profile(body: ProfileIn, user: User = Depends(get_current_user),
     db.commit()
     return {"display_name": user.display_name or "", "about_text": user.about_text or "",
             "links": user.links or [], "phone": user.phone or ""}
+
+
+class MarketingPreferenceIn(BaseModel):
+    enabled: bool
+
+
+@router.post("/me/marketing-preference")
+def set_marketing_preference(body: MarketingPreferenceIn, user: User = Depends(get_current_user),
+                             db: Session = Depends(get_db)):
+    """The My Account toggle — the other opt-in path alongside the signup
+    checkbox and the one-click email link (see backend/marketing.py and
+    routers/marketing.py). Anyone can flip this on or off here at any time,
+    independent of what either of those other two paths last set."""
+    marketing.set_marketing_preference(db, user, body.enabled, source="settings")
+    return {"opted_in": user.marketing_opt_in}
 
 
 class DeleteAccountIn(BaseModel):

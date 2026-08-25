@@ -155,6 +155,18 @@ class User(Base):
     # profile" step - NULL = not yet, so the checklist item stays open.
     profile_setup_viewed_at = Column(DateTime)
 
+    # ---- Marketing email consent (PECR/UK GDPR) ----
+    # False by default for every account, including everyone who signed up
+    # before this field existed — there is no compliant default other than
+    # opted-out until someone actively says yes. Never set True anywhere
+    # except a real, explicit action (signup checkbox, account-settings
+    # toggle, or clicking a one-click opt-in link in an email) — see
+    # backend/marketing.py. source records which of those it was, for the
+    # audit trail; at records when, both null until opt-in happens once.
+    marketing_opt_in = Column(Boolean, default=False, nullable=False)
+    marketing_opt_in_at = Column(DateTime)
+    marketing_opt_in_source = Column(String)  # "signup" | "settings" | "email_link"
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     @property
@@ -716,6 +728,27 @@ class EmailVerificationToken(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)
     used = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class MarketingOptToken(Base):
+    """A one-click token for marketing-email consent links (opt-in invites in
+    transactional emails, and unsubscribe links in future marketing emails).
+
+    Same shape as the other tokens above, with one difference: expires_at is
+    nullable. An opt-in invite gets a real expiry (it's a promotional nudge,
+    stale ones shouldn't work forever); an unsubscribe link gets none — PECR
+    requires opting out to stay easy at any time, so that link must never go
+    stale. purpose distinguishes which action a token performs; not
+    single-use like the others, since re-clicking an opt-in/unsubscribe link
+    is just idempotent, not a security concern the way a reused password
+    reset would be.
+    """
+    __tablename__ = "marketing_opt_tokens"
+    token = Column(String, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    purpose = Column(String, nullable=False)  # "optin" | "unsubscribe"
+    expires_at = Column(DateTime)  # null = never expires (unsubscribe links)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
