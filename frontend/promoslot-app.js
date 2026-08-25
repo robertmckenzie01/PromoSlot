@@ -4872,8 +4872,17 @@ function authGate(mode){
 // the listing/campaign wizards as a guest (see wizNext()'s auth gate).
 function _resumeAfterAuth(){
   window._afterAuth = null;   // nothing reads this any more; cleared for safety
-  closeSignupNudge();         // they signed up — stop asking
-  goHome();
+  closeSignupNudge();         // they signed up, stop asking
+  // A deal-notification email link (see DEAL_RESUME_KEY) takes priority over
+  // the normal homepage landing: someone who followed "Add proof to Deal
+  // #482" into a login gate wants to land on Deal #482, not the homepage.
+  let resumeDeal=null;
+  try{ resumeDeal=sessionStorage.getItem(DEAL_RESUME_KEY); sessionStorage.removeItem(DEAL_RESUME_KEY); }catch(e){}
+  if(resumeDeal && S.account){
+    showView("view-deal"); renderRealDeal(parseInt(resumeDeal,10));
+  } else {
+    goHome();
+  }
   // Both login and email-verification land here, so this is the single point
   // where a brand-new account gets offered the tour. maybeOfferTour() no-ops
   // for anyone who has already seen, skipped or finished it.
@@ -5868,6 +5877,11 @@ const ROUTE_KEY="ps_route";
 // real session exists, instead of stranding the person on the homepage
 // having never actually reached the "which platform" step.
 const WIZARD_RESUME_KEY="ps_resume_wizard";
+// A deal-notification email (e.g. the proof grace-period reminder) links
+// straight to /?deal=<id>. A guest hitting that link has to log in first;
+// this is where the intended deal id waits until _resumeAfterAuth() can
+// pick it back up, same pattern as WIZARD_RESUME_KEY above.
+const DEAL_RESUME_KEY="ps_resume_deal";
 // Routes anyone may land on. Everything else needs a live session to restore.
 const PUBLIC_ROUTES=new Set(["home","market","how","pricing","protect","resources","about","terms","privacy","refund"]);
 let _routeReady=false;                 // don't record routes during restore
@@ -6059,6 +6073,9 @@ function PSBoot(){
   const _connectReturn = new URLSearchParams(location.search).get("connect")==="return";
   if(_connectReturn) history.replaceState({}, "", location.pathname);
 
+  // Captured so the ?deal= handling below can wait on whichever branch's
+  // restoreSession() actually ran, instead of triggering a second one.
+  let _bootAuth;
   const _initialRoute=PATH_ROUTES[location.pathname];
   if(_initialRoute && _initialRoute!=="home"){
     if(_initialRoute==="market") openMarket();
@@ -6070,7 +6087,7 @@ function PSBoot(){
     else if(_initialRoute==="terms") goTerms();
     else if(_initialRoute==="privacy") goPrivacy();
     else if(_initialRoute==="refund") goRefundPolicy();
-    restoreSession();          // still establishes real auth state for the nav
+    _bootAuth = restoreSession();          // still establishes real auth state for the nav
   } else if(_connectReturn){
     // Skip the normal remembered-route restore entirely — this is an explicit,
     // one-shot signal that takes priority over whatever was in sessionStorage
@@ -6082,11 +6099,11 @@ function PSBoot(){
     // _require_platform_owner), but if the session didn't come back at all,
     // or came back on a linked business identity instead, this quietly
     // does nothing and they land on the homepage same as before this change.
-    restoreSession().then(()=>{
+    _bootAuth = restoreSession().then(()=>{
       if(S.account && S.account.is_platform_owner) openDash();
     });
   } else {
-    restoreSession().then(restoreRoute);
+    _bootAuth = restoreSession().then(restoreRoute);
   }
   startAttnPolling();
   // A real reset link (emailed) lands as /?reset=<token> — open the set-password step.
@@ -6102,9 +6119,26 @@ function PSBoot(){
   const _q=new URLSearchParams(location.search);
   const _rt=_q.get("reset");
   const _vt=_q.get("verify");
-  if(_rt||_vt) history.replaceState({}, "", location.pathname);
+  const _dt=_q.get("deal");
+  if(_rt||_vt||_dt) history.replaceState({}, "", location.pathname);
   if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
   if(_vt) setTimeout(()=>verifyEmailFromLink(_vt),300);
+  // A deal-notification email (the proof grace-period reminder) links straight
+  // to /?deal=<id>. Waits on the real restoreSession() promise above rather
+  // than a fixed timeout, since whether to open the deal directly or gate on
+  // login first depends on knowing S.account for certain, not guessing at it.
+  if(_dt){
+    const _dealId=parseInt(_dt,10);
+    if(Number.isFinite(_dealId)){
+      _bootAuth.then(()=>{
+        if(S.account){ showView("view-deal"); renderRealDeal(_dealId); }
+        else{
+          try{ sessionStorage.setItem(DEAL_RESUME_KEY, String(_dealId)); }catch(e){}
+          authGate("login");
+        }
+      });
+    }
+  }
   loadMarket().then(()=>{renderMarketRail();renderLandingState();});  // refresh the rail with real listings/campaigns, and the returning-user opportunities strip once real data is in
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!modalLock) closeModal(); if(e.key==="Escape") closeNavMenu(); });
   document.addEventListener("click",e=>{

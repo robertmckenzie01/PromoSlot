@@ -9,6 +9,7 @@ import json
 import re
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 
 from .config import settings
 
@@ -221,18 +222,33 @@ def _signature() -> str:
 
 
 def _footer() -> str:
+    privacy_url = f"{settings.app_base_url}/privacy"
+    terms_url = f"{settings.app_base_url}/terms"
+    # Computed per-render rather than cached, so a long-lived process never
+    # ships a stale copyright year across a New Year's boundary.
+    year = datetime.now(timezone.utc).year
+    link = lambda href, label: (f'<a href="{href}" style="color:#c7d2fe;'
+                                f'text-decoration:none">{label}</a>')
+    link_row = (
+        f'{link(privacy_url, "Privacy Policy")}'
+        '<span style="color:#4a5b78">&nbsp;&nbsp;&middot;&nbsp;&nbsp;</span>'
+        f'{link(f"mailto:{settings.support_email}", "Contact Support")}'
+        '<span style="color:#4a5b78">&nbsp;&nbsp;&middot;&nbsp;&nbsp;</span>'
+        f'{link(terms_url, "Terms of Service")}'
+    )
     return (
         '<tr><td style="padding:18px 0 0"><table role="presentation" width="100%" '
         'cellpadding="0" cellspacing="0" border="0" bgcolor="#14273f" '
-        'style="background:#14273f;border-radius:12px"><tr><td '
-        f'style="padding:22px 30px"><p style="margin:0;font-family:{_SANS};'
-        'font-size:13px;line-height:1.6;font-weight:600;color:#ffffff">PromoSlot Ltd '
-        '<span style="font-weight:400;color:#a9b6c8">(company number '
-        f'SC899931)</span></p><p style="margin:6px 0 0;font-family:{_SANS};'
-        'font-size:13px;line-height:1.6;color:#a9b6c8">Need help? '
-        f'<a href="mailto:{settings.support_email}" style="color:#c7d2fe;'
-        f'text-decoration:none">{settings.support_email}</a></p></td></tr></table>'
-        '</td></tr>'
+        'style="background:#14273f;border-radius:12px"><tr><td align="center" '
+        f'style="padding:26px 30px;text-align:center"><p style="margin:0;'
+        f'font-family:{_SANS};font-size:13px;line-height:1.6;font-weight:600;'
+        f'color:#ffffff">{link_row}</p>'
+        f'<p style="margin:14px 0 0;font-family:{_SANS};font-size:12px;'
+        'line-height:1.6;color:#a9b6c8">PromoSlot Ltd &middot; Registered in '
+        'Scotland &middot; No. SC899931<br>8B Drumsheugh Gardens, Edinburgh '
+        f'EH3 7QJ</p><p style="margin:10px 0 0;'
+        f'font-family:{_SANS};font-size:12px;line-height:1.6;color:#7c8ba3">'
+        f'&copy; {year} PromoSlot Ltd</p></td></tr></table></td></tr>'
     )
 
 
@@ -391,7 +407,8 @@ def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") ->
         + _p("If nothing further is added before the deadline, the reviewer will "
              "finalize the deal using only what's already been formally submitted, "
              "never on anything not visible in your own submission.")
-        + _button(settings.app_base_url, f"Add proof to Deal #{deal_id}")
+        + _button(f"{settings.app_base_url}/?deal={deal_id}",
+                  f"Add proof to Deal #{deal_id}")
         + _fine(f"This is a routine check, not an accusation: it happens whenever a "
                 f"reviewer wants more certainty on a number before money moves. "
                 f"Questions? Reply to this email or contact "
@@ -408,7 +425,7 @@ def proof_grace_period_email(deal_id: int, deadline_iso: str, note: str = "") ->
             + "If nothing further is added before the deadline, the reviewer will finalize "
               "the deal using only what's already been formally submitted, never on "
               "anything not visible in your own submission.\n\n"
-            f"Add proof: {settings.app_base_url}\n\n"
+            f"Add proof: {settings.app_base_url}/?deal={deal_id}\n\n"
             "This is a routine check, not an accusation. Questions? Reply to this email "
             f"or contact {settings.support_email}.")
     return title, html, text
