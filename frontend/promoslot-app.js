@@ -3863,15 +3863,28 @@ async function toggleInstantPayout(cb){
   }catch(err){ toast(err.message||"Could not update preference"); cb.checked=!cb.checked; }
   cb.disabled=false;
 }
-async function toggleMarketingPreference(cb){
-  cb.disabled=true;
+// Two explicit radio buttons (Off / On) rather than one ambiguous checkbox
+// — clearer at a glance which state is active, and which one a click will
+// switch to. Both call this with the value THEY represent, not a toggle.
+async function setMarketingPreference(enabled){
+  const off=$("mktOff"), on=$("mktOn");
+  if(off) off.disabled=true;
+  if(on) on.disabled=true;
   try{
-    const r=await PSApi.post("/me/marketing-preference", {enabled: cb.checked});
+    const r=await PSApi.post("/me/marketing-preference", {enabled});
     if(S.account) S.account.marketing_opt_in=r.opted_in;
-    toast(cb.checked?"You're opted in to occasional PromoSlot updates.":"Marketing emails turned off",true);
-    const label=cb.nextElementSibling; if(label) label.textContent=cb.checked?"On":"Off";
-  }catch(err){ toast(err.message||"Could not update preference"); cb.checked=!cb.checked; }
-  cb.disabled=false;
+    toast(enabled?"You're opted in to occasional PromoSlot updates.":"Marketing emails turned off",true);
+  }catch(err){
+    toast(err.message||"Could not update preference");
+    // Roll the radios back to whatever the account actually has, not just
+    // the opposite of what was clicked — the request may have failed for a
+    // reason unrelated to which direction was chosen.
+    const actual=!!(S.account&&S.account.marketing_opt_in);
+    if(off) off.checked=!actual;
+    if(on) on.checked=actual;
+  }
+  if(off) off.disabled=false;
+  if(on) on.disabled=false;
 }
 async function openAddDebitCard(){
   const btn=$("addCardBtn");
@@ -5368,11 +5381,17 @@ function openAccount(){
                   <button type="button" class="acct2-name-edit" onclick="openEditPhone()">${a.phone?"Edit":"Add"}</button>
                 </div>
                 <div class="acct2-name-row" style="margin-top:2px">
-                  <p class="acct2-email" style="margin:0">Marketing emails<span class="acct2-email-tag">Occasional updates and tips, optional</span></p>
-                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                    <input type="checkbox" id="mktToggle" ${a.marketing_opt_in?"checked":""} onchange="toggleMarketingPreference(this)">
-                    <b class="mut" style="font-size:12px">${a.marketing_opt_in?"On":"Off"}</b>
-                  </label>
+                  <p class="acct2-email" style="margin:0">Marketing emails<span class="acct2-email-tag">Occasional updates and tips, optional. Opt in only, off by default.</span></p>
+                  <div style="display:flex;align-items:center;gap:14px">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                      <input type="radio" name="mktPref" id="mktOff" ${!a.marketing_opt_in?"checked":""} onchange="if(this.checked)setMarketingPreference(false)">
+                      <b class="mut" style="font-size:12px">Off</b>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                      <input type="radio" name="mktPref" id="mktOn" ${a.marketing_opt_in?"checked":""} onchange="if(this.checked)setMarketingPreference(true)">
+                      <b class="mut" style="font-size:12px">On</b>
+                    </label>
+                  </div>
                 </div>
                 <div class="acct2-tags">
                   ${isPlat?`<span class="acct2-tag">Platform owner</span>`:""}
@@ -6902,7 +6921,7 @@ resRender,resPickModel,resScenario,resVisOpen,resVisClose,resVisStep,
 refreshPayoutStatus,connectPayouts,refreshInstantStatus,toggleInstantPayout,openAddDebitCard,submitDebitCard,realInstantPayout,
 openDisputesQueue,openDispute,claimDispute,addDisputeNote,requestDisputeInfo,
 openEditDisplayName,saveDisplayName,
-openEditPhone,savePhone,clearPhone,toggleMarketingPreference};
+openEditPhone,savePhone,clearPhone,setMarketingPreference};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
