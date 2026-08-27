@@ -3605,6 +3605,12 @@ async function finishBiz(){
              payMethods:pays.map(p=>payMethodByKey(p.type).label),collabs:"New to PromoSlot"}};
   try{ await PSApi.post("/campaigns",payload); }
   catch(err){ toast(err.message||"Could not publish campaign"); wizPublishFailed("Create my business profile"); return; }
+  // Real backing row for this business identity — see backend/models.py's
+  // Business. Best-effort: a hiccup here shouldn't undo a campaign that just
+  // published successfully, but it's what verification (My Account) needs to
+  // exist, so failures are logged rather than silently swallowed.
+  try{ await PSApi.post("/businesses",{company:d.company,product:d.product,industry:d.industry,target:d.target}); }
+  catch(err){ console.error("Could not save business profile record:",err); }
   await loadMine(); authReflect();
   S.activeRole="biz"; setTheme();
   const created=S.myCampaigns[0];
@@ -3654,40 +3660,191 @@ function wizSuccess(title,sub,offerOtherRole,offerAnother){
   const host=$("successWrap"); if(host) confettiBurst(host);
 }
 
-/* ==================== VERIFICATION FLOW ==================== */
-function openVerify(role){
-  const isBiz = role==="biz";
-  const items = isBiz
-    ? [["🪪","Government ID","Photo ID of a company director"],["📄","Business registration","Companies House number or equivalent"],["🌐","Domain / email","Confirm ownership of your business domain"]]
-    : [["📊","Analytics access","Read-only insights or a screen-recording walkthrough"],["🔗","Platform ownership","Verify you control the account/community"],["🪪","Government ID","Photo ID of the account owner"]];
-  window._vSel = new Set(items.map(i=>i[2]));
-  openModal(`<div class="m-pad"><div class="vf-head"><div class="vf-shield">🛡️</div>
-      <div><h3 class="m-title">Get ${isBiz?"business":"analytics"} verified</h3>
-      <p class="m-sub" style="margin:4px 0 0">A verified ✔ badge is only granted after a real PromoSlot reviewer checks your evidence by hand. The review team isn't operating yet, so no badge can be issued, and nothing here fakes one.</p></div></div>
-    <div class="det-sec" style="margin-top:6px"><h5>What a reviewer will check</h5>
-      ${items.map(([ico,t,sub])=>`<label class="vf-item" data-v="${esc(t)}">
-        <span class="pi-ico">${ico}</span><div class="vf-body"><b>${esc(t)}</b><small>${esc(sub)}</small></div>
-        <input type="checkbox" checked onchange="this.checked?window._vSel.add(this.closest('.vf-item').dataset.v):window._vSel.delete(this.closest('.vf-item').dataset.v);this.closest('.vf-item').classList.toggle('on',this.checked)">
-        <span class="vf-check">✓</span></label>`).join("")}</div>
-    <div class="vf-upload" id="vfDrop"><span class="vf-up-ico">⬆️</span><div><b>Upload supporting documents</b><small id="vfFileLbl">Document upload opens once verification is live</small></div></div>
-    ${pendingPanel("🛡️","Verification isn't available yet","We're onboarding our review team. You can register your interest below; no documents are stored, nothing is charged, and no badge is granted until a real reviewer verifies your evidence.")}
-    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-p" onclick="runVerify('${role}')">Register interest</button></div></div>`);
-  requestAnimationFrame(()=>document.querySelectorAll(".vf-item").forEach(el=>el.classList.add("on")));
+/* ==================== VERIFICATION FLOW ====================
+   Two real, separate checks — business identity (Stripe KYB on the
+   business's own account) and platform-owner identity + ownership evidence
+   (Stripe reused from their existing payout account, plus real evidence
+   they control the listed account). A human reviewer confirms every one of
+   these before a badge shows — see backend/services.py's
+   decide_verification for exactly where that gate lives. Nothing here ever
+   sets a badge from a Stripe pass alone. */
+const VF_DISCLOSURE = "This information is never made public. It's only ever seen by a PromoSlot reviewer deciding on your badge, and any documents or evidence are deleted the moment a decision is made — approved or rejected.";
+
+function vfShell(title, sub, body, actions){
+  return `<div class="m-pad"><div class="vf-head"><div class="vf-shield">🛡️</div>
+    <div><h3 class="m-title">${esc(title)}</h3>${sub?`<p class="m-sub" style="margin:4px 0 0">${sub}</p>`:""}</div></div>
+    ${body||""}
+    <p class="review-thanks" style="margin-top:14px">${VF_DISCLOSURE}</p>
+    <div class="m-actions">${actions}</div></div>`;
 }
-function vfPick(){ /* upload disabled until file storage + review are live */ }
-function runVerify(role){
-  const isBiz = role==="biz";
-  // A verified badge requires a real human reviewer. That process isn't live, so
-  // we never set verified=true or claim a pass here.
-  if(!INFRA.humanReview){
-    openModal(`<div class="m-pad"><div class="vf-head"><div class="vf-shield">🛡️</div><div><h3 class="m-title">Interest registered: verification pending</h3>
-      <p class="m-sub" style="margin:4px 0 0">Thanks. Your ${isBiz?"business":"analytics"} verification request is noted. A real reviewer will check your evidence once the review team is live. No badge is granted, and none is shown, until then.</p></div></div>
-      ${pendingPanel("⏳","Awaiting human review","Verification is deliberate and manual. It's never granted automatically, by a timer, or by clicking through this screen.")}
-      <div class="m-actions"><button class="btn btn-p" onclick="closeModal();openDash()">Back to dashboard</button></div></div>`,"", false);
-    return;
+function vfStatusPill(status){
+  if(status==="approved") return `<span class="status-pill st-live">Verified</span>`;
+  if(status==="pending") return `<span class="status-pill st-review">Pending review</span>`;
+  if(status==="rejected") return `<span class="status-pill st-dispute">Needs another look</span>`;
+  return `<span class="status-pill st-draft">Not started</span>`;
+}
+function vfRejectedNotice(req){
+  return `<div class="note" style="border-left:3px solid var(--red)">
+    <b style="display:block;color:var(--red);font-size:13.5px">Not approved</b>
+    <span>${esc(req.rejected_reason||"No reason given.")}</span></div>
+    <p class="review-thanks">Think we made an error? <a href="#" onclick="event.preventDefault();vfContactSupport(${req.id})">Contact PromoSlot support</a> from your account, or email <a href="mailto:support@usepromoslot.com">support@usepromoslot.com</a>.</p>`;
+}
+function vfContactSupport(reqId){
+  closeModal(); openAccount();
+  setTimeout(()=>{
+    const subj=$("sup-subject"); if(subj) subj.value="Verification review — request #"+reqId;
+    const el=$("supportPanel"); if(el) el.scrollIntoView({behavior:"smooth",block:"center"});
+  },250);
+}
+
+async function openVerify(role,platformId){
+  openModal(`<div class="m-pad" style="text-align:center;padding:48px 20px"><span class="spin"></span></div>`,"",false);
+  try{
+    if(role==="biz") await vfRenderBiz();
+    else await vfRenderPlat(platformId);
+  }catch(e){ toast(e.message||"Could not load verification"); closeModal(); }
+}
+
+async function vfRenderBiz(){
+  const biz = await PSApi.get("/businesses/me");
+  if(!biz){
+    openModal(vfShell("Get business verified","Set up your business profile first — verification attaches to it.","",
+      `<button class="btn btn-p" onclick="closeModal()">Close</button>`)); return;
   }
-  // (Reachable only once INFRA.humanReview is true and a real reviewer queue exists.)
+  if(biz.verified){
+    openModal(vfShell("You're verified ✔","Your business already carries the Verified badge across PromoSlot.","",
+      `<button class="btn btn-p" onclick="closeModal()">Close</button>`)); return;
+  }
+  const existing = await PSApi.get("/verification/business/my-request").catch(()=>null);
+  if(existing && existing.status==="pending"){
+    openModal(vfShell("Submitted for review","A PromoSlot reviewer will confirm this matches your profile before your badge appears. You'll be notified either way.","",
+      `<button class="btn btn-p" onclick="closeModal()">Got it</button>`)); return;
+  }
+  let status = {has_account:false};
+  if(biz.has_stripe_account) status = await PSApi.get("/verification/business/status").catch(()=>({has_account:false}));
+
+  const rejected = (existing && existing.status==="rejected") ? vfRejectedNotice(existing) : "";
+
+  if(!status.has_account){
+    openModal(vfShell("Get business verified",
+      "We verify your business through Stripe's own identity check, the same one used by businesses everywhere. PromoSlot never sees your documents — Stripe handles that directly, and only ever tells us pass or fail plus your verified legal name.",
+      rejected+`<div class="det-sec"><h5>What Stripe checks</h5>
+        <div class="proof-item"><span class="pi-ico">🏢</span><div class="vf-body"><b>Legal business name &amp; registration</b><small>Whatever's on file for your business</small></div></div>
+        <div class="proof-item"><span class="pi-ico">🧑</span><div class="vf-body"><b>Representative identity</b><small>Whoever completes this on your business's behalf</small></div></div>
+      </div>`,
+      `<button class="btn btn-o" onclick="closeModal()">Not now</button>
+       <button class="btn btn-p" onclick="vfStartBizStripe()">Continue with Stripe</button>`)); return;
+  }
+  if(!status.verified_by_stripe){
+    openModal(vfShell("Finish verifying with Stripe",
+      status.requirements_due?"Stripe still needs a bit more information to finish this check.":"Stripe is reviewing what you've submitted — this can take a few minutes.",
+      rejected,
+      `<button class="btn btn-o" onclick="closeModal()">Close</button>
+       <button class="btn btn-p" onclick="vfStartBizStripe()">${status.requirements_due?"Continue with Stripe":"Refresh status"}</button>`)); return;
+  }
+  openModal(vfShell("Ready to submit",
+    `Stripe verified this business as <b>${esc(status.stripe_legal_name||"—")}</b>. A PromoSlot reviewer will confirm this matches your PromoSlot profile before your badge is granted.`,
+    rejected,
+    `<button class="btn btn-o" onclick="closeModal()">Not now</button>
+     <button class="btn btn-p" onclick="vfSubmitBiz()">Submit for review</button>`));
+}
+async function vfStartBizStripe(){
+  try{
+    await PSApi.post("/verification/business/account",{});
+    const r = await PSApi.post("/verification/business/onboarding-link",{});
+    window.location.href = r.url;
+  }catch(e){ toast(e.message||"Could not start Stripe verification"); }
+}
+async function vfSubmitBiz(){
+  try{ await PSApi.post("/verification/business/submit",{}); toast("Submitted for review ✓",true); await vfRenderBiz(); }
+  catch(e){ toast(e.message||"Could not submit for review"); }
+}
+
+async function vfRenderPlat(platformId){
+  if(!platformId){
+    const list=S.myPlatforms||[];
+    const unverified=list.filter(p=>!p.verified);
+    if(unverified.length===1){ platformId=unverified[0].id; }
+    else if(unverified.length>1){
+      openModal(vfShell("Which listing?","You have more than one listing — pick which one to verify.",
+        unverified.map(p=>`<div class="proof-item"><span class="pi-ico">📡</span><div class="vf-body"><b>${esc(p.name)}</b><small>${esc(p.platform)}</small></div>
+          <button class="btn btn-o btn-sm" style="margin-left:auto" onclick="openVerify('plat','${p.id}')">Verify</button></div>`).join(""),
+        `<button class="btn btn-o" onclick="closeModal()">Close</button>`)); return;
+    } else if(list.length===0){
+      openModal(vfShell("Get verified","Register a listing first — verification attaches to a specific listing.","",
+        `<button class="btn btn-o" onclick="closeModal()">Close</button>`)); return;
+    } else { platformId=list[0].id; }
+  }
+  const p=(S.myPlatforms||[]).find(x=>String(x.id)===String(platformId));
+  if(!p){ toast("Listing not found"); closeModal(); return; }
+  if(p.verified){
+    openModal(vfShell("You're verified ✔",`"${esc(p.name)}" already carries the Verified badge.`,"",
+      `<button class="btn btn-p" onclick="closeModal()">Close</button>`)); return;
+  }
+  window._vfPlatformId=platformId;
+  const [reqs,connStatus]=await Promise.all([
+    PSApi.get(`/verification/platform/${platformId}/my-requests`).catch(()=>({})),
+    PSApi.get("/connect/status").catch(()=>({has_account:false}))
+  ]);
+  openModal(vfShell(`Verify "${p.name}"`,
+    "Two separate checks, each confirmed by a real PromoSlot reviewer before your badge appears.",
+    vfIdentitySectionHtml(reqs.platform_identity,connStatus)+vfOwnershipSectionHtml(reqs.platform_ownership,platformId),
+    `<button class="btn btn-o" onclick="closeModal()">Close</button>`),"wide");
+}
+function vfIdentitySectionHtml(req,connStatus){
+  const status=req?req.status:"none";
+  let body="";
+  if(status==="rejected") body+=vfRejectedNotice(req);
+  if(status==="approved") body+=`<p class="mut" style="font-size:13px">Confirmed via your Stripe payout account.</p>`;
+  else if(status==="pending") body+=`<p class="mut" style="font-size:13px">Submitted — a PromoSlot reviewer will confirm this shortly.</p>`;
+  else if(!connStatus.has_account || !connStatus.transfers_active){
+    body+=`<p class="mut" style="font-size:13px">Uses the same Stripe account you set up for payouts. ${connStatus.has_account?"Finish setting it up, then come back here.":"Set up your payout account from your dashboard first."}</p>`;
+  } else {
+    body+=`<p class="mut" style="font-size:13px">Your Stripe payout account is ready — submit it as your identity check too.</p>
+      <button class="btn btn-p btn-sm" onclick="vfSubmitPlatIdentity()">Submit identity check</button>`;
+  }
+  return `<div class="det-sec" style="margin-top:14px"><h5>1. Identity ${vfStatusPill(status)}</h5>${body}</div>`;
+}
+async function vfSubmitPlatIdentity(){
+  const platformId=window._vfPlatformId;
+  try{ await PSApi.post(`/verification/platform/${platformId}/submit-identity`,{}); toast("Identity check submitted ✓",true); await vfRenderPlat(platformId); }
+  catch(e){ toast(e.message||"Could not submit identity check"); }
+}
+function vfOwnershipSectionHtml(req,platformId){
+  const status=req?req.status:"none";
+  if(status==="approved") return `<div class="det-sec" style="margin-top:14px"><h5>2. Platform ownership ${vfStatusPill(status)}</h5><p class="mut" style="font-size:13px">Confirmed.</p></div>`;
+  if(status==="pending") return `<div class="det-sec" style="margin-top:14px"><h5>2. Platform ownership ${vfStatusPill(status)}</h5><p class="mut" style="font-size:13px">Submitted — a PromoSlot reviewer will look this over.</p></div>`;
+  const rejected = status==="rejected" ? vfRejectedNotice(req) : "";
+  const items=[["📊","Analytics access","A read-only insights link, or a short recording of your real dashboard"],["🔗","Platform ownership","A recording of you logged into the actual account being listed"]];
+  window._vSel=new Set(items.map(i=>i[1]));
+  window._vfEvidenceFiles=[];
+  return `<div class="det-sec" style="margin-top:14px"><h5>2. Platform ownership ${vfStatusPill(status)}</h5>${rejected}
+    ${items.map(([ico,t,sub])=>`<label class="vf-item on" data-v="${esc(t)}">
+      <span class="pi-ico">${ico}</span><div class="vf-body"><b>${esc(t)}</b><small>${esc(sub)}</small></div>
+      <input type="checkbox" checked onchange="this.checked?window._vSel.add(this.closest('.vf-item').dataset.v):window._vSel.delete(this.closest('.vf-item').dataset.v);this.closest('.vf-item').classList.toggle('on',this.checked)">
+      <span class="vf-check">✓</span></label>`).join("")}
+    <div class="vf-upload" id="vfDrop" onclick="$('vfFileInput').click()"><span class="vf-up-ico">⬆️</span><div><b>Attach evidence</b><small id="vfFileLbl">A recording or screenshot — you can add more than one</small></div></div>
+    <input type="file" id="vfFileInput" class="pf-file-input" multiple onchange="vfPick(event)">
+    <div class="frm" style="margin-top:10px"><div><label>Anything else worth noting? (optional)</label><textarea id="vfNotes" placeholder="Context for the reviewer…"></textarea></div></div>
+    <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="vfSubmitPlatOwnership('${platformId}')">Submit for review</button>
+  </div>`;
+}
+function vfPick(e){
+  const files=[...(e.target.files||[])];
+  window._vfEvidenceFiles=(window._vfEvidenceFiles||[]).concat(files);
+  const lbl=$("vfFileLbl"); if(lbl) lbl.textContent=window._vfEvidenceFiles.length+" file"+(window._vfEvidenceFiles.length===1?"":"s")+" attached";
+}
+async function vfSubmitPlatOwnership(platformId){
+  try{
+    const req=await PSApi.post(`/verification/platform/${platformId}/submit-ownership`,
+      {evidence_checklist:[...(window._vSel||[])],evidence_notes:($("vfNotes")||{}).value||null});
+    for(const f of (window._vfEvidenceFiles||[])){
+      const fd=new FormData(); fd.append("request_id",req.id); fd.append("file",f);
+      await PSApi.postForm(`/verification/platform/${platformId}/evidence`,fd);
+    }
+    toast("Ownership evidence submitted ✓",true);
+    await vfRenderPlat(platformId);
+  }catch(e){ toast(e.message||"Could not submit"); }
 }
 
 /* ==================== DASHBOARDS ==================== */
@@ -4210,6 +4367,7 @@ function authReflect(){
   $("nl-support").classList.toggle("hide", !canReview);
   $("nl-payouts").classList.toggle("hide", !canReview);
   $("nl-disputes").classList.toggle("hide", !can("dispute.manage"));
+  $("nl-verification").classList.toggle("hide", !can("verification.view"));
   $("nl-completed").classList.toggle("hide", !canReview);
   $("nl-admin").classList.toggle("hide", !can("admin.view"));
   if(a){
@@ -4425,6 +4583,55 @@ async function openDisputesQueue(){
         <div class="dr-amt"><b>${gbpP(d.amount)}</b><small>${d.assigned_to?esc(d.assigned_to.name):"unclaimed"}</small></div>
       </div>`).join("")
       :`<div class="empty-state"><div class="es-ico">🛡️</div><h4>No disputes</h4><p>Chargebacks opened on any deal's payment appear here automatically.</p></div>`}</div></div>`;
+}
+/* ==================== ADMIN: ACCOUNT VERIFICATION QUEUE ====================
+   Mirrors openReviewQueue's exact shape deliberately — same list/detail/
+   decide pattern as delivery review, so moving between the two admin queues
+   feels like one system. See backend/routers/verification.py. */
+const VQ_LABELS={business_identity:"Business identity",platform_identity:"Platform identity",platform_ownership:"Platform ownership"};
+async function openVerificationQueue(){
+  if(!can("verification.view")){ toast("Admin access required"); return; }
+  setRoute("verification-queue");
+  showView("view-deal");
+  let list=[]; try{ list=await PSApi.get("/verification/queue"); }catch(e){}
+  S._verificationQueue=list;
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button>
+      <h2>Verification queue</h2>
+      <span class="status-pill st-review">${list.length} awaiting</span></div>
+    <div class="panel"><div class="panel-b">${list.length?list.map(r=>`
+      <div class="deal-row" onclick="openVerificationDecision(${r.id})">
+        <div class="pfp" style="background:var(--acc)">🛡️</div>
+        <div><div class="dr-t">${esc(VQ_LABELS[r.subject_type]||r.subject_type)} · #${r.business_id||r.platform_id}</div>
+          <div class="dr-s">${r.stripe_legal_name?"Stripe: "+esc(r.stripe_legal_name):"No Stripe check on this request — evidence only"}</div></div>
+        <span class="status-pill st-review">Pending</span>
+      </div>`).join("")
+      :`<div class="empty-state"><div class="es-ico">🛡️</div><h4>Nothing to review</h4><p>Business and platform-owner verification submissions appear here.</p></div>`}</div></div>`;
+}
+async function openVerificationDecision(id){
+  const r=(S._verificationQueue||[]).find(x=>x.id===id);
+  if(!r){ toast("Not found — try refreshing the queue"); return; }
+  const checklistHtml=(r.evidence_checklist||[]).length
+    ? `<div class="det-sec"><h5>What they claim to provide</h5>${r.evidence_checklist.map(t=>`<div class="proof-item"><span class="pi-ico">✓</span>${esc(t)}</div>`).join("")}</div>` : "";
+  const evidenceHtml=(r.evidence_files||[]).length
+    ? `<div class="det-sec"><h5>Attached evidence</h5>${r.evidence_files.map((u,i)=>`<div class="proof-item got"><span class="pi-ico">📎</span><a href="${esc(u)}" target="_blank" rel="noopener">Evidence file ${i+1} →</a></div>`).join("")}</div>` : "";
+  openModal(`<div class="m-pad"><h3 class="m-title">${esc(VQ_LABELS[r.subject_type]||r.subject_type)}</h3>
+    <p class="m-sub">${r.stripe_legal_name?`Stripe verified legal name: <b>${esc(r.stripe_legal_name)}</b> — confirm this genuinely matches their PromoSlot profile before approving. A Stripe pass alone is never enough on its own.`:"No Stripe check on this request — review the evidence below on its own merits."}</p>
+    ${checklistHtml}${evidenceHtml}
+    ${r.evidence_notes?`<div class="det-sec"><h5>Their notes</h5><p class="mut" style="font-size:13px">${esc(r.evidence_notes)}</p></div>`:""}
+    <div class="frm" style="margin-top:12px"><div><label>Reason (required to reject, optional to approve)</label><textarea id="vq-reason" placeholder="Why this decision…"></textarea></div></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Close</button>
+      <button class="btn btn-danger" onclick="decideVerification(${r.id},false)">Reject</button>
+      <button class="btn btn-p" onclick="decideVerification(${r.id},true)">Confirm match — approve</button></div></div>`,"wide");
+}
+async function decideVerification(id,approve){
+  const reason=($("vq-reason")||{}).value||"";
+  if(!approve && !reason.trim()){ toast("A reason is required to reject"); return; }
+  try{
+    await PSApi.post(`/verification/queue/${id}/${approve?"approve":"reject"}`,{reason});
+    toast(approve?"Approved ✓":"Rejected",true);
+    closeModal(); openVerificationQueue();
+  }catch(e){ toast(e.message||"Could not save decision"); }
 }
 async function openDispute(id){
   if(!can("dispute.manage")){ toast("Admin access required"); return; }
@@ -5030,6 +5237,13 @@ async function loadMine(){
     S.account.is_business
       ? PSApi.get("/campaigns/mine").then(r=>{S.myCampaigns=r;}).catch(()=>{S.myCampaigns=[];})
       : Promise.resolve(S.myCampaigns=[]),
+    // Merge real fields (verified, has_stripe_account, id) onto S.biz without
+    // clobbering the wizard-only display fields (product/target/intents/...)
+    // that have no backing column on Business — see finishBiz(). S.biz stays
+    // the single source of truth the dashboard reads from either way.
+    S.account.is_business
+      ? PSApi.get("/businesses/me").then(r=>{ if(r) S.biz={...(S.biz||{}),...r}; }).catch(()=>{})
+      : Promise.resolve(),
   ]);
 }
 // Every gated action funnels through here rather than calling authModal()
@@ -6193,6 +6407,9 @@ async function applyRoute(r){
     case "disputes-queue":
       if(!can("dispute.manage")) return false;
       await openDisputesQueue(); return true;
+    case "verification-queue":
+      if(!can("verification.view")) return false;
+      await openVerificationQueue(); return true;
     case "completed":
       if(!can("deal.view_evidence")) return false;
       await openCompleted(); return true;
@@ -6235,6 +6452,7 @@ const NAV_ACTIONS={
   "support-queue":()=>openSupportQueue(),
   "payouts":()=>openPayouts(),
   "disputes-queue":()=>openDisputesQueue(),
+  "verification-queue":()=>openVerificationQueue(),
   "completed":()=>openCompleted(),
   "admin":()=>openAdmin(),
   "wiz-biz":()=>startWizard("biz"),
@@ -6280,6 +6498,11 @@ function PSBoot(){
   // so a later refresh of this same tab can't keep re-triggering it.
   const _connectReturn = new URLSearchParams(location.search).get("connect")==="return";
   if(_connectReturn) history.replaceState({}, "", location.pathname);
+  // Same landing pattern for Stripe's account-verification onboarding
+  // (backend/routers/verification.py) — deliberately its own query param,
+  // not ?verify=, which is already a real emailed-token param (see below).
+  const _acctVerifyReturn = new URLSearchParams(location.search).get("acctverify")==="return";
+  if(_acctVerifyReturn) history.replaceState({}, "", location.pathname);
 
   // Captured so the ?deal= handling below can wait on whichever branch's
   // restoreSession() actually ran, instead of triggering a second one.
@@ -6309,6 +6532,14 @@ function PSBoot(){
     // does nothing and they land on the homepage same as before this change.
     _bootAuth = restoreSession().then(()=>{
       if(S.account && S.account.is_platform_owner) openDash();
+    });
+  } else if(_acctVerifyReturn){
+    // Same conservative choice as connect.py's own return handler: land on
+    // the right dashboard and let them re-open "Get verified" to see the
+    // fresh status, rather than trying to guess and re-open a specific
+    // modal state from a redirect that may have landed in a fresh tab.
+    _bootAuth = restoreSession().then(()=>{
+      if(S.account && (S.account.is_business || S.account.is_platform_owner)) openDash();
     });
   } else {
     _bootAuth = restoreSession().then(restoreRoute);
@@ -7050,7 +7281,7 @@ function resScenario(i){
 }
 function resRender(){ resRenderPlaybooks(); resRenderModels(); }
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,runVerify,vfPick,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,vfPick,vfContactSupport,vfStartBizStripe,vfSubmitBiz,vfSubmitPlatIdentity,vfSubmitPlatOwnership,openVerificationQueue,openVerificationDecision,decideVerification,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,closeVerifyWait,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,

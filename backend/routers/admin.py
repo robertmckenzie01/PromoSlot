@@ -29,8 +29,9 @@ from ..db import get_db
 from ..deps import RequirePerm, get_current_user
 from ..mailer import (account_banned_email, account_deleted_email,
                       account_restored_email, account_suspended_email, send_email)
-from ..models import (AdminAuditLog, BannedEmail, Campaign, Deal, DealStatus, Notification,
-                      Platform, PlatformMedia, Session as AuthSession, User)
+from ..models import (AdminAuditLog, BannedEmail, Business, Campaign, ConnectedAccount, Deal,
+                      DealStatus, Notification, Platform, PlatformMedia,
+                      Session as AuthSession, User)
 from ..permissions import Perm, Role, is_super_admin, permissions_for, require_permission
 from ..security import hash_password, verify_password
 from ..storage import delete_stored
@@ -211,6 +212,31 @@ def user_admin_dict(u: User) -> dict:
     }
 
 
+def _stripe_status_by_user(db: Session, user_ids: list) -> dict:
+    """Batch-load real Stripe connection state, keyed by user id — this is
+    what makes a platform owner's Stripe status an admin-visible fact rather
+    than something only the platform owner's own dashboard shows. Reads our
+    mirrored ConnectedAccount rows (see services.sync_connected_account),
+    never live Stripe here — this is a browsing list, not a decision point;
+    the verification queue re-checks live before anything is approved.
+    """
+    if not user_ids:
+        return {}
+    rows = db.query(ConnectedAccount).filter(ConnectedAccount.user_id.in_(user_ids)).all()
+    return {r.user_id: {"stripe_connected": True, "stripe_transfers_active": r.transfers_active,
+                        "stripe_requirements_due": r.requirements_due}
+           for r in rows}
+
+
+def _business_status_by_owner(db: Session, user_ids: list) -> dict:
+    if not user_ids:
+        return {}
+    rows = db.query(Business).filter(Business.owner_id.in_(user_ids)).all()
+    return {r.owner_id: {"business_has_stripe_account": bool(r.stripe_account_id),
+                         "business_verified": r.verified}
+           for r in rows}
+
+
 # ------------------------------ who am I ------------------------------
 
 @router.get("/me")
@@ -298,13 +324,18 @@ def moderation_members(limit: int = 200,
                     User.deleted_at.is_(None))
             .order_by(User.id.desc())
             .limit(limit).all())
+    ids = [u.id for u in rows]
+    stripe_by_user = _stripe_status_by_user(db, ids)
+    business_by_user = _business_status_by_owner(db, ids)
     active, restricted, deactivated = [], [], []
     for u in rows:
         d = {**user_admin_dict(u),
              "banned_at": u.banned_at.isoformat() if u.banned_at else None,
              "suspended_at": u.suspended_at.isoformat() if u.suspended_at else None,
              "suspended_until": u.suspended_until.isoformat() if u.suspended_until else None,
-             "deactivated_at": u.deactivated_at.isoformat() if u.deactivated_at else None}
+             "deactivated_at": u.deactivated_at.isoformat() if u.deactivated_at else None,
+             **(stripe_by_user.get(u.id) or {"stripe_connected": False}),
+             **(business_by_user.get(u.id) or {})}
         # Banned/suspended (an admin's call) takes the bucket over a
         # self-deactivation, in the rare case both are true at once — see
         # deactivated below for the third state this was missing entirely.

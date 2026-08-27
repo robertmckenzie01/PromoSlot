@@ -1674,6 +1674,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
       <button class="nav-link hide" id="nl-support" data-act="support-queue">Contacted Support<span class="attn-dot hide" id="dot-support"></span></button>
       <button class="nav-link hide" id="nl-payouts" data-act="payouts">Awaiting payouts<span class="attn-dot hide" id="dot-payouts"></span></button>
       <button class="nav-link hide" id="nl-disputes" data-act="disputes-queue">Disputes<span class="attn-dot hide" id="dot-disputes"></span></button>
+      <button class="nav-link hide" id="nl-verification" data-act="verification-queue">Verification queue</button>
       <button class="nav-link hide" id="nl-completed" data-act="completed">Completed deals</button>
       <button class="nav-link hide" id="nl-admin" data-act="admin">Admin<span class="attn-dot hide" id="dot-admin"></span></button>
     </div>
@@ -3263,7 +3264,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
       <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Privacy Policy</div>
       <div class="eyebrow">Privacy Policy</div>
       <h1>How we handle your data.</h1>
-      <p>Last updated 22 August 2026. This explains how PromoSlot collects, uses and protects your personal data.</p>
+      <p>Last updated 27 August 2026. This explains how PromoSlot collects, uses and protects your personal data.</p>
     </div>
   </div>
   <section class="section">
@@ -3277,6 +3278,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <li><strong>Profile data:</strong> business or platform profile information you choose to add, including images you upload.</li>
         <li><strong>Deal data:</strong> listings, campaigns, applications, messages between users, deliverables and proof-of-delivery files submitted.</li>
         <li><strong>Payment data:</strong> handled directly by Stripe. PromoSlot does not receive or store full card numbers. We retain records of transaction amounts, fees, and status for accounting and dispute purposes.</li>
+        <li><strong>Verification data (optional):</strong> if you choose to get your business or platform verified, your business/legal name and identity documents are collected and checked directly by Stripe, not by PromoSlot — we only ever receive a pass/fail result and the verified legal name back, never the underlying document. If you submit platform-ownership evidence (e.g. analytics screenshots or a screen recording), PromoSlot stores it only until a reviewer makes a decision, then deletes it immediately, whether approved or rejected. This information is never shown publicly — only the resulting Verified badge, if granted, is.</li>
         <li><strong>Technical data:</strong> IP address, browser/device information, and usage data collected automatically for security and analytics.</li>
         <li><strong>Communications:</strong> if you contact support, we keep a record of that correspondence.</li>
       </ul>
@@ -3305,7 +3307,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
       <h2>5. Who we share data with</h2>
       <p>We share data with the third parties that help us operate PromoSlot, each only with what's needed for their function:</p>
       <ul>
-        <li><strong>Stripe</strong>: payment processing and holding funds pending verification.</li>
+        <li><strong>Stripe</strong>: payment processing, holding funds pending verification, and (if you opt in) identity/business verification checks — Stripe collects and checks these documents directly and only reports a pass/fail result back to us.</li>
         <li><strong>Resend</strong>: transactional email delivery.</li>
         <li><strong>Cloudflare R2</strong>: file storage (proof-of-delivery uploads, images).</li>
         <li><strong>Render</strong> and <strong>Neon</strong>: application hosting and database, hosted in the EU (Ireland / Frankfurt).</li>
@@ -3322,6 +3324,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <li><strong>You can delete your account yourself at any time,</strong> from My Account, or ask us to do it for you. This anonymises your account immediately (email, name, bio, avatar and any uploaded files are permanently removed, and every active login session is revoked) rather than removing the row outright. Deal, review and message records that reference it stay intact for the other party and for our accounting/legal obligations, exactly as described above, but they're no longer linked to anything identifying you.</li>
         <li><strong>You can also deactivate your account instead</strong>: a reversible pause, not a deletion. Your data isn't touched at all; your profile and listings are just hidden until you log back in, which un-hides everything automatically.</li>
         <li>If your account is banned, we keep a minimal record (your email address, the date, and the reason) even if the account is later deleted, so the same email can't simply be used to sign up again. This record is removed if the ban is lifted.</li>
+        <li><strong>Verification evidence</strong> (platform-ownership recordings/screenshots) is deleted the moment a reviewer makes a decision, whether approved or rejected — it is never retained afterward. Identity documents for the optional Stripe-based check are never held by PromoSlot at all; only the resulting verified/not-verified status and your verified legal name are kept.</li>
       </ul>
 
       <h2>8. Your rights</h2>

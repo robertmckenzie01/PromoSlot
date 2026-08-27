@@ -29,6 +29,12 @@ class Perm:
     PAYOUT_RELEASE = "payout.release"          # kept separate from verify on purpose
     DISPUTE_MANAGE = "dispute.manage"          # chargeback queue: view, assign, note, request info
 
+    # Account-level verification (business identity, platform identity,
+    # platform ownership evidence) — same "look at real evidence, make a
+    # human call" shape as deal delivery review, so it sits in the same tier.
+    VERIFICATION_VIEW = "verification.view"
+    VERIFICATION_DECIDE = "verification.decide"
+
     # Admin account management
     ADMIN_VIEW = "admin.view"
     ADMIN_CREATE = "admin.create"
@@ -59,6 +65,8 @@ _ADMIN_PERMS = frozenset({
     Perm.DEAL_REJECT,
     Perm.PAYOUT_RELEASE,
     Perm.DISPUTE_MANAGE,
+    Perm.VERIFICATION_VIEW,
+    Perm.VERIFICATION_DECIDE,
 })
 
 _SUPER_ADMIN_PERMS = frozenset(_ADMIN_PERMS | {

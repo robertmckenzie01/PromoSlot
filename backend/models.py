@@ -219,6 +219,110 @@ class ConnectedAccount(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class Business(Base):
+    """A business's standalone profile record.
+
+    Previously this had no backing table at all — see 'S.biz' in
+    promoslot-app.js, which is purely client-side wizard state, never
+    persisted. That was fine while nothing depended on it, but real
+    verification needs something durable to attach a decision to, so this
+    table exists now. One row per business-role identity (owner_id is the
+    User row with is_business=True) — NOT a replacement for the existing
+    pattern elsewhere in the schema where "the business" on a Campaign etc.
+    is just business_id -> users.id; those stay exactly as they are.
+
+    `verified` mirrors the latest approved AccountVerificationRequest for
+    this business — see that model for the actual decision history. Never
+    set True anywhere except from that approval path.
+    """
+    __tablename__ = "businesses"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    company = Column(String, nullable=False)
+    product = Column(String)
+    industry = Column(String)
+    target = Column(String)
+    verified = Column(Boolean, default=False, nullable=False)  # only by human review, mirrors Platform.verified
+    # This business's own Stripe v2 Account (Accounts v2, same API surface as
+    # ConnectedAccount below). Requested with a "merchant" capability purely
+    # to unlock genuine identity/KYB collection via Stripe's hosted
+    # onboarding — Stripe v2 refuses to collect identity fields on an
+    # account with no capability requested at all (confirmed against
+    # Stripe's own API error: unsupported_identity_field_for_configs).
+    # Never used to actually accept a charge — businesses always pay as a
+    # customer of PromoSlot's own Stripe Checkout, exactly as today. This is
+    # deliberately a separate concept from ConnectedAccount: that one is a
+    # platform owner's payout *destination*; this is never a money
+    # destination or source, purely an identity check.
+    stripe_account_id = Column(String, unique=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AccountVerificationRequest(Base):
+    """One submission toward a business or platform-owner 'Verified' badge.
+
+    Deliberately its own append-style table, not a single status field on
+    Business/Platform — every submission keeps its own record of what was
+    checked and who decided it, the same reasoning as Verification (deal
+    delivery) having its own table rather than a status column on Deal. Not
+    to be confused with that Verification model above, which is about deal
+    delivery evidence and has nothing to do with account identity.
+
+    subject_type is one of:
+      "business_identity"  -> a Business, verified via Stripe KYB on its own
+                               stripe_account_id (see Business above).
+      "platform_identity"  -> a Platform owner, verified via the Stripe
+                               check they already do for payouts — reuses
+                               ConnectedAccount, no separate Stripe account.
+      "platform_ownership" -> a Platform owner's own evidence that they
+                               actually control the listed account (analytics
+                               access, a recording of them logging in). Has
+                               no Stripe component at all.
+
+    A platform owner needs two separate approved rows (platform_identity AND
+    platform_ownership) before the badge is granted; a business needs one
+    (business_identity). See services.py for exactly where that's enforced —
+    never inferred here from partial state.
+    """
+    __tablename__ = "account_verification_requests"
+    id = Column(Integer, primary_key=True)
+    subject_type = Column(String, nullable=False, index=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=True, index=True)
+    platform_id = Column(Integer, ForeignKey("platforms.id"), nullable=True, index=True)
+    submitted_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # ---- Stripe side (business_identity / platform_identity only) ----
+    # Read back from Stripe once its own check passes — never user-entered,
+    # never trusted from the client. A human still has to separately confirm
+    # this actually matches the profile built on PromoSlot (below) — Stripe
+    # verifying that SOME real identity exists doesn't by itself prove it's
+    # THIS business/platform, only that a real one passed Stripe's checks.
+    stripe_legal_name = Column(String)
+    stripe_verified_at = Column(DateTime)
+
+    # ---- Evidence side (platform_ownership only) ----
+    # What the platform owner claims to provide (checklist item labels) plus
+    # any media they attach (R2 storage refs, private/presigned only — same
+    # mechanism as Proof/PlatformMedia). Deleted the moment a decision is
+    # made, same principle as never retaining ID documents — see
+    # services.py's decide_verification().
+    evidence_checklist = Column(JSON, default=list)
+    evidence_media = Column(JSON, default=list)   # list of storage refs, wiped on decision
+    evidence_notes = Column(Text)
+
+    # ---- The human gate — required for every subject_type, never skipped ----
+    # A reviewer confirming "yes, this genuinely matches" (Stripe side) or
+    # "yes, I reviewed this evidence and it holds up" (ownership side).
+    # Approval is only ever set from here, never from stripe_verified_at
+    # alone — see Rob: "an additional human confirm this matches click."
+    reviewed_by = Column(Integer, ForeignKey("users.id"))
+    reviewed_at = Column(DateTime)
+
+    status = Column(String, default="pending", nullable=False, index=True)  # pending | approved | rejected
+    rejected_reason = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class Platform(Base):
     """A platform-owner listing (TikTok page, Discord community, newsletter, ...)."""
     __tablename__ = "platforms"

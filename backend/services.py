@@ -4,11 +4,11 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from . import audit
+from . import audit, storage
 from .deal_state import can_transition
 from .models import (
-    ConnectedAccount, Deal, DealStatus, Dispute, DisputeEvent, Notification, Payment,
-    Proof, Transfer, User, Verification,
+    AccountVerificationRequest, Business, ConnectedAccount, Deal, DealStatus, Dispute,
+    DisputeEvent, Notification, Payment, Platform, Proof, Transfer, User, Verification,
 )
 from .permissions import Perm, ROLE_PERMISSIONS
 from .stripe_client import stripe
@@ -110,6 +110,134 @@ def sync_connected_account(db: Session, acct) -> Optional[ConnectedAccount]:
 def onboarding_complete(row: ConnectedAccount) -> bool:
     """A platform owner can only be paid once transfers are active."""
     return bool(row and row.transfers_active)
+
+
+# ---------------------------------------------------------------------------
+# Business Stripe verification (Accounts v2, "merchant" configuration)
+#
+# A business is never actually paid through this account and never accepts a
+# charge on it — PromoSlot stays merchant of record for every deal, exactly
+# as today. The `card_payments` capability is requested purely because
+# Stripe v2 refuses to collect identity/KYB fields on an account with no
+# real capability requested at all (confirmed against Stripe's own API
+# error: unsupported_identity_field_for_configs) — this is the same trick
+# already used for platform owners requesting `stripe_transfers` they may
+# never end up using either. No charge-acceptance code path is ever built
+# on top of this capability.
+# ---------------------------------------------------------------------------
+
+def business_capability_status_of(acct) -> Optional[str]:
+    """Status of the business's card_payments capability on a v2 account —
+    requested purely to unlock KYB collection, see module note above."""
+    return _g(acct, "configuration", "merchant", "capabilities",
+              "card_payments", "status")
+
+
+def stripe_legal_name_of(acct) -> Optional[str]:
+    """The legal business name Stripe verified, straight from the account's
+    own identity block — never user-entered, never trusted from the client.
+    This is what a human reviewer cross-checks against the business's actual
+    PromoSlot profile before confirming a match (see decide_verification)."""
+    return (_g(acct, "identity", "business_details", "registered_name")
+            or _g(acct, "identity", "business_details", "name"))
+
+
+def business_requirements_outstanding(acct) -> bool:
+    if business_capability_status_of(acct) != "active":
+        return True
+    entries = _g(acct, "requirements", "entries") or []
+    for e in entries:
+        if _g(e, "minimum_deadline", "status") == "currently_due":
+            return True
+    return bool(_g(acct, "requirements", "summary", "minimum_currently_due"))
+
+
+def sync_business_account(db: Session, business: Business, acct) -> dict:
+    """Mirror a business's Stripe v2 identity check onto our row, and return
+    what changed — same 'never set optimistically, always from a live Stripe
+    read' rule as sync_connected_account above."""
+    status = business_capability_status_of(acct)
+    legal_name = stripe_legal_name_of(acct)
+    return {
+        "verified_by_stripe": status == "active",
+        "requirements_due": business_requirements_outstanding(acct),
+        "stripe_legal_name": legal_name,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Account verification decisions (business identity, platform identity,
+# platform ownership evidence) — see models.AccountVerificationRequest for
+# the shape. Every decision here is a deliberate human action; nothing in
+# this module ever sets Business.verified / Platform.verified from a Stripe
+# status alone. See routers/verification.py for the endpoints that call this.
+# ---------------------------------------------------------------------------
+
+# A platform owner needs both of these approved before the badge shows; a
+# business needs only business_identity. Kept as one tuple so the "is this
+# subject fully verified yet" check in one place, not duplicated per caller.
+_PLATFORM_GATES = ("platform_identity", "platform_ownership")
+
+
+def _wipe_evidence(req: AccountVerificationRequest) -> None:
+    """Delete any uploaded evidence media the moment a decision is made —
+    approved or rejected. Applies the same 'never retained' principle Rob
+    set for ID documents to platform-ownership evidence too, since a login
+    screen-recording can expose things just as private."""
+    for ref in (req.evidence_media or []):
+        try:
+            storage.delete_stored(ref)
+        except Exception:
+            pass  # best-effort — a storage hiccup must never block a decision
+    req.evidence_media = []
+
+
+def decide_verification(db: Session, req: AccountVerificationRequest, *, approve: bool,
+                        reviewer: User, reason: str = None, request=None) -> AccountVerificationRequest:
+    """The human-confirm gate — the only place status ever moves off 'pending'.
+
+    Approving one gate does not by itself grant a badge: for platform_identity
+    /platform_ownership, both rows for that platform must be approved first;
+    for business_identity, this row alone is the whole gate.
+    """
+    if req.status != "pending":
+        raise ValueError("Already decided")
+
+    _wipe_evidence(req)
+    req.reviewed_by = reviewer.id
+    req.reviewed_at = datetime.utcnow()
+    req.status = "approved" if approve else "rejected"
+    if not approve:
+        req.rejected_reason = (reason or "").strip() or None
+
+    subject = None
+    if approve:
+        if req.subject_type == "business_identity" and req.business_id:
+            subject = db.query(Business).get(req.business_id)
+            if subject:
+                subject.verified = True
+        elif req.subject_type in _PLATFORM_GATES and req.platform_id:
+            approved_types = {
+                r.subject_type for r in db.query(AccountVerificationRequest).filter(
+                    AccountVerificationRequest.platform_id == req.platform_id,
+                    AccountVerificationRequest.status == "approved",
+                    AccountVerificationRequest.subject_type.in_(_PLATFORM_GATES),
+                )
+            } | {req.subject_type}
+            if set(_PLATFORM_GATES).issubset(approved_types):
+                subject = db.query(Platform).get(req.platform_id)
+                if subject:
+                    subject.verified = True
+
+    audit.record(db, actor=reviewer, action="verification.decide",
+                target_type=req.subject_type,
+                target_id=req.business_id or req.platform_id,
+                previous_state={"status": "pending"},
+                new_state={"status": req.status, "reason": req.rejected_reason},
+                reason=reason, request=request)
+    db.commit()
+    db.refresh(req)
+    return req
 
 
 # Delivery Checklist — composable, not a full platform x payment-model
