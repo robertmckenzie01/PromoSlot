@@ -5239,10 +5239,19 @@ async function loadMine(){
       : Promise.resolve(S.myCampaigns=[]),
     // Merge real fields (verified, has_stripe_account, id) onto S.biz without
     // clobbering the wizard-only display fields (product/target/intents/...)
-    // that have no backing column on Business — see finishBiz(). S.biz stays
-    // the single source of truth the dashboard reads from either way.
+    // that have no backing column on Business — see finishBiz(). Defaults go
+    // FIRST, not last: renderBizDash() reads fields like b.countries.join()
+    // unconditionally, so S.biz must never end up missing them just because
+    // a real Business row came back before this session ever ran the wizard
+    // (a real bug this exact ordering caused — S.biz went from "always fully
+    // shaped" to "only has what the API returned" the moment a Business row
+    // existed, and the old fallback below only filled gaps when S.biz was
+    // still null, not when it was a partial object).
     S.account.is_business
-      ? PSApi.get("/businesses/me").then(r=>{ if(r) S.biz={...(S.biz||{}),...r}; }).catch(()=>{})
+      ? PSApi.get("/businesses/me").then(r=>{ if(r) S.biz={
+          company:S.account.display_name||S.account.email,product:"—",industry:"—",target:"",
+          intents:[],countries:[],platforms:[],services:[],sizes:[],budget:0,payMethods:[],duration:"—",
+          ...(S.biz||{}),...r}; }).catch(()=>{})
       : Promise.resolve(),
   ]);
 }
