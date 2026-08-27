@@ -3697,11 +3697,11 @@ function vfContactSupport(reqId){
   },250);
 }
 
-async function openVerify(role,platformId){
+async function openVerify(role){
   openModal(`<div class="m-pad" style="text-align:center;padding:48px 20px"><span class="spin"></span></div>`,"",false);
   try{
     if(role==="biz") await vfRenderBiz();
-    else await vfRenderPlat(platformId);
+    else await vfRenderPlat();
   }catch(e){ toast(e.message||"Could not load verification"); closeModal(); }
 }
 
@@ -3760,35 +3760,22 @@ async function vfSubmitBiz(){
   catch(e){ toast(e.message||"Could not submit for review"); }
 }
 
-async function vfRenderPlat(platformId){
-  if(!platformId){
-    const list=S.myPlatforms||[];
-    const unverified=list.filter(p=>!p.verified);
-    if(unverified.length===1){ platformId=unverified[0].id; }
-    else if(unverified.length>1){
-      openModal(vfShell("Which listing?","You have more than one listing — pick which one to verify.",
-        unverified.map(p=>`<div class="proof-item"><span class="pi-ico">📡</span><div class="vf-body"><b>${esc(p.name)}</b><small>${esc(p.platform)}</small></div>
-          <button class="btn btn-o btn-sm" style="margin-left:auto" onclick="openVerify('plat','${p.id}')">Verify</button></div>`).join(""),
-        `<button class="btn btn-o" onclick="closeModal()">Close</button>`)); return;
-    } else if(list.length===0){
-      openModal(vfShell("Get verified","Register a listing first — verification attaches to a specific listing.","",
-        `<button class="btn btn-o" onclick="closeModal()">Close</button>`)); return;
-    } else { platformId=list[0].id; }
-  }
-  const p=(S.myPlatforms||[]).find(x=>String(x.id)===String(platformId));
-  if(!p){ toast("Listing not found"); closeModal(); return; }
-  if(p.verified){
-    openModal(vfShell("You're verified ✔",`"${esc(p.name)}" already carries the Verified badge.`,"",
-      `<button class="btn btn-p" onclick="closeModal()">Close</button>`)); return;
-  }
-  window._vfPlatformId=platformId;
+async function vfRenderPlat(){
+  // Account-level — no listing required (Rob, 2026-08-27: identity + ownership
+  // both attach to the owner, not to any one Platform row; see
+  // backend/services.py's platform_owner_verified). A listing you add later,
+  // or already have, just inherits whatever your account status is.
   const [reqs,connStatus]=await Promise.all([
-    PSApi.get(`/verification/platform/${platformId}/my-requests`).catch(()=>({})),
+    PSApi.get("/verification/platform/my-requests").catch(()=>({})),
     PSApi.get("/connect/status").catch(()=>({has_account:false}))
   ]);
-  openModal(vfShell(`Verify "${p.name}"`,
-    "Two separate checks, each confirmed by a real PromoSlot reviewer before your badge appears.",
-    vfIdentitySectionHtml(reqs.platform_identity,connStatus)+vfOwnershipSectionHtml(reqs.platform_ownership,platformId),
+  if(reqs.verified){
+    openModal(vfShell("You're verified ✔","Your Verified badge now shows on every listing you have, and any new one you add.","",
+      `<button class="btn btn-p" onclick="closeModal()">Close</button>`)); return;
+  }
+  openModal(vfShell("Get verified",
+    "Two separate checks, each confirmed by a real PromoSlot reviewer before your badge appears. No listing needed first — this verifies your account.",
+    vfIdentitySectionHtml(reqs.platform_identity,connStatus)+vfOwnershipSectionHtml(reqs.platform_ownership),
     `<button class="btn btn-o" onclick="closeModal()">Close</button>`),"wide");
 }
 function vfIdentitySectionHtml(req,connStatus){
@@ -3806,11 +3793,10 @@ function vfIdentitySectionHtml(req,connStatus){
   return `<div class="det-sec" style="margin-top:14px"><h5>1. Identity ${vfStatusPill(status)}</h5>${body}</div>`;
 }
 async function vfSubmitPlatIdentity(){
-  const platformId=window._vfPlatformId;
-  try{ await PSApi.post(`/verification/platform/${platformId}/submit-identity`,{}); toast("Identity check submitted ✓",true); await vfRenderPlat(platformId); }
+  try{ await PSApi.post("/verification/platform/submit-identity",{}); toast("Identity check submitted ✓",true); await vfRenderPlat(); }
   catch(e){ toast(e.message||"Could not submit identity check"); }
 }
-function vfOwnershipSectionHtml(req,platformId){
+function vfOwnershipSectionHtml(req){
   const status=req?req.status:"none";
   if(status==="approved") return `<div class="det-sec" style="margin-top:14px"><h5>2. Platform ownership ${vfStatusPill(status)}</h5><p class="mut" style="font-size:13px">Confirmed.</p></div>`;
   if(status==="pending") return `<div class="det-sec" style="margin-top:14px"><h5>2. Platform ownership ${vfStatusPill(status)}</h5><p class="mut" style="font-size:13px">Submitted — a PromoSlot reviewer will look this over.</p></div>`;
@@ -3826,7 +3812,7 @@ function vfOwnershipSectionHtml(req,platformId){
     <div class="vf-upload" id="vfDrop" onclick="$('vfFileInput').click()"><span class="vf-up-ico">⬆️</span><div><b>Attach evidence</b><small id="vfFileLbl">A recording or screenshot — you can add more than one</small></div></div>
     <input type="file" id="vfFileInput" class="pf-file-input" multiple onchange="vfPick(event)">
     <div class="frm" style="margin-top:10px"><div><label>Anything else worth noting? (optional)</label><textarea id="vfNotes" placeholder="Context for the reviewer…"></textarea></div></div>
-    <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="vfSubmitPlatOwnership('${platformId}')">Submit for review</button>
+    <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="vfSubmitPlatOwnership()">Submit for review</button>
   </div>`;
 }
 function vfPick(e){
@@ -3834,16 +3820,16 @@ function vfPick(e){
   window._vfEvidenceFiles=(window._vfEvidenceFiles||[]).concat(files);
   const lbl=$("vfFileLbl"); if(lbl) lbl.textContent=window._vfEvidenceFiles.length+" file"+(window._vfEvidenceFiles.length===1?"":"s")+" attached";
 }
-async function vfSubmitPlatOwnership(platformId){
+async function vfSubmitPlatOwnership(){
   try{
-    const req=await PSApi.post(`/verification/platform/${platformId}/submit-ownership`,
+    const req=await PSApi.post("/verification/platform/submit-ownership",
       {evidence_checklist:[...(window._vSel||[])],evidence_notes:($("vfNotes")||{}).value||null});
     for(const f of (window._vfEvidenceFiles||[])){
       const fd=new FormData(); fd.append("request_id",req.id); fd.append("file",f);
-      await PSApi.postForm(`/verification/platform/${platformId}/evidence`,fd);
+      await PSApi.postForm("/verification/platform/evidence",fd);
     }
     toast("Ownership evidence submitted ✓",true);
-    await vfRenderPlat(platformId);
+    await vfRenderPlat();
   }catch(e){ toast(e.message||"Could not submit"); }
 }
 
@@ -4108,8 +4094,8 @@ function renderPlatDash(){
         ${matches.map(c=>`<div class="op-row" style="margin-bottom:8px" onclick="openCampaign('${c.id}')">${pfp(c.company,null,"",c.companyAvatar)}<div><b>${esc(c.title)}</b><small>${esc(c.company)} · ${c.budget?gbp(c.budget)+" budget":"commission"}</small></div><span class="op-go">Apply →</span></div>`).join("")}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Verification</h4></div><div class="panel-b mini-rows">
-        <div><span>Analytics evidence</span><b>${S.myPlatforms.some(p=>p.verified)?'<span style="color:var(--money)">Verified ✔</span>':"Self-reported"}</b></div>
-        <div><span>Verified listings win more deals</span><button class="btn btn-o btn-sm" onclick="S.myPlatforms.some(p=>p.verified)?toast('Your listings are already verified ✔',true):openVerify('plat')">${S.myPlatforms.some(p=>p.verified)?"Verified ✔":"Get verified ✔"}</button></div>
+        <div><span>Analytics evidence</span><b>${S.platVerified?'<span style="color:var(--money)">Verified ✔</span>':"Self-reported"}</b></div>
+        <div><span>Verified listings win more deals</span><button class="btn btn-o btn-sm" onclick="S.platVerified?toast('Your account is already verified ✔',true):openVerify('plat')">${S.platVerified?"Verified ✔":"Get verified ✔"}</button></div>
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Payout settings</h4></div><div class="panel-b mini-rows" id="payoutPanel">
         <div><span>Payout method</span><b class="mut">Checking…</b></div>
@@ -4602,7 +4588,7 @@ async function openVerificationQueue(){
     <div class="panel"><div class="panel-b">${list.length?list.map(r=>`
       <div class="deal-row" onclick="openVerificationDecision(${r.id})">
         <div class="pfp" style="background:var(--acc)">🛡️</div>
-        <div><div class="dr-t">${esc(VQ_LABELS[r.subject_type]||r.subject_type)} · #${r.business_id||r.platform_id}</div>
+        <div><div class="dr-t">${esc(VQ_LABELS[r.subject_type]||r.subject_type)} · owner #${r.business_id||r.platform_id||r.submitted_by}</div>
           <div class="dr-s">${r.stripe_legal_name?"Stripe: "+esc(r.stripe_legal_name):"No Stripe check on this request — evidence only"}</div></div>
         <span class="status-pill st-review">Pending</span>
       </div>`).join("")
@@ -5229,11 +5215,18 @@ async function openPayouts(){
       :`<div class="empty-state"><div class="es-ico">💸</div><h4>No payouts pending</h4><p>Verified deals awaiting payout appear here until you release the funds.</p></div>`}</div></div>`;
 }
 async function loadMine(){
-  if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; return; }
+  if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; S.platVerified=false; return; }
   await Promise.all([
     S.account.is_platform_owner
       ? PSApi.get("/platforms/mine").then(r=>{S.myPlatforms=r;}).catch(()=>{S.myPlatforms=[];})
       : Promise.resolve(S.myPlatforms=[]),
+    // Account-level verification status, independent of whether any listing
+    // exists yet — see backend/services.py's platform_owner_verified. Drives
+    // the "Get verified" buttons below instead of S.myPlatforms.some(verified),
+    // which would stay permanently false for an owner with zero listings.
+    S.account.is_platform_owner
+      ? PSApi.get("/verification/platform/my-requests").then(r=>{S.platVerified=!!(r&&r.verified);}).catch(()=>{S.platVerified=false;})
+      : Promise.resolve(S.platVerified=false),
     S.account.is_business
       ? PSApi.get("/campaigns/mine").then(r=>{S.myCampaigns=r;}).catch(()=>{S.myCampaigns=[];})
       : Promise.resolve(S.myCampaigns=[]),
@@ -5723,13 +5716,14 @@ function updateAcctTrack(){
 function verifyPanelHtml(a){
   const isBiz=!!a.is_business, isPlat=!!a.is_platform_owner;
   const bizVerified = S.biz && S.biz.verified;
-  const anyPlatVerified = (S.myPlatforms||[]).some(p=>p.verified);
-  const hasListing = (S.myPlatforms||[]).length>0;
+  // Account-level, not tied to owning a listing yet — see loadMine()'s
+  // S.platVerified fetch and services.platform_owner_verified.
+  const platVerified = !!S.platVerified;
   return `<h3>Verification</h3>
     <p>A Verified ✔ badge shows on your listings and profile once a PromoSlot reviewer confirms your identity.</p>
     <div class="mini-rows" style="margin-top:12px">
       ${isBiz?`<div><span>Business</span><button class="btn btn-o btn-sm" onclick="${bizVerified?"toast('Your business is already verified ✔',true)":"openVerify('biz')"}">${bizVerified?"Verified ✔":"Get verified"}</button></div>`:""}
-      ${isPlat?`<div><span>Platform listings</span><button class="btn btn-o btn-sm" ${hasListing?"":"disabled"} onclick="${anyPlatVerified?"toast('At least one listing is verified ✔',true)":"openVerify('plat')"}">${anyPlatVerified?"Verified ✔":hasListing?"Get verified":"Register a listing first"}</button></div>`:""}
+      ${isPlat?`<div><span>Platform owner</span><button class="btn btn-o btn-sm" onclick="${platVerified?"toast('Your account is already verified ✔',true)":"openVerify('plat')"}">${platVerified?"Verified ✔":"Get verified"}</button></div>`:""}
     </div>`;
 }
 function updateVerifyPanel(){

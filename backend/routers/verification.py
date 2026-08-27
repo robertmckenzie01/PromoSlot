@@ -30,11 +30,11 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
-from ..models import AccountVerificationRequest, Business, ConnectedAccount, Platform, User
+from ..models import AccountVerificationRequest, Business, ConnectedAccount, User
 from ..permissions import Perm
 from ..services import (business_capability_status_of, business_requirements_outstanding,
-                        decide_verification, stripe_legal_name_of, sync_business_account,
-                        transfers_status_of)
+                        decide_verification, platform_owner_verified, stripe_legal_name_of,
+                        sync_business_account, transfers_status_of)
 from ..storage import presigned_url, save_upload
 from ..stripe_client import client
 
@@ -70,13 +70,6 @@ def _stripe_error(e) -> HTTPException:
 
 def _my_business(db: Session, user: User) -> Optional[Business]:
     return db.query(Business).filter_by(owner_id=user.id).first()
-
-
-def _my_platform(db: Session, user: User, platform_id: int) -> Platform:
-    p = db.query(Platform).filter_by(id=platform_id, owner_id=user.id).first()
-    if p is None:
-        raise HTTPException(status_code=404, detail="Listing not found")
-    return p
 
 
 def avr_dict(r: AccountVerificationRequest) -> dict:
@@ -226,13 +219,21 @@ def submit_business_verification(user: User = Depends(get_current_user), db: Ses
 
 # ---------------------------------------------------------------------------
 # Platform owner — identity (reuses their existing payout account) +
-# ownership evidence (separate, no Stripe involved)
+# ownership evidence (separate, no Stripe involved). Both are ACCOUNT-level
+# (keyed on the owner's user id, platform_id left null) — a listing is NOT
+# required to exist first. See services.platform_owner_verified for the
+# dual-gate check and the "why" behind this (Rob, 2026-08-27: verification
+# shouldn't require a listing any more than business verification does).
 # ---------------------------------------------------------------------------
 
-@router.post("/platform/{platform_id}/submit-identity")
-def submit_platform_identity(platform_id: int, user: User = Depends(get_current_user),
-                             db: Session = Depends(get_db)):
-    p = _my_platform(db, user, platform_id)
+def _require_platform_owner(user: User) -> None:
+    if not user.is_platform_owner:
+        raise HTTPException(status_code=403, detail="Only a platform-owner account can verify this")
+
+
+@router.post("/platform/submit-identity")
+def submit_platform_identity(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _require_platform_owner(user)
     conn = db.query(ConnectedAccount).filter_by(user_id=user.id).first()
     if conn is None:
         raise HTTPException(status_code=400, detail="Connect your payout account first")
@@ -246,13 +247,13 @@ def submit_platform_identity(platform_id: int, user: User = Depends(get_current_
                             detail="Finish setting up your payout account with Stripe first")
 
     existing = db.query(AccountVerificationRequest).filter_by(
-        platform_id=p.id, subject_type="platform_identity", status="pending").first()
+        submitted_by=user.id, subject_type="platform_identity", status="pending").first()
     if existing:
         return avr_dict(existing)
 
     legal_name = (_g_identity(acct))
     req = AccountVerificationRequest(
-        subject_type="platform_identity", platform_id=p.id, submitted_by=user.id,
+        subject_type="platform_identity", submitted_by=user.id,
         stripe_legal_name=legal_name, stripe_verified_at=datetime.utcnow())
     db.add(req)
     db.commit()
@@ -275,16 +276,16 @@ class OwnershipSubmitIn(BaseModel):
     evidence_notes: Optional[str] = None
 
 
-@router.post("/platform/{platform_id}/submit-ownership")
-def submit_platform_ownership(platform_id: int, body: OwnershipSubmitIn,
+@router.post("/platform/submit-ownership")
+def submit_platform_ownership(body: OwnershipSubmitIn,
                               user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    p = _my_platform(db, user, platform_id)
+    _require_platform_owner(user)
     existing = db.query(AccountVerificationRequest).filter_by(
-        platform_id=p.id, subject_type="platform_ownership", status="pending").first()
+        submitted_by=user.id, subject_type="platform_ownership", status="pending").first()
     if existing:
         return avr_dict(existing)
     req = AccountVerificationRequest(
-        subject_type="platform_ownership", platform_id=p.id, submitted_by=user.id,
+        subject_type="platform_ownership", submitted_by=user.id,
         evidence_checklist=body.evidence_checklist, evidence_notes=body.evidence_notes,
         evidence_media=[])
     db.add(req)
@@ -293,35 +294,35 @@ def submit_platform_ownership(platform_id: int, body: OwnershipSubmitIn,
     return avr_dict(req)
 
 
-@router.get("/platform/{platform_id}/my-requests")
-def my_platform_requests(platform_id: int, user: User = Depends(get_current_user),
-                         db: Session = Depends(get_db)):
-    """Latest request per gate (identity, ownership) for this listing, owner-
-    visible — same reasoning as the business endpoint above."""
-    p = _my_platform(db, user, platform_id)
+@router.get("/platform/my-requests")
+def my_platform_requests(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Latest request per gate (identity, ownership) for THIS OWNER, not any
+    one listing — owner-visible, same reasoning as the business endpoint
+    above. Also returns `verified`, the combined account-level result."""
     rows = (db.query(AccountVerificationRequest)
-           .filter(AccountVerificationRequest.platform_id == p.id,
+           .filter(AccountVerificationRequest.submitted_by == user.id,
                    AccountVerificationRequest.subject_type.in_(_PLATFORM_GATES_LOCAL))
            .order_by(AccountVerificationRequest.created_at.desc()).all())
     latest = {}
     for r in rows:
         latest.setdefault(r.subject_type, r)
-    return {k: avr_dict(v) for k, v in latest.items()}
+    result = {k: avr_dict(v) for k, v in latest.items()}
+    result["verified"] = platform_owner_verified(db, user.id)
+    return result
 
 
-@router.post("/platform/{platform_id}/evidence")
-def upload_ownership_evidence(platform_id: int, request_id: int = Form(...),
-                              file: UploadFile = File(...),
+@router.post("/platform/evidence")
+def upload_ownership_evidence(request_id: int = Form(...), file: UploadFile = File(...),
                               user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Attach a file (e.g. a login screen-recording) to a pending ownership
-    request. Deleted automatically the moment a reviewer decides either way
-    — see services.decide_verification / _wipe_evidence."""
-    p = _my_platform(db, user, platform_id)
+    """Attach a file (e.g. a login screen-recording) to the caller's own
+    pending ownership request. Deleted automatically the moment a reviewer
+    decides either way — see services.decide_verification / _wipe_evidence."""
     req = db.query(AccountVerificationRequest).filter_by(
-        id=request_id, platform_id=p.id, subject_type="platform_ownership", status="pending").first()
+        id=request_id, submitted_by=user.id, subject_type="platform_ownership",
+        status="pending").first()
     if req is None:
         raise HTTPException(status_code=404, detail="No pending ownership request found")
-    ref, _size = save_upload(f"verification/platform_{p.id}", file, _EVIDENCE_MAX_BYTES)
+    ref, _size = save_upload(f"verification/owner_{user.id}", file, _EVIDENCE_MAX_BYTES)
     req.evidence_media = (req.evidence_media or []) + [ref]
     db.commit()
     return avr_dict(req)

@@ -176,7 +176,32 @@ def sync_business_account(db: Session, business: Business, acct) -> dict:
 # A platform owner needs both of these approved before the badge shows; a
 # business needs only business_identity. Kept as one tuple so the "is this
 # subject fully verified yet" check in one place, not duplicated per caller.
+#
+# Both gates are account-level (keyed on submitted_by, the owner's user id),
+# NOT tied to any one Platform listing (platform_id is left null on these
+# requests). A platform owner can pass identity + ownership before ever
+# creating a listing — see routers/verification.py's platform endpoints,
+# which no longer take a platform_id at all. Rob, 2026-08-27: "why can't
+# [ownership evidence] point to their own promoslot account" instead of a
+# specific listing — it can; the listing requirement was an accidental
+# coupling in the original schema, not a real constraint. Known tradeoff
+# accepted deliberately: an owner who lists multiple distinct channels gets
+# ONE account-wide badge, not a per-channel one — fine while every real
+# platform owner only runs a single channel; revisit if that stops being true.
 _PLATFORM_GATES = ("platform_identity", "platform_ownership")
+
+
+def platform_owner_verified(db: Session, owner_id: int) -> bool:
+    """Has this user (a platform owner) passed both verification gates?
+    Account-level — independent of how many (if any) listings they have."""
+    approved_types = {
+        r.subject_type for r in db.query(AccountVerificationRequest).filter(
+            AccountVerificationRequest.submitted_by == owner_id,
+            AccountVerificationRequest.status == "approved",
+            AccountVerificationRequest.subject_type.in_(_PLATFORM_GATES),
+        )
+    }
+    return set(_PLATFORM_GATES).issubset(approved_types)
 
 
 def _wipe_evidence(req: AccountVerificationRequest) -> None:
@@ -197,8 +222,9 @@ def decide_verification(db: Session, req: AccountVerificationRequest, *, approve
     """The human-confirm gate — the only place status ever moves off 'pending'.
 
     Approving one gate does not by itself grant a badge: for platform_identity
-    /platform_ownership, both rows for that platform must be approved first;
-    for business_identity, this row alone is the whole gate.
+    /platform_ownership, both requests from that OWNER (not that listing —
+    see platform_owner_verified above) must be approved first; for
+    business_identity, this row alone is the whole gate.
     """
     if req.status != "pending":
         raise ValueError("Already decided")
@@ -209,29 +235,27 @@ def decide_verification(db: Session, req: AccountVerificationRequest, *, approve
     req.status = "approved" if approve else "rejected"
     if not approve:
         req.rejected_reason = (reason or "").strip() or None
+    # platform_owner_verified() below re-queries this same table for approved
+    # rows — flush first so it reliably sees THIS request's new status rather
+    # than depending on autoflush config or identity-map object reuse.
+    db.flush()
 
-    subject = None
     if approve:
         if req.subject_type == "business_identity" and req.business_id:
             subject = db.query(Business).get(req.business_id)
             if subject:
                 subject.verified = True
-        elif req.subject_type in _PLATFORM_GATES and req.platform_id:
-            approved_types = {
-                r.subject_type for r in db.query(AccountVerificationRequest).filter(
-                    AccountVerificationRequest.platform_id == req.platform_id,
-                    AccountVerificationRequest.status == "approved",
-                    AccountVerificationRequest.subject_type.in_(_PLATFORM_GATES),
-                )
-            } | {req.subject_type}
-            if set(_PLATFORM_GATES).issubset(approved_types):
-                subject = db.query(Platform).get(req.platform_id)
-                if subject:
-                    subject.verified = True
+        elif req.subject_type in _PLATFORM_GATES:
+            if platform_owner_verified(db, req.submitted_by):
+                # Account-level badge: sync onto every listing this owner has
+                # now, and routers/platforms.py's create_platform sets it on
+                # any listing they add later — neither depends on the other.
+                db.query(Platform).filter(Platform.owner_id == req.submitted_by).update(
+                    {"verified": True}, synchronize_session=False)
 
     audit.record(db, actor=reviewer, action="verification.decide",
                 target_type=req.subject_type,
-                target_id=req.business_id or req.platform_id,
+                target_id=req.business_id or req.platform_id or req.submitted_by,
                 previous_state={"status": "pending"},
                 new_state={"status": req.status, "reason": req.rejected_reason},
                 reason=reason, request=request)

@@ -18,6 +18,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import Platform, PlatformMedia, Review, User
+from ..services import platform_owner_verified
 from ..storage import (delete_stored, save_generic, save_media_file,
                        serve_stored, stored_exists)
 
@@ -115,6 +116,10 @@ def create_platform(body: PlatformCreateIn, user: User = Depends(get_current_use
         services=body.services,
         pricing=body.pricing,
         meta={"countries": body.countries, "ages": body.ages, "interests": body.interests},
+        # Verification is account-level (see services.platform_owner_verified) —
+        # an already-verified owner's NEW listings pick up the badge immediately
+        # rather than needing their own separate approval.
+        verified=platform_owner_verified(db, user.id),
     )
     db.add(p)
     db.commit()
