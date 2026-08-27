@@ -5707,6 +5707,25 @@ function updateAcctTrack(){
   const host=$("acct2Track"); if(!host||!S.account) return;
   host.innerHTML=acctTrackHtml(S.account);
 }
+// Same status + onclick pattern already live on the business/platform
+// dashboards (see the "Verification" mini-row in each) — this just puts the
+// same entry point in My Account too, so it isn't dashboard-only. Reused
+// wholesale rather than re-derived, so both places can never disagree.
+function verifyPanelHtml(a){
+  const isBiz=!!a.is_business, isPlat=!!a.is_platform_owner;
+  const bizVerified = S.biz && S.biz.verified;
+  const anyPlatVerified = (S.myPlatforms||[]).some(p=>p.verified);
+  const hasListing = (S.myPlatforms||[]).length>0;
+  return `<h3>Verification</h3>
+    <p>A Verified ✔ badge shows on your listings and profile once a PromoSlot reviewer confirms your identity.</p>
+    <div class="mini-rows" style="margin-top:12px">
+      ${isBiz?`<div><span>Business</span><button class="btn btn-o btn-sm" onclick="${bizVerified?"toast('Your business is already verified ✔',true)":"openVerify('biz')"}">${bizVerified?"Verified ✔":"Get verified"}</button></div>`:""}
+      ${isPlat?`<div><span>Platform listings</span><button class="btn btn-o btn-sm" ${hasListing?"":"disabled"} onclick="${anyPlatVerified?"toast('At least one listing is verified ✔',true)":"openVerify('plat')"}">${anyPlatVerified?"Verified ✔":hasListing?"Get verified":"Register a listing first"}</button></div>`:""}
+    </div>`;
+}
+function updateVerifyPanel(){
+  const host=$("verifyPanel"); if(host && S.account) host.innerHTML=verifyPanelHtml(S.account);
+}
 function openAccount(){
   const a=S.account;
   if(!a){ authModal("login"); return; }
@@ -5813,6 +5832,7 @@ function openAccount(){
 
         <div class="acct2-cards2">
           <div class="acct2-card" id="whoPanel"></div>
+          <div class="acct2-card" id="verifyPanel">${verifyPanelHtml(a)}</div>
           <div class="acct2-card">
             <h3>Intro video</h3>
             <p>A short hello on your public profile, separate from your My Work portfolio.</p>
