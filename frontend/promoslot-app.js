@@ -3725,28 +3725,36 @@ async function vfRenderBiz(){
 
   const rejected = (existing && existing.status==="rejected") ? vfRejectedNotice(existing) : "";
 
-  if(!status.has_account){
-    openModal(vfShell("Get business verified",
-      "We verify your business through Stripe's own identity check, the same one used by businesses everywhere. PromoSlot never sees your documents — Stripe handles that directly, and only ever tells us pass or fail plus your verified legal name.",
-      rejected+`<div class="det-sec"><h5>What Stripe checks</h5>
-        <div class="proof-item"><span class="pi-ico">🏢</span><div class="vf-body"><b>Legal business name &amp; registration</b><small>Whatever's on file for your business</small></div></div>
-        <div class="proof-item"><span class="pi-ico">🧑</span><div class="vf-body"><b>Representative identity</b><small>Whoever completes this on your business's behalf</small></div></div>
-      </div>`,
-      `<button class="btn btn-o" onclick="closeModal()">Not now</button>
-       <button class="btn btn-p" onclick="vfStartBizStripe()">Continue with Stripe</button>`)); return;
-  }
-  if(!status.verified_by_stripe){
-    openModal(vfShell("Finish verifying with Stripe",
-      status.requirements_due?"Stripe still needs a bit more information to finish this check.":"Stripe is reviewing what you've submitted — this can take a few minutes.",
-      rejected,
-      `<button class="btn btn-o" onclick="closeModal()">Close</button>
-       <button class="btn btn-p" onclick="vfStartBizStripe()">${status.requirements_due?"Continue with Stripe":"Refresh status"}</button>`)); return;
-  }
-  openModal(vfShell("Ready to submit",
-    `Stripe verified this business as <b>${esc(status.stripe_legal_name||"—")}</b>. A PromoSlot reviewer will confirm this matches your PromoSlot profile before your badge is granted.`,
-    rejected,
-    `<button class="btn btn-o" onclick="closeModal()">Not now</button>
-     <button class="btn btn-p" onclick="vfSubmitBiz()">Submit for review</button>`));
+  // Two-step layout, both steps always visible — Rob, 2026-08-28: after
+  // finishing Stripe's form and getting redirected back here (see PSBoot's
+  // _acctVerifyReturn), it wasn't obvious anything had happened or that a
+  // second, separate submit step still existed. Showing "1. Complete form"
+  // with a real Done ✓ and "2. Submit application to PromoSlot" together,
+  // every time this opens, makes that second click impossible to miss.
+  const formDone = !!status.verified_by_stripe;
+  const step1Pill = formDone ? `<span class="status-pill st-live">Done ✓</span>`
+    : status.has_account ? `<span class="status-pill st-review">In progress</span>`
+    : `<span class="status-pill st-draft">Not started</span>`;
+  const step1Body = formDone
+    ? `<p class="mut" style="font-size:13px">Stripe verified this business as <b>${esc(status.stripe_legal_name||"—")}</b>.</p>`
+    : status.has_account
+      ? `<p class="mut" style="font-size:13px">${status.requirements_due?"Stripe still needs a bit more information to finish this check.":"Stripe is reviewing what you've submitted — this can take a few minutes."}</p>
+         <button class="btn btn-p btn-sm" style="margin-top:8px" onclick="vfStartBizStripe()">${status.requirements_due?"Continue with Stripe":"Refresh status"}</button>`
+      : `<p class="mut" style="font-size:13px">We verify your business through Stripe's own identity check — the same one used by businesses everywhere. PromoSlot never sees your documents; Stripe handles that directly and only ever tells us pass or fail, plus your verified legal name.</p>
+         <div class="proof-item"><span class="pi-ico">🏢</span><div class="vf-body"><b>Legal business name &amp; registration</b><small>Whatever's on file for your business</small></div></div>
+         <div class="proof-item"><span class="pi-ico">🧑</span><div class="vf-body"><b>Representative identity</b><small>Whoever completes this on your business's behalf</small></div></div>
+         <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="vfStartBizStripe()">Continue with Stripe</button>`;
+
+  openModal(vfShell("Get business verified",
+    "Two steps — Stripe confirms the form, then a PromoSlot reviewer confirms it's genuinely you before your badge appears.",
+    rejected+
+    `<div class="det-sec" style="margin-top:14px"><h5>1. Complete form ${step1Pill}</h5>${step1Body}</div>
+     <div class="det-sec" style="margin-top:14px${formDone?"":";opacity:.5"}">
+       <h5>2. Submit application to PromoSlot</h5>
+       <button class="btn btn-p btn-sm" ${formDone?"":"disabled"} onclick="vfSubmitBiz()">Submit application to PromoSlot</button>
+       <p class="mut" style="font-size:12px;margin-top:8px">${formDone?"By submitting, you confirm you're authorised to verify this business on PromoSlot's behalf and that everything Stripe checked is accurate.":"Unlocks once step 1 is complete."}</p>
+     </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Close</button>`),"wide");
 }
 async function vfStartBizStripe(){
   try{
@@ -3809,7 +3817,7 @@ function vfOwnershipSectionHtml(req){
       <span class="pi-ico">${ico}</span><div class="vf-body"><b>${esc(t)}</b><small>${esc(sub)}</small></div>
       <input type="checkbox" checked onchange="this.checked?window._vSel.add(this.closest('.vf-item').dataset.v):window._vSel.delete(this.closest('.vf-item').dataset.v);this.closest('.vf-item').classList.toggle('on',this.checked)">
       <span class="vf-check">✓</span></label>`).join("")}
-    <div class="vf-upload" id="vfDrop" onclick="$('vfFileInput').click()"><span class="vf-up-ico">⬆️</span><div><b>Attach evidence</b><small id="vfFileLbl">A recording or screenshot — you can add more than one</small></div></div>
+    <label class="vf-upload" id="vfDrop" for="vfFileInput"><span class="vf-up-ico">⬆️</span><div><b>Attach evidence</b><small id="vfFileLbl">A recording or screenshot — you can add more than one</small></div></label>
     <input type="file" id="vfFileInput" class="pf-file-input" multiple onchange="vfPick(event)">
     <div class="frm" style="margin-top:10px"><div><label>Anything else worth noting? (optional)</label><textarea id="vfNotes" placeholder="Context for the reviewer…"></textarea></div></div>
     <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="vfSubmitPlatOwnership()">Submit for review</button>
@@ -5680,10 +5688,13 @@ function acctCompletenessSteps(a){
   const hasFirst = firstList.length>0;
   const firstLabel = isPlat ? "First listing live" : (isBiz ? "First campaign posted" : "Set up a role");
   const firstName = isPlat ? (firstList[0]&&firstList[0].name) : (firstList[0]&&(firstList[0].title||firstList[0].name));
+  // Rob, 2026-08-28: drop the video requirement entirely, lead with the
+  // product tour instead — a recording shouldn't gate "getting started",
+  // and the tour is the thing every new signup should actually do first.
   return [
+    {label:"PromoSlot tour", done:!!a.product_tour_completed_at, state:a.product_tour_completed_at?"Complete":"Not started"},
     {label:"Profile photo", done:!!a.avatar_url, state:a.avatar_url?"Added":"Not added yet"},
     {label:"Bio written", done:bio.length>0, state:bio.length>0?"Live on your profile":"Empty"},
-    {label:"Intro video", done:!!a.intro_video_url, state:a.intro_video_url?"Added":"Not added yet"},
     {label:firstLabel, done:hasFirst, state:hasFirst?(firstName||"Live"):(isPlat||isBiz?"None yet":"Business or platform owner")}
   ];
 }
@@ -6557,12 +6568,19 @@ function PSBoot(){
       if(S.account && S.account.is_platform_owner) openDash();
     });
   } else if(_acctVerifyReturn){
-    // Same conservative choice as connect.py's own return handler: land on
-    // the right dashboard and let them re-open "Get verified" to see the
-    // fresh status, rather than trying to guess and re-open a specific
-    // modal state from a redirect that may have landed in a fresh tab.
+    // Rob, 2026-08-28: landing on the dashboard and leaving it to them to
+    // remember to reopen "Get verified" was a real gap — they'd just
+    // finished Stripe's form with no visible confirmation anything
+    // happened. Reopen the modal automatically instead: it re-checks Stripe
+    // live (see vfRenderBiz), so it always shows truthfully wherever they
+    // actually are — mid-onboarding, ready to submit, or already submitted
+    // — never a guess. Only business creates a fresh Stripe link from this
+    // modal (platform identity reuses the existing payout account, no new
+    // redirect), so this only auto-opens for a business account.
     _bootAuth = restoreSession().then(()=>{
-      if(S.account && (S.account.is_business || S.account.is_platform_owner)) openDash();
+      if(!S.account) return;
+      openDash();
+      if(S.account.is_business) openVerify("biz");
     });
   } else {
     _bootAuth = restoreSession().then(restoreRoute);
