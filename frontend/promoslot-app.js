@@ -3717,8 +3717,9 @@ async function vfRenderBiz(){
   }
   const existing = await PSApi.get("/verification/business/my-request").catch(()=>null);
   if(existing && existing.status==="pending"){
-    openModal(vfShell("Submitted for review","A PromoSlot reviewer will confirm this matches your profile before your badge appears. You'll be notified either way.","",
-      `<button class="btn btn-p" onclick="closeModal()">Got it</button>`)); return;
+    openModal(vfShell("Submitted for review","A PromoSlot reviewer will confirm this matches your profile before your badge appears. You'll be notified either way.",
+      vfBizEvidenceHtml(existing),
+      `<button class="btn btn-p" onclick="closeModal()">Got it</button>`),"wide"); return;
   }
   let status = {has_account:false};
   if(biz.has_stripe_account) status = await PSApi.get("/verification/business/status").catch(()=>({has_account:false}));
@@ -3776,6 +3777,54 @@ async function vfStartBizStripe(){
 async function vfSubmitBiz(){
   try{ await PSApi.post("/verification/business/submit",{}); toast("Submitted for review ✓",true); await vfRenderBiz(); }
   catch(e){ toast(e.message||"Could not submit for review"); }
+}
+// Optional, non-blocking supporting evidence on top of the Stripe check —
+// Rob, 2026-08-28: "not sensitive information... accessible and easy" for
+// someone junior to put together without going through finance/legal.
+// Chosen items are all things a marketing hire can get from their own
+// day-to-day access, not documents they'd have to specially request.
+// Never required — Stripe's check alone is still enough to be reviewed;
+// see backend/routers/verification.py's add_business_evidence docstring.
+function vfBizEvidenceHtml(req){
+  const fileCount=(req.evidence_files||[]).length;
+  const hasEvidence = fileCount>0 || (req.evidence_checklist||[]).length>0 || req.evidence_notes;
+  const items=[
+    ["📧","Company email or workspace","A screenshot of your work email inbox or company Slack/Teams — just enough to show your account and the company name"],
+    ["🌐","Website or social admin access","A screenshot or short recording of your company's website CMS, Google Business Profile, or social media business manager, logged in as an admin"],
+    ["🏬","Product, storefront or office","A photo or screenshot of your real product listings, storefront, or office/branding"],
+  ];
+  window._vSelBiz=new Set(items.map(i=>i[1]));
+  window._vfEvidenceFilesBiz=[];
+  return `<div class="det-sec" style="margin-top:14px">
+    <h5>Strengthen your application (optional)</h5>
+    <p class="mut" style="font-size:13px">Not required — Stripe's check alone is enough to be reviewed. A bit of everyday, non-sensitive proof just gives a reviewer more confidence and can mean a faster decision. Same rule as everywhere else here: never shown publicly, and deleted the moment a decision is made.</p>
+    ${hasEvidence?`<p class="mut" style="font-size:12px">Already added: ${fileCount} file${fileCount===1?"":"s"}${req.evidence_notes?", plus a note":""}.</p>`:""}
+    ${items.map(([ico,t,sub])=>`<label class="vf-item on" data-v="${esc(t)}">
+      <span class="pi-ico">${ico}</span><div class="vf-body"><b>${esc(t)}</b><small>${esc(sub)}</small></div>
+      <input type="checkbox" checked onchange="this.checked?window._vSelBiz.add(this.closest('.vf-item').dataset.v):window._vSelBiz.delete(this.closest('.vf-item').dataset.v);this.closest('.vf-item').classList.toggle('on',this.checked)">
+      <span class="vf-check">✓</span></label>`).join("")}
+    <label class="vf-upload" id="vfDropBiz" for="vfFileInputBiz"><span class="vf-up-ico">⬆️</span><div><b>Attach evidence</b><small id="vfFileLblBiz">A recording or screenshot — you can add more than one</small></div></label>
+    <input type="file" id="vfFileInputBiz" class="pf-file-input" multiple onchange="vfPickBiz(event)">
+    <div class="frm" style="margin-top:10px"><div><label>Anything else worth noting? (optional)</label><textarea id="vfNotesBiz" placeholder="Context for the reviewer…"></textarea></div></div>
+    <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="vfSubmitBizEvidence()">Add evidence</button>
+  </div>`;
+}
+function vfPickBiz(e){
+  const files=[...(e.target.files||[])];
+  window._vfEvidenceFilesBiz=(window._vfEvidenceFilesBiz||[]).concat(files);
+  const lbl=$("vfFileLblBiz"); if(lbl) lbl.textContent=window._vfEvidenceFilesBiz.length+" file"+(window._vfEvidenceFilesBiz.length===1?"":"s")+" attached";
+}
+async function vfSubmitBizEvidence(){
+  try{
+    await PSApi.post("/verification/business/add-evidence",
+      {evidence_checklist:[...(window._vSelBiz||[])],evidence_notes:($("vfNotesBiz")||{}).value||null});
+    for(const f of (window._vfEvidenceFilesBiz||[])){
+      const fd=new FormData(); fd.append("file",f);
+      await PSApi.postForm("/verification/business/evidence",fd);
+    }
+    toast("Evidence added ✓",true);
+    await vfRenderBiz();
+  }catch(e){ toast(e.message||"Could not add evidence"); }
 }
 
 async function vfRenderPlat(){
@@ -7410,7 +7459,7 @@ function resScenario(i){
 }
 function resRender(){ resRenderPlaybooks(); resRenderModels(); }
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,vfPick,vfContactSupport,vfStartBizStripe,vfSubmitBiz,vfSubmitPlatIdentity,vfSubmitPlatOwnership,openVerificationQueue,openVerificationDecision,decideVerification,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,vfPick,vfContactSupport,vfStartBizStripe,vfSubmitBiz,vfConnectPayouts,vfSubmitPlatIdentity,vfSubmitPlatOwnership,vfPickBiz,vfSubmitBizEvidence,openVerificationQueue,openVerificationDecision,decideVerification,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realOpenGracePeriod,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,closeVerifyWait,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,

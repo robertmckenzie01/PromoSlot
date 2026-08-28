@@ -45,6 +45,11 @@ _EVIDENCE_MAX_BYTES = 2 * 1024 * 1024 * 1024  # matches platform media cap
 _PLATFORM_GATES_LOCAL = ("platform_identity", "platform_ownership")  # mirrors services._PLATFORM_GATES
 
 
+class OwnershipSubmitIn(BaseModel):
+    evidence_checklist: List[str] = []
+    evidence_notes: Optional[str] = None
+
+
 @router.get("/return")
 def onboarding_return():
     """Same reasoning as connect.py's /connect/return — no auth dependency,
@@ -243,6 +248,54 @@ def submit_business_verification(user: User = Depends(get_current_user), db: Ses
     return avr_dict(req)
 
 
+def _pending_business_request(db: Session, biz: Business) -> AccountVerificationRequest:
+    req = db.query(AccountVerificationRequest).filter_by(
+        business_id=biz.id, subject_type="business_identity", status="pending").first()
+    if req is None:
+        raise HTTPException(status_code=400, detail="No pending application to add evidence to")
+    return req
+
+
+@router.post("/business/add-evidence")
+def add_business_evidence(body: OwnershipSubmitIn, user: User = Depends(get_current_user),
+                          db: Session = Depends(get_db)):
+    """Optional, non-blocking supporting evidence on top of the Stripe check —
+    Rob, 2026-08-28: businesses need something universal (not registry-
+    dependent) and low-friction enough that a marketing hire can put it
+    together without going through finance/legal ('hey boss, can you send
+    me X'). Reuses business_identity's own evidence_checklist/notes columns
+    (already on the model for platform_ownership) rather than a new gate —
+    submitting this never blocks Business.verified, which still flips from
+    Stripe + admin approval alone; it just gives the reviewer more to go on.
+    Never required, always optional, same 'deleted on decision' rule as any
+    other evidence (see services._wipe_evidence)."""
+    biz = _my_business(db, user)
+    if biz is None:
+        raise HTTPException(status_code=400, detail="Set up your business profile first")
+    req = _pending_business_request(db, biz)
+    req.evidence_checklist = body.evidence_checklist
+    req.evidence_notes = body.evidence_notes
+    db.commit()
+    db.refresh(req)
+    return avr_dict(req)
+
+
+@router.post("/business/evidence")
+def upload_business_evidence(file: UploadFile = File(...), user: User = Depends(get_current_user),
+                             db: Session = Depends(get_db)):
+    """Attach a file to the caller's own pending business_identity
+    application — same optional, non-blocking, deleted-on-decision evidence
+    as add_business_evidence above."""
+    biz = _my_business(db, user)
+    if biz is None:
+        raise HTTPException(status_code=400, detail="Set up your business profile first")
+    req = _pending_business_request(db, biz)
+    ref, _size = save_upload(f"verification/business_{biz.id}", file, _EVIDENCE_MAX_BYTES)
+    req.evidence_media = (req.evidence_media or []) + [ref]
+    db.commit()
+    return avr_dict(req)
+
+
 # ---------------------------------------------------------------------------
 # Platform owner — identity (reuses their existing payout account) +
 # ownership evidence (separate, no Stripe involved). Both are ACCOUNT-level
@@ -295,11 +348,6 @@ def _g_identity(acct) -> Optional[str]:
     given = individual.get("given_name") if isinstance(individual, dict) else getattr(individual, "given_name", None)
     surname = individual.get("surname") if isinstance(individual, dict) else getattr(individual, "surname", None)
     return " ".join(x for x in (given, surname) if x) or None
-
-
-class OwnershipSubmitIn(BaseModel):
-    evidence_checklist: List[str] = []
-    evidence_notes: Optional[str] = None
 
 
 @router.post("/platform/submit-ownership")
