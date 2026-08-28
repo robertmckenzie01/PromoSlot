@@ -3723,38 +3723,48 @@ async function vfRenderBiz(){
   let status = {has_account:false};
   if(biz.has_stripe_account) status = await PSApi.get("/verification/business/status").catch(()=>({has_account:false}));
 
+  // One step, not two — Rob, 2026-08-28: "I want every verification to be
+  // a one step process that submits for verification on promoslot the
+  // second they finish their application." The moment Stripe's own check
+  // passes, submit for PromoSlot review automatically — no separate manual
+  // click to notice and take. Consent for that is captured up front instead
+  // (see the "Continue with Stripe" step below), not as a second click
+  // after the fact. Only on a FRESH attempt though — after a rejection,
+  // resubmitting is still an explicit act, not silent (see below).
+  if(status.verified_by_stripe && !existing){
+    try{
+      await PSApi.post("/verification/business/submit",{});
+      return vfRenderBiz();
+    }catch(e){ /* falls through to the normal ready-to-submit screen below as a fallback */ }
+  }
+
   const rejected = (existing && existing.status==="rejected") ? vfRejectedNotice(existing) : "";
 
-  // Two-step layout, both steps always visible — Rob, 2026-08-28: after
-  // finishing Stripe's form and getting redirected back here (see PSBoot's
-  // _acctVerifyReturn), it wasn't obvious anything had happened or that a
-  // second, separate submit step still existed. Showing "1. Complete form"
-  // with a real Done ✓ and "2. Submit application to PromoSlot" together,
-  // every time this opens, makes that second click impossible to miss.
-  const formDone = !!status.verified_by_stripe;
-  const step1Pill = formDone ? `<span class="status-pill st-live">Done ✓</span>`
-    : status.has_account ? `<span class="status-pill st-review">In progress</span>`
-    : `<span class="status-pill st-draft">Not started</span>`;
-  const step1Body = formDone
-    ? `<p class="mut" style="font-size:13px">Stripe verified this business as <b>${esc(status.stripe_legal_name||"—")}</b>.</p>`
-    : status.has_account
-      ? `<p class="mut" style="font-size:13px">${status.requirements_due?"Stripe still needs a bit more information to finish this check.":"Stripe is reviewing what you've submitted — this can take a few minutes."}</p>
-         <button class="btn btn-p btn-sm" style="margin-top:8px" onclick="vfStartBizStripe()">${status.requirements_due?"Continue with Stripe":"Refresh status"}</button>`
-      : `<p class="mut" style="font-size:13px">We verify your business through Stripe's own identity check — the same one used by businesses everywhere. PromoSlot never sees your documents; Stripe handles that directly and only ever tells us pass or fail, plus your verified legal name.</p>
-         <div class="proof-item"><span class="pi-ico">🏢</span><div class="vf-body"><b>Legal business name &amp; registration</b><small>Whatever's on file for your business</small></div></div>
-         <div class="proof-item"><span class="pi-ico">🧑</span><div class="vf-body"><b>Representative identity</b><small>Whoever completes this on your business's behalf</small></div></div>
-         <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="vfStartBizStripe()">Continue with Stripe</button>`;
-
-  openModal(vfShell("Get business verified",
-    "Two steps — Stripe confirms the form, then a PromoSlot reviewer confirms it's genuinely you before your badge appears.",
-    rejected+
-    `<div class="det-sec" style="margin-top:14px"><h5>1. Complete form ${step1Pill}</h5>${step1Body}</div>
-     <div class="det-sec" style="margin-top:14px${formDone?"":";opacity:.5"}">
-       <h5>2. Submit application to PromoSlot</h5>
-       <button class="btn btn-p btn-sm" ${formDone?"":"disabled"} onclick="vfSubmitBiz()">Submit application to PromoSlot</button>
-       <p class="mut" style="font-size:12px;margin-top:8px">${formDone?"By submitting, you confirm you're authorised to verify this business on PromoSlot's behalf and that everything Stripe checked is accurate.":"Unlocks once step 1 is complete."}</p>
-     </div>`,
-    `<button class="btn btn-o" onclick="closeModal()">Close</button>`),"wide");
+  if(!status.has_account){
+    openModal(vfShell("Get business verified",
+      "We verify your business through Stripe's own identity check — the same one used by businesses everywhere. PromoSlot never sees your documents; Stripe handles that directly and only ever tells us pass or fail, plus your verified legal name. The moment Stripe confirms it, this is submitted for PromoSlot review automatically — no extra step, and by continuing you confirm you're authorised to verify this business on PromoSlot's behalf.",
+      rejected+`<div class="det-sec"><h5>What Stripe checks</h5>
+        <div class="proof-item"><span class="pi-ico">🏢</span><div class="vf-body"><b>Legal business name &amp; registration</b><small>Whatever's on file for your business</small></div></div>
+        <div class="proof-item"><span class="pi-ico">🧑</span><div class="vf-body"><b>Representative identity</b><small>Whoever completes this on your business's behalf</small></div></div>
+      </div>`,
+      `<button class="btn btn-o" onclick="closeModal()">Not now</button>
+       <button class="btn btn-p" onclick="vfStartBizStripe()">Continue with Stripe</button>`)); return;
+  }
+  if(!status.verified_by_stripe){
+    openModal(vfShell("Finish verifying with Stripe",
+      status.requirements_due?"Stripe still needs a bit more information to finish this check.":"Stripe is reviewing what you've submitted — this can take a few minutes. Come back and reopen this once it's done; it'll submit for PromoSlot review on its own.",
+      rejected,
+      `<button class="btn btn-o" onclick="closeModal()">Close</button>
+       <button class="btn btn-p" onclick="vfStartBizStripe()">${status.requirements_due?"Continue with Stripe":"Refresh status"}</button>`)); return;
+  }
+  // Only reachable after a REJECTED prior attempt with Stripe still (or
+  // again) passing, or if the auto-submit call above genuinely failed —
+  // resubmitting is a real decision either way, so it stays an explicit click.
+  openModal(vfShell("Ready to resubmit",
+    `Stripe verified this business as <b>${esc(status.stripe_legal_name||"—")}</b>.`,
+    rejected,
+    `<button class="btn btn-o" onclick="closeModal()">Not now</button>
+     <button class="btn btn-p" onclick="vfSubmitBiz()">Submit application to PromoSlot</button>`));
 }
 async function vfStartBizStripe(){
   try{
@@ -3781,6 +3791,18 @@ async function vfRenderPlat(){
     openModal(vfShell("You're verified ✔","Your Verified badge now shows on every listing you have, and any new one you add.","",
       `<button class="btn btn-p" onclick="closeModal()">Close</button>`)); return;
   }
+  // One step, not two — same reasoning as vfRenderBiz above. The moment the
+  // payout account is genuinely ready, submit the identity gate for review
+  // automatically instead of leaving a manual "Submit identity check" click
+  // sitting there to be missed. Only on a fresh attempt — a rejected
+  // identity check still needs an explicit resubmit (vfIdentitySectionHtml's
+  // existing "connected but not submitted" branch handles that fallback).
+  if(connStatus.transfers_active && !reqs.platform_identity){
+    try{
+      await PSApi.post("/verification/platform/submit-identity",{});
+      return vfRenderPlat();
+    }catch(e){ /* falls through to the normal render below as a fallback */ }
+  }
   openModal(vfShell("Get verified",
     "Two separate checks, each confirmed by a real PromoSlot reviewer before your badge appears. No listing needed first — this verifies your account.",
     vfIdentitySectionHtml(reqs.platform_identity,connStatus)+vfOwnershipSectionHtml(reqs.platform_ownership),
@@ -3799,7 +3821,7 @@ function vfIdentitySectionHtml(req,connStatus){
     // dashboard. vfConnectPayouts() sets a one-shot resume flag so PSBoot
     // reopens this exact modal once Stripe sends them back, instead of
     // dropping them on the dashboard to go find "Get verified" again.
-    body+=`<p class="mut" style="font-size:13px">Uses the same Stripe account you set up for payouts.${connStatus.has_account?" Stripe still needs a bit more from you to finish it.":""}</p>
+    body+=`<p class="mut" style="font-size:13px">Uses the same Stripe account you set up for payouts.${connStatus.has_account?" Stripe still needs a bit more from you to finish it.":" Once it's ready, this is submitted for PromoSlot review automatically — no extra step, and by continuing you confirm this account is genuinely yours."}</p>
       <button class="btn btn-p btn-sm" onclick="vfConnectPayouts()">${connStatus.has_account?"Continue on Stripe":"Connect payout account"}</button>`;
   } else {
     body+=`<p class="mut" style="font-size:13px">Your Stripe payout account is ready — submit it as your identity check too.</p>
@@ -4606,6 +4628,15 @@ async function openDisputesQueue(){
    decide pattern as delivery review, so moving between the two admin queues
    feels like one system. See backend/routers/verification.py. */
 const VQ_LABELS={business_identity:"Business identity",platform_identity:"Platform identity",platform_ownership:"Platform ownership"};
+// Rob, 2026-08-28: "the 'No Stripe check on this request — evidence only'
+// can be cleaned up and highlighted to a green highlighted EVIDENCE and
+// purple highlighted STRIPE" — lets admins scan the queue at a glance
+// instead of reading a full sentence per row.
+function vqTypePill(r){
+  return r.stripe_legal_name
+    ? `<span class="status-pill" style="background:var(--acc-soft);color:var(--acc);border:1px solid var(--acc-border)">STRIPE</span>`
+    : `<span class="status-pill" style="background:var(--money-soft);color:var(--money);border:1px solid var(--money-border)">EVIDENCE</span>`;
+}
 async function openVerificationQueue(){
   if(!can("verification.view")){ toast("Admin access required"); return; }
   setRoute("verification-queue");
@@ -4619,8 +4650,8 @@ async function openVerificationQueue(){
     <div class="panel"><div class="panel-b">${list.length?list.map(r=>`
       <div class="deal-row" onclick="openVerificationDecision(${r.id})">
         <div class="pfp" style="background:var(--acc)">🛡️</div>
-        <div><div class="dr-t">${esc(VQ_LABELS[r.subject_type]||r.subject_type)} · owner #${r.business_id||r.platform_id||r.submitted_by}</div>
-          <div class="dr-s">${r.stripe_legal_name?"Stripe: "+esc(r.stripe_legal_name):"No Stripe check on this request — evidence only"}</div></div>
+        <div><div class="dr-t">${esc(VQ_LABELS[r.subject_type]||r.subject_type)} · ${esc(r.submitter_name||r.submitter_email||"owner #"+(r.business_id||r.platform_id||r.submitted_by))}</div>
+          <div class="dr-s">${vqTypePill(r)} ${r.stripe_legal_name?esc(r.stripe_legal_name):"Submitted evidence"}</div></div>
         <span class="status-pill st-review">Pending</span>
       </div>`).join("")
       :`<div class="empty-state"><div class="es-ico">🛡️</div><h4>Nothing to review</h4><p>Business and platform-owner verification submissions appear here.</p></div>`}</div></div>`;
@@ -4632,8 +4663,28 @@ async function openVerificationDecision(id){
     ? `<div class="det-sec"><h5>What they claim to provide</h5>${r.evidence_checklist.map(t=>`<div class="proof-item"><span class="pi-ico">✓</span>${esc(t)}</div>`).join("")}</div>` : "";
   const evidenceHtml=(r.evidence_files||[]).length
     ? `<div class="det-sec"><h5>Attached evidence</h5>${r.evidence_files.map((u,i)=>`<div class="proof-item got"><span class="pi-ico">📎</span><a href="${esc(u)}" target="_blank" rel="noopener">Evidence file ${i+1} →</a></div>`).join("")}</div>` : "";
-  openModal(`<div class="m-pad"><h3 class="m-title">${esc(VQ_LABELS[r.subject_type]||r.subject_type)}</h3>
-    <p class="m-sub">${r.stripe_legal_name?`Stripe verified legal name: <b>${esc(r.stripe_legal_name)}</b> — confirm this genuinely matches their PromoSlot profile before approving. A Stripe pass alone is never enough on its own.`:"No Stripe check on this request — review the evidence below on its own merits."}</p>
+  // Rob, 2026-08-28: "how does this prove any authority the user has over
+  // the business? all it gives me is the stripe legal name." Right — a
+  // Stripe pass alone only proves SOME real identity exists, never that
+  // it's THIS PromoSlot account. Showing what they claimed on PromoSlot
+  // right next to what Stripe verified is what actually makes "confirm
+  // this matches" a checkable thing instead of a rubber stamp.
+  const claimedHtml = r.subject_type==="business_identity"
+    ? `<div class="det-sec"><h5>Claimed on PromoSlot</h5>
+        <div class="proof-item"><span class="pi-ico">🏢</span><div class="vf-body"><b>${esc(r.claimed_company||"— no company name on file —")}</b><small>Business profile's declared company name</small></div></div>
+        <div class="proof-item"><span class="pi-ico">👤</span><div class="vf-body"><b>${esc(r.submitter_name||"—")}</b><small>${esc(r.submitter_email||"—")}</small></div></div>
+      </div>`
+    : r.subject_type==="platform_identity"
+    ? `<div class="det-sec"><h5>Claimed on PromoSlot</h5>
+        <div class="proof-item"><span class="pi-ico">👤</span><div class="vf-body"><b>${esc(r.submitter_name||"—")}</b><small>${esc(r.submitter_email||"—")}</small></div></div>
+        ${(r.claimed_platforms||[]).length?(r.claimed_platforms||[]).map(p=>`<div class="proof-item"><span class="pi-ico">📡</span><div class="vf-body"><b>${esc(p.name)}</b><small>${esc(p.platform_type||"")}${p.handle?" · "+esc(p.handle):""}</small></div></div>`).join(""):`<div class="proof-item"><span class="pi-ico">📡</span><div class="vf-body"><b>No listings yet</b><small>Verifying the account, not tied to a specific listing</small></div></div>`}
+      </div>`
+    : `<div class="det-sec"><h5>Submitted by</h5>
+        <div class="proof-item"><span class="pi-ico">👤</span><div class="vf-body"><b>${esc(r.submitter_name||"—")}</b><small>${esc(r.submitter_email||"—")}</small></div></div>
+      </div>`;
+  openModal(`<div class="m-pad"><h3 class="m-title">${esc(VQ_LABELS[r.subject_type]||r.subject_type)} ${vqTypePill(r)}</h3>
+    <p class="m-sub">${r.stripe_legal_name?`Stripe verified legal name: <b>${esc(r.stripe_legal_name)}</b> — compare this against what's claimed on PromoSlot below before approving. A Stripe pass alone is never enough on its own.`:"No Stripe check on this request — review the evidence below on its own merits."}</p>
+    ${claimedHtml}
     ${checklistHtml}${evidenceHtml}
     ${r.evidence_notes?`<div class="det-sec"><h5>Their notes</h5><p class="mut" style="font-size:13px">${esc(r.evidence_notes)}</p></div>`:""}
     <div class="frm" style="margin-top:12px"><div><label>Reason (required to reject, optional to approve)</label><textarea id="vq-reason" placeholder="Why this decision…"></textarea></div></div>

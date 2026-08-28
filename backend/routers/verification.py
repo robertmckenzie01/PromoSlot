@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
-from ..models import AccountVerificationRequest, Business, ConnectedAccount, User
+from ..models import AccountVerificationRequest, Business, ConnectedAccount, Platform, User
 from ..permissions import Perm
 from ..services import (business_capability_status_of, business_requirements_outstanding,
                         decide_verification, platform_owner_verified, stripe_legal_name_of,
@@ -93,6 +93,32 @@ def avr_dict(r: AccountVerificationRequest) -> dict:
         "reviewed_at": r.reviewed_at,
         "created_at": r.created_at,
     }
+
+
+def _submitter_context(db: Session, r: AccountVerificationRequest) -> dict:
+    """What the submitter claims ON PROMOSLOT, next to what Stripe verified —
+    Rob, 2026-08-28: 'how does this prove any authority the user has over the
+    business? all it gives me is the stripe legal name.' A Stripe pass alone
+    only proves a real identity exists somewhere; the reviewer's actual job
+    (see decide_verification's docstring) is judging whether THAT identity
+    matches THIS PromoSlot account. That's only checkable if both sides are
+    visible on the same screen, so this is queue/decision-only context, not
+    part of avr_dict (the submitter already knows their own info)."""
+    user = db.get(User, r.submitted_by)
+    ctx = {
+        "submitter_email": user.email if user else None,
+        "submitter_name": (user.display_name if user else None) or None,
+    }
+    if r.subject_type == "business_identity":
+        biz = db.get(Business, r.business_id) if r.business_id else None
+        ctx["claimed_company"] = biz.company if biz else None
+    elif r.subject_type in _PLATFORM_GATES_LOCAL:
+        listings = db.query(Platform).filter_by(owner_id=r.submitted_by).all()
+        ctx["claimed_platforms"] = [
+            {"name": p.name, "handle": p.handle, "platform_type": p.platform_type}
+            for p in listings
+        ]
+    return ctx
 
 
 # ---------------------------------------------------------------------------
@@ -339,7 +365,7 @@ def verification_queue(status: str = "pending",
     rows = (db.query(AccountVerificationRequest)
            .filter(AccountVerificationRequest.status == status)
            .order_by(AccountVerificationRequest.created_at.asc()).all())
-    return [avr_dict(r) for r in rows]
+    return [{**avr_dict(r), **_submitter_context(db, r)} for r in rows]
 
 
 class DecisionIn(BaseModel):
