@@ -3793,7 +3793,14 @@ function vfIdentitySectionHtml(req,connStatus){
   if(status==="approved") body+=`<p class="mut" style="font-size:13px">Confirmed via your Stripe payout account.</p>`;
   else if(status==="pending") body+=`<p class="mut" style="font-size:13px">Submitted — a PromoSlot reviewer will confirm this shortly.</p>`;
   else if(!connStatus.has_account || !connStatus.transfers_active){
-    body+=`<p class="mut" style="font-size:13px">Uses the same Stripe account you set up for payouts. ${connStatus.has_account?"Finish setting it up, then come back here.":"Set up your payout account from your dashboard first."}</p>`;
+    // Rob, 2026-08-28: this shouldn't feel like a separate errand — connecting
+    // Stripe payouts and verification are the same flow from here, so the
+    // button to do it lives right here instead of just pointing at the
+    // dashboard. vfConnectPayouts() sets a one-shot resume flag so PSBoot
+    // reopens this exact modal once Stripe sends them back, instead of
+    // dropping them on the dashboard to go find "Get verified" again.
+    body+=`<p class="mut" style="font-size:13px">Uses the same Stripe account you set up for payouts.${connStatus.has_account?" Stripe still needs a bit more from you to finish it.":""}</p>
+      <button class="btn btn-p btn-sm" onclick="vfConnectPayouts()">${connStatus.has_account?"Continue on Stripe":"Connect payout account"}</button>`;
   } else {
     body+=`<p class="mut" style="font-size:13px">Your Stripe payout account is ready — submit it as your identity check too.</p>
       <button class="btn btn-p btn-sm" onclick="vfSubmitPlatIdentity()">Submit identity check</button>`;
@@ -3803,6 +3810,21 @@ function vfIdentitySectionHtml(req,connStatus){
 async function vfSubmitPlatIdentity(){
   try{ await PSApi.post("/verification/platform/submit-identity",{}); toast("Identity check submitted ✓",true); await vfRenderPlat(); }
   catch(e){ toast(e.message||"Could not submit identity check"); }
+}
+// Same Stripe call as the dashboard's connectPayouts(), just also marking
+// that this was reached from the verify modal — see VERIFY_RESUME_KEY in
+// PSBoot, which reopens "Get verified" (instead of just the dashboard) once
+// Stripe redirects back, so this never feels like leaving to do an unrelated errand.
+async function vfConnectPayouts(){
+  try{ sessionStorage.setItem(VERIFY_RESUME_KEY,"plat"); }catch(e){}
+  try{
+    await PSApi.post("/connect/account");
+    const r=await PSApi.post("/connect/onboarding-link");
+    window.location.href=r.url;
+  }catch(err){
+    try{ sessionStorage.removeItem(VERIFY_RESUME_KEY); }catch(e){}
+    toast(err.message||"Could not start payout setup");
+  }
 }
 function vfOwnershipSectionHtml(req){
   const status=req?req.status:"none";
@@ -4131,7 +4153,8 @@ async function refreshPayoutStatus(){
   }else if(!s.onboarding_complete){
     el.innerHTML=`<div><span>Payout method</span><b style="color:var(--amber)">Setup in progress</b></div>${feeRow}
       ${s.requirements_due&&s.requirements_due.length?`<div><span>Stripe still needs</span><b style="text-align:right">${s.requirements_due.length} item${s.requirements_due.length===1?"":"s"}</b></div>`:""}
-      <div><span>Continue setup</span><button class="btn btn-p btn-sm" id="connectPayoutsBtn" onclick="connectPayouts()">Continue on Stripe</button></div>`;
+      <div><span>Continue setup</span><button class="btn btn-p btn-sm" id="connectPayoutsBtn" onclick="connectPayouts()">Continue on Stripe</button></div>
+      <p class="mut" style="font-size:12px;margin-top:2px">Stripe sometimes needs one more confirm screen after the main form — this is normal, just click Continue again if it still says in progress.</p>`;
   }else{
     el.innerHTML=`<div><span>Payout method</span><b style="color:var(--money)">Connected ✔</b></div>${feeRow}
       <div><span>Stripe account</span><b class="mut" style="text-align:right;font-size:12px">${esc(s.stripe_account_id||"")}</b></div>
@@ -6338,6 +6361,11 @@ const WIZARD_RESUME_KEY="ps_resume_wizard";
 // this is where the intended deal id waits until _resumeAfterAuth() can
 // pick it back up, same pattern as WIZARD_RESUME_KEY above.
 const DEAL_RESUME_KEY="ps_resume_deal";
+// Set by vfConnectPayouts() when "Connect payout account" is clicked from
+// inside the verify modal rather than the dashboard's own payout panel —
+// lets _connectReturn below reopen "Get verified" instead of just the
+// dashboard once Stripe sends them back, same resume pattern as above.
+const VERIFY_RESUME_KEY="ps_resume_verify";
 // Routes anyone may land on. Everything else needs a live session to restore.
 const PUBLIC_ROUTES=new Set(["home","market","how","pricing","protect","resources","about","terms","privacy","refund"]);
 let _routeReady=false;                 // don't record routes during restore
@@ -6564,8 +6592,17 @@ function PSBoot(){
     // _require_platform_owner), but if the session didn't come back at all,
     // or came back on a linked business identity instead, this quietly
     // does nothing and they land on the homepage same as before this change.
+    // VERIFY_RESUME_KEY: set only when this Connect trip started from inside
+    // the verify modal (vfConnectPayouts()) rather than the dashboard's own
+    // payout panel — reopen that modal instead of just the dashboard, so
+    // connecting Stripe and finishing verification reads as one flow, not
+    // two things they have to separately remember to do.
+    let _verifyResume=null;
+    try{ _verifyResume=sessionStorage.getItem(VERIFY_RESUME_KEY); sessionStorage.removeItem(VERIFY_RESUME_KEY); }catch(e){}
     _bootAuth = restoreSession().then(()=>{
-      if(S.account && S.account.is_platform_owner) openDash();
+      if(!(S.account && S.account.is_platform_owner)) return;
+      openDash();
+      if(_verifyResume==="plat") openVerify("plat");
     });
   } else if(_acctVerifyReturn){
     // Rob, 2026-08-28: landing on the dashboard and leaving it to them to
