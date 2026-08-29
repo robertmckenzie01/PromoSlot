@@ -123,6 +123,23 @@ def _submitter_context(db: Session, r: AccountVerificationRequest) -> dict:
             {"name": p.name, "handle": p.handle, "platform_type": p.platform_type}
             for p in listings
         ]
+        # stripe_legal_name/stripe_verified_at above are a snapshot taken at
+        # SUBMISSION time (see submit_platform_identity) — they can go stale
+        # if the owner's payout account changes state afterward (Stripe adds
+        # a requirement, they disconnect a bank account, etc). Admin needs
+        # the CURRENT connection state before granting a badge, not just what
+        # was true when the owner submitted. Reads our mirrored
+        # ConnectedAccount row (see services.sync_connected_account) — same
+        # cheap-list-read convention as routers/admin.py's
+        # _stripe_status_by_user, not a live Stripe call per queue row (a
+        # live re-check happens at real money-movement time, e.g.
+        # routers/review.py's _ready_connected_account; a verification
+        # decision doesn't move money, so the mirrored row is the right
+        # weight here).
+        conn = db.query(ConnectedAccount).filter_by(user_id=r.submitted_by).first()
+        ctx["stripe_connected"] = conn is not None
+        ctx["stripe_transfers_active"] = conn.transfers_active if conn else False
+        ctx["stripe_requirements_due"] = conn.requirements_due if conn else None
     return ctx
 
 

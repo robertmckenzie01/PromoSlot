@@ -5336,6 +5336,21 @@ function vqTypePill(r){
     ? `<span class="status-pill" style="background:var(--acc-soft);color:var(--acc);border:1px solid var(--acc-border)">STRIPE</span>`
     : `<span class="status-pill" style="background:var(--money-soft);color:var(--money);border:1px solid var(--money-border)">EVIDENCE</span>`;
 }
+// stripe_legal_name/stripe_verified_at (shown above, in the m-sub) are a
+// snapshot from when the owner SUBMITTED — this is the CURRENT state of
+// their payout account, read fresh off our mirrored ConnectedAccount row
+// each time the queue loads (see _submitter_context in
+// backend/routers/verification.py). Only present for platform_identity/
+// platform_ownership rows; undefined for business_identity, so this
+// renders nothing there.
+function vqStripeConnRow(r){
+  if(!("stripe_connected" in r)) return "";
+  if(!r.stripe_connected)
+    return `<div class="proof-item"><span class="pi-ico">⚠️</span><div class="vf-body"><b style="color:var(--red)">No payout account connected</b><small>They have no Stripe Connect account on file at all — the identity submission above shouldn't have been possible without one; treat as suspicious.</small></div></div>`;
+  if(!r.stripe_transfers_active)
+    return `<div class="proof-item"><span class="pi-ico">⚠️</span><div class="vf-body"><b style="color:var(--amber)">Payout account connected, but not active</b><small>Stripe still has outstanding requirements on this account${r.stripe_requirements_due?"":" (requirements_due cleared, transfers just haven't activated yet)"} — it may have gone stale since they submitted.</small></div></div>`;
+  return `<div class="proof-item got"><span class="pi-ico">✓</span><div class="vf-body"><b>Payout account connected &amp; active</b><small>Real Stripe Connect transfers are currently enabled for this account.</small></div></div>`;
+}
 async function openVerificationQueue(){
   if(!can("verification.view")){ toast("Admin access required"); return; }
   setRoute("verification-queue");
@@ -5350,7 +5365,7 @@ async function openVerificationQueue(){
       <div class="deal-row" onclick="openVerificationDecision(${r.id})">
         <div class="pfp" style="background:var(--acc)">🛡️</div>
         <div><div class="dr-t">${esc(VQ_LABELS[r.subject_type]||r.subject_type)} · ${esc(r.submitter_name||r.submitter_email||"owner #"+(r.business_id||r.platform_id||r.submitted_by))}</div>
-          <div class="dr-s">${vqTypePill(r)} ${r.stripe_legal_name?esc(r.stripe_legal_name):"Submitted evidence"}</div></div>
+          <div class="dr-s">${vqTypePill(r)} ${r.stripe_legal_name?esc(r.stripe_legal_name):"Submitted evidence"}${("stripe_connected" in r)?(r.stripe_transfers_active?" · 💳 payout active":r.stripe_connected?" · ⚠️ payout not active":" · ⚠️ no payout account"):""}</div></div>
         <span class="status-pill st-review">Pending</span>
       </div>`).join("")
       :`<div class="empty-state"><div class="es-ico">🛡️</div><h4>Nothing to review</h4><p>Business and platform-owner verification submissions appear here.</p></div>`}</div></div>`;
@@ -5377,6 +5392,7 @@ async function openVerificationDecision(id){
     ? `<div class="det-sec"><h5>Claimed on PromoSlot</h5>
         <div class="proof-item"><span class="pi-ico">👤</span><div class="vf-body"><b>${esc(r.submitter_name||"—")}</b><small>${esc(r.submitter_email||"—")}</small></div></div>
         ${(r.claimed_platforms||[]).length?(r.claimed_platforms||[]).map(p=>`<div class="proof-item"><span class="pi-ico">📡</span><div class="vf-body"><b>${esc(p.name)}</b><small>${esc(p.platform_type||"")}${p.handle?" · "+esc(p.handle):""}</small></div></div>`).join(""):`<div class="proof-item"><span class="pi-ico">📡</span><div class="vf-body"><b>No listings yet</b><small>Verifying the account, not tied to a specific listing</small></div></div>`}
+        ${vqStripeConnRow(r)}
       </div>`
     : `<div class="det-sec"><h5>Submitted by</h5>
         <div class="proof-item"><span class="pi-ico">👤</span><div class="vf-body"><b>${esc(r.submitter_name||"—")}</b><small>${esc(r.submitter_email||"—")}</small></div></div>
