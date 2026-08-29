@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 from . import audit, storage
 from .deal_state import can_transition
 from .models import (
-    AccountVerificationRequest, AffiliateProgram, Business, ConnectedAccount, Deal, DealStatus,
-    Dispute, DisputeEvent, Notification, Payment, Platform, Proof, Transfer, User, Verification,
+    AccountVerificationRequest, AffiliateCode, AffiliateConversion, AffiliateProgram, Business,
+    ConnectedAccount, Deal, DealStatus, Dispute, DisputeEvent, Notification, Payment, Platform,
+    Proof, Transfer, User, Verification,
 )
 from .permissions import Perm, ROLE_PERMISSIONS
 from .stripe_client import stripe
@@ -440,6 +441,87 @@ def mark_affiliate_program_funded_from_pi(db: Session, pi_id: str) -> Optional[A
     db.commit()
     db.refresh(program)
     return program
+
+
+def record_affiliate_conversion(db: Session, program: AffiliateProgram, code: AffiliateCode,
+                                sale_amount: int, source: str,
+                                external_order_ref: Optional[str] = None,
+                                occurred_at: Optional[datetime] = None) -> Optional[AffiliateConversion]:
+    """Create one tracked sale. This is the ONLY place an AffiliateConversion
+    is ever created — called only from a signature-verified store webhook or
+    the fallback tracking snippet (see routers/affiliate_tracking.py), never
+    with data the platform owner supplied themselves. That's what actually
+    makes "the platform owner can't lie about sales made" true structurally.
+
+    Idempotent on external_order_ref: a redelivered webhook for an order
+    already recorded returns the existing row instead of double-counting it.
+    Gated on program.status in ("live", "ended") rather than just "live" so
+    a sale reported during the post-campaign holding-period grace window
+    (before settlement runs — see models.AffiliateProgram's docstring) still
+    gets recorded, not silently dropped, once #208 starts moving programs to
+    "ended" at campaign_ends_at.
+    """
+    if program.status not in ("live", "ended"):
+        return None
+    if code.program_id != program.id or not code.active:
+        return None
+    if external_order_ref:
+        dup = db.query(AffiliateConversion).filter_by(
+            program_id=program.id, external_order_ref=external_order_ref).first()
+        if dup is not None:
+            return dup
+
+    if program.commission_type == "flat":
+        commission_amount = program.commission_rate
+    else:  # "pct" — commission_rate is percent*100 (e.g. 1250 = 12.50%)
+        commission_amount = (max(0, sale_amount) * program.commission_rate) // 10000
+    commission_amount = max(0, commission_amount)
+
+    conv = AffiliateConversion(
+        program_id=program.id, code_id=code.id, external_order_ref=external_order_ref,
+        sale_amount=max(0, sale_amount), commission_amount=commission_amount,
+        source=source, occurred_at=occurred_at or datetime.utcnow(),
+    )
+    db.add(conv)
+    # Running display total only — capped so the browse page never shows
+    # negative remaining budget. The authoritative accounting for what's
+    # actually owed happens at settlement (#208), directly from conversion
+    # rows, not from this running number.
+    program.pool_committed_amount = min(program.pool_max_budget,
+                                        program.pool_committed_amount + commission_amount)
+
+    db.add(Notification(
+        user_id=program.business_id, type="affiliate_conversion",
+        body=f"New tracked sale on {program.name} — code {code.code}.",
+        ref=f"affiliate_manage:{program.id}",
+    ))
+    db.add(Notification(
+        user_id=code.platform_owner_id, type="affiliate_conversion",
+        body=f"You just earned a commission on {program.name} — nice work!",
+        ref="affiliate_codes",
+    ))
+    db.commit()
+    db.refresh(conv)
+    return conv
+
+
+def reverse_affiliate_conversion(db: Session, program: AffiliateProgram,
+                                 external_order_ref: str, reason: str) -> Optional[AffiliateConversion]:
+    """A refund/cancellation reported by the store. Excludes the sale from
+    settlement entirely (same treatment as a reversed order on any Deal) and
+    gives the pool budget back. Idempotent — reversing an order twice, or an
+    order that was never recorded, is a safe no-op."""
+    conv = db.query(AffiliateConversion).filter_by(
+        program_id=program.id, external_order_ref=external_order_ref, status="pending").first()
+    if conv is None:
+        return None
+    conv.status = "reversed"
+    conv.reversed_reason = reason
+    conv.reversed_at = datetime.utcnow()
+    program.pool_committed_amount = max(0, program.pool_committed_amount - conv.commission_amount)
+    db.commit()
+    db.refresh(conv)
+    return conv
 
 
 def verify_delivery(db: Session, deal: Deal, reviewer: User, decision: str,

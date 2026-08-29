@@ -22,6 +22,13 @@ cookies to forge and their own signature verification (see webhooks.py /
 inbound.py) — and /marketing/cron/* for the same reason: it's called by an
 external scheduler with no browser/cookies involved at all, authenticated
 instead by a shared secret (see routers/marketing.py's cron_send_campaign).
+/affiliate/webhooks/* is the same shape as /webhooks/* — server-to-server
+calls from Shopify/WooCommerce, HMAC-signature-verified in
+affiliate_tracking.py, never a browser with a PromoSlot session cookie to
+forge. /affiliate/track/snippet/* is a public, unauthenticated endpoint
+called from a THIRD-PARTY store's checkout page (Squarespace/Wix/custom),
+never from a PromoSlot session — it has no PromoSlot cookie to double-submit
+in the first place, so this check could never pass for it regardless.
 """
 import secrets
 
@@ -34,7 +41,8 @@ from .config import settings
 CSRF_COOKIE = "ps_csrf"
 CSRF_HEADER = "x-csrf-token"
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-_EXEMPT_PREFIXES = ("/webhooks/", "/marketing/cron/")
+_EXEMPT_PREFIXES = ("/webhooks/", "/marketing/cron/",
+                    "/affiliate/webhooks/", "/affiliate/track/")
 _COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days — matches the session cookie's lifetime
 
 

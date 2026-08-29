@@ -1,0 +1,222 @@
+"""Affiliate marketplace: conversion tracking ingestion.
+
+This is the piece that actually makes a tracked sale real, per Rob's spec
+(models.py's AffiliateProgram docstring): "These sales also have to be
+reported back to promoslot as soon as possible after they occur." A
+conversion is only ever created by services.record_affiliate_conversion,
+which is only ever called from here — never from anything the platform
+owner submits about their own sales.
+
+Two trust tiers, matching the host capability split already established in
+routers/affiliate.py's WEBHOOK_CAPABLE_HOSTS:
+
+  - Shopify / WooCommerce: a real signed server-to-server order webhook.
+    Each program gets its own webhook_secret (generated in
+    affiliate.confirm_tracking) and its own URL — the business pastes that
+    URL + secret into their store's webhook settings. Every request is
+    HMAC-SHA256-verified against the raw body before anything is trusted.
+    This is the strong path: PromoSlot never has to take the store's word
+    for it without a shared secret behind it.
+
+  - Squarespace / Wix / custom (anything without a native signed
+    server-to-server webhook we can hook into): a client-side tracking
+    snippet posts here instead. There is no secret a static client script
+    can hold safely, so this path is NOT signature-verified and is
+    correspondingly weaker — documented as such rather than pretended
+    otherwise. Kept narrow (program must be live, code must be real and
+    active, and a webhook-capable host is refused this path entirely) to
+    limit the blast radius, and every conversion it creates is tagged
+    source="snippet" so dashboards (#207) can visibly distinguish it from
+    signature-verified webhook conversions.
+
+  Note: the actual affiliate.js client script that Squarespace/Wix pages
+  would load (reading the page's order total/discount code and POSTing to
+  the snippet endpoint below) is NOT built here — writing host-specific
+  DOM-scraping JS with no real Squarespace/Wix checkout page to test
+  against would risk shipping something that looks done but silently
+  doesn't work. The ingestion endpoint it would call is real and tested;
+  the snippet itself is flagged as a follow-up (see task backlog).
+"""
+import hashlib
+import hmac
+import json
+import base64
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from ..db import get_db
+from ..models import AffiliateCode, AffiliateProgram
+from ..services import record_affiliate_conversion, reverse_affiliate_conversion
+from .affiliate import WEBHOOK_CAPABLE_HOSTS
+
+router = APIRouter(prefix="/affiliate", tags=["affiliate"])
+
+
+def _verify_hmac_b64(secret: Optional[str], raw_body: bytes, signature: Optional[str]) -> bool:
+    """Shopify (X-Shopify-Hmac-Sha256) and WooCommerce (X-Wc-Webhook-Signature)
+    use the same scheme: base64(HMAC-SHA256(raw_body, shared_secret))."""
+    if not secret or not signature:
+        return False
+    digest = hmac.new(secret.encode(), raw_body, hashlib.sha256).digest()
+    expected = base64.b64encode(digest).decode()
+    return hmac.compare_digest(expected, signature)
+
+
+def _pence_from_decimal_str(value) -> int:
+    """Shopify/WooCommerce report totals as decimal strings like "38.00"."""
+    try:
+        return max(0, round(float(value) * 100))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _find_active_code(db: Session, program_id: int, raw_code: Optional[str]) -> Optional[AffiliateCode]:
+    """Case-insensitive match — store checkouts and admin panels aren't
+    consistent about how they echo back a discount code's casing."""
+    if not raw_code:
+        return None
+    norm = raw_code.strip().upper()
+    if not norm:
+        return None
+    for c in db.query(AffiliateCode).filter_by(program_id=program_id, active=True).all():
+        if c.code.strip().upper() == norm:
+            return c
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Shopify — signed server-to-server order webhooks
+# ---------------------------------------------------------------------------
+
+_SHOPIFY_SALE_TOPICS = ("orders/create", "orders/paid")
+_SHOPIFY_REVERSAL_TOPICS = ("orders/cancelled", "refunds/create")
+
+
+@router.post("/webhooks/shopify/{program_id}")
+async def shopify_webhook(program_id: int, request: Request, db: Session = Depends(get_db)):
+    program = db.get(AffiliateProgram, program_id)
+    if program is None or program.host != "shopify" or not program.webhook_secret:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    raw = await request.body()
+    if not _verify_hmac_b64(program.webhook_secret, raw, request.headers.get("x-shopify-hmac-sha256")):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+
+    topic = request.headers.get("x-shopify-topic", "")
+
+    if topic in _SHOPIFY_REVERSAL_TOPICS:
+        order_id = payload.get("order_id") or payload.get("id")
+        if order_id is None:
+            return {"received": True, "handled": False}
+        reverse_affiliate_conversion(db, program, f"shopify:{order_id}", reason=topic)
+        return {"received": True, "handled": True}
+
+    if topic not in _SHOPIFY_SALE_TOPICS:
+        return {"received": True, "handled": False}
+
+    code = None
+    for dc in (payload.get("discount_codes") or []):
+        code = _find_active_code(db, program.id, dc.get("code"))
+        if code:
+            break
+    if code is None:
+        return {"received": True, "handled": False}  # a real order, just not an affiliate one
+
+    order_id = payload.get("id")
+    sale_amount = _pence_from_decimal_str(payload.get("current_total_price") or payload.get("total_price"))
+    conv = record_affiliate_conversion(
+        db, program, code, sale_amount, source="webhook",
+        external_order_ref=f"shopify:{order_id}" if order_id is not None else None,
+    )
+    return {"received": True, "handled": conv is not None}
+
+
+# ---------------------------------------------------------------------------
+# WooCommerce — signed server-to-server order webhooks
+# ---------------------------------------------------------------------------
+
+_WOO_SALE_STATUSES = ("processing", "completed")
+_WOO_REVERSAL_STATUSES = ("refunded", "cancelled", "failed")
+
+
+@router.post("/webhooks/woo/{program_id}")
+async def woo_webhook(program_id: int, request: Request, db: Session = Depends(get_db)):
+    program = db.get(AffiliateProgram, program_id)
+    if program is None or program.host != "woo" or not program.webhook_secret:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    raw = await request.body()
+    if not _verify_hmac_b64(program.webhook_secret, raw, request.headers.get("x-wc-webhook-signature")):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+
+    order_id = payload.get("id")
+    ref = f"woo:{order_id}" if order_id is not None else None
+    status_ = (payload.get("status") or "").lower()
+
+    if status_ in _WOO_REVERSAL_STATUSES:
+        if ref:
+            reverse_affiliate_conversion(db, program, ref, reason=status_)
+        return {"received": True, "handled": ref is not None}
+
+    if status_ not in _WOO_SALE_STATUSES:
+        return {"received": True, "handled": False}
+
+    code = None
+    for cl in (payload.get("coupon_lines") or []):
+        code = _find_active_code(db, program.id, cl.get("code"))
+        if code:
+            break
+    if code is None:
+        return {"received": True, "handled": False}
+
+    sale_amount = _pence_from_decimal_str(payload.get("total"))
+    conv = record_affiliate_conversion(db, program, code, sale_amount, source="webhook", external_order_ref=ref)
+    return {"received": True, "handled": conv is not None}
+
+
+# ---------------------------------------------------------------------------
+# Fallback tracking snippet — Squarespace / Wix / custom
+# ---------------------------------------------------------------------------
+
+class SnippetIn(BaseModel):
+    code: str = Field(min_length=1, max_length=64)
+    amount: int = Field(ge=0)   # pence, as reported by the page
+    order_ref: Optional[str] = None
+
+
+@router.post("/track/snippet/{program_id}")
+def snippet_track(program_id: int, body: SnippetIn, db: Session = Depends(get_db)):
+    """Unsigned — see module docstring for why, and for why this is
+    deliberately the narrower, weaker path. Anyone who can reach this URL
+    can technically post a fake conversion; there's no shared secret a
+    public client-side script can hold. Restricted to hosts that actually
+    need it so a shopify/woo program can't be spoofed through here instead
+    of its real signed webhook."""
+    program = db.get(AffiliateProgram, program_id)
+    if program is None or program.status not in ("live", "ended"):
+        raise HTTPException(status_code=404, detail="Program not found or not live")
+    if program.host in WEBHOOK_CAPABLE_HOSTS:
+        raise HTTPException(status_code=409, detail="This program tracks via signed webhook, not the snippet")
+
+    code = _find_active_code(db, program.id, body.code)
+    if code is None:
+        raise HTTPException(status_code=404, detail="Code not recognized for this program")
+
+    conv = record_affiliate_conversion(
+        db, program, code, body.amount, source="snippet", external_order_ref=body.order_ref,
+    )
+    return {"received": True, "handled": conv is not None}

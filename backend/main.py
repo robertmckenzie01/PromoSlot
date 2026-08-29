@@ -14,9 +14,9 @@ from .assets import render_404, render_index
 from .config import settings
 from .csrf import CSRFMiddleware
 from .routers import (
-    admin, affiliate, auth, businesses, campaigns, connect, deals, disputes, health, marketing,
-    messages, notifications, inbound, platforms, profiles, proofs, review, reviews, support,
-    verification, webhooks,
+    admin, affiliate, affiliate_tracking, auth, businesses, campaigns, connect, deals, disputes,
+    health, marketing, messages, notifications, inbound, platforms, profiles, proofs, review,
+    reviews, support, verification, webhooks,
 )
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
@@ -143,6 +143,7 @@ app.include_router(disputes.router)
 app.include_router(businesses.router)
 app.include_router(verification.router)
 app.include_router(affiliate.router)
+app.include_router(affiliate_tracking.router)
 
 
 @app.get("/api", tags=["root"])
