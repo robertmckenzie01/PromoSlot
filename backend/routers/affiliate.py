@@ -44,7 +44,9 @@ from ..deps import RequirePerm, get_current_user
 from ..models import (AffiliateApplication, AffiliateCode, AffiliateConversion, AffiliateProgram,
                       AffiliateTopUp, ConnectedAccount, Notification, User)
 from ..permissions import Perm, is_super_admin
-from ..services import affiliate_settlement_for, deal_money, onboarding_complete, settle_affiliate_program, sync_connected_account
+from ..services import (affiliate_settlement_for, deal_money, mark_affiliate_program_funded_from_pi,
+                        mark_affiliate_topup_funded_from_pi, onboarding_complete,
+                        settle_affiliate_program, sync_connected_account)
 from ..stripe_client import client, stripe
 from ..config import settings
 
@@ -264,6 +266,21 @@ def fund_program(program_id: int, user: User = Depends(get_current_user), db: Se
     }
 
 
+@router.post("/programs/{program_id}/refresh")
+def refresh_program_funding(program_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Reconcile funding with Stripe right after a client-side confirmation —
+    same shape as POST /deals/{id}/refresh. In production the
+    payment_intent.succeeded webhook marks the program funded; this is the
+    same real re-verification (retrieve the PaymentIntent; fund only if
+    status == 'succeeded') triggered from the client, also a robust
+    fallback if a webhook is delayed. Never simulates funding."""
+    p = _my_program(db, program_id, user)
+    if p.payment_intent_id and p.status == "awaiting_funding":
+        mark_affiliate_program_funded_from_pi(db, p.payment_intent_id)
+        db.refresh(p)
+    return program_dict(db, p)
+
+
 def topup_dict(t: AffiliateTopUp) -> dict:
     return {
         "id": t.id, "program_id": t.program_id, "amount": t.amount,
@@ -328,6 +345,19 @@ def program_topups(program_id: int, user: User = Depends(get_current_user), db: 
     rows = (db.query(AffiliateTopUp).filter_by(program_id=p.id)
            .order_by(AffiliateTopUp.created_at.desc()).all())
     return [topup_dict(t) for t in rows]
+
+
+@router.post("/topups/{topup_id}/refresh")
+def refresh_topup_funding(topup_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Same reconciliation shape as /programs/{id}/refresh, for a top-up."""
+    t = db.get(AffiliateTopUp, topup_id)
+    if t is None:
+        raise HTTPException(status_code=404, detail="Top-up not found")
+    _my_program(db, t.program_id, user)  # cross-tenant guard
+    if t.payment_intent_id and t.status == "pending":
+        mark_affiliate_topup_funded_from_pi(db, t.payment_intent_id)
+        db.refresh(t)
+    return topup_dict(t)
 
 
 class TrackingIn(BaseModel):
