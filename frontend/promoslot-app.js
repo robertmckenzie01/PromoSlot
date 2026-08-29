@@ -3680,7 +3680,7 @@ function vfShell(title, sub, body, actions){
 function vfStatusPill(status){
   if(status==="approved") return `<span class="status-pill st-live">Verified</span>`;
   if(status==="pending") return `<span class="status-pill st-review">Pending review</span>`;
-  if(status==="rejected") return `<span class="status-pill st-dispute">Needs another look</span>`;
+  if(status==="rejected") return `<span class="status-pill st-dispute">Action needed</span>`;
   return `<span class="status-pill st-draft">Not started</span>`;
 }
 // Rob, 2026-08-28 (verbatim): "on both the dashboard and my account page
@@ -3706,7 +3706,7 @@ function vfPlatStatus(){
 }
 function vfStatusBtnHtml(kind){
   const status=kind==="biz"?vfBizStatus():vfPlatStatus();
-  const label={approved:"Verified ✔",pending:"Pending review",rejected:"Needs another look"}[status]||"Get verified";
+  const label={approved:"Verified ✔",pending:"Pending review",rejected:"Action needed"}[status]||"Get verified";
   return `<button class="btn btn-o btn-sm" onclick="openVerify('${kind}')">${label}</button>`;
 }
 function vfRejectedNotice(req){
