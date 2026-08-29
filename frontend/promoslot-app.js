@@ -1384,7 +1384,7 @@ function matchCamp(c){
 function listingCard(l,i,owned){
   return `<article class="lcard${l.example?" example-card":""}" style="--d:${(i||0)*40}ms" onclick="openListing('${l.id}')" tabindex="0" onkeydown="if(event.key==='Enter')openListing('${l.id}')">
     <div class="lcard-top">${exWrap(pfp(l.name,l.platform,"",l.ownerAvatar),l.example)}
-      <div class="who"><h4>${esc(l.name)} ${l.verified?'<span class="vtick" title="Verified analytics">✔︎</span>':""}</h4><div class="handle">${esc(l.handle)} · by ${esc(l.brand)}</div></div>
+      <div class="who"><h4>${esc(l.name)} ${l.verified?'<span class="vtick">✔︎ Verified</span>':""}</h4><div class="handle">${esc(l.handle)} · by ${esc(l.brand)}</div></div>
       ${pbadge(l.platform)}</div>
     <div class="tagrow">${l.niches.map(n=>`<span class="tag">${esc(n)}</span>`).join("")}${payTypesOf(l).slice(0,3).map(p=>`<span class="tag ind">${esc(p)}</span>`).join("")}</div>
     <div class="statrow">
@@ -3892,6 +3892,28 @@ function vfBizSubmittedSummaryHtml(req){
     </details>
   </div>`;
 }
+// Rob, 2026-08-29 (verbatim): "when both are fully reviewed and verified,
+// this should all go away... a simple you have been verified message is
+// sufficient... The reason I want this changed is because we say we
+// remove all evidence after verification is submitted so having their
+// evidence and everything else on their account even is too contractual
+// and needs removal." Once fully approved, this replaces the checklist
+// detail (My Account) — nothing left to review, so nothing left to show.
+function vfVerifiedNoticeHtml(roleLabel){
+  return `<div class="det-sec" style="margin-top:14px;text-align:center;padding:16px 8px">
+    <div style="font-size:26px;line-height:1">🎉</div>
+    <p style="font-size:14px;font-weight:600;margin:8px 0 4px">You're verified — congratulations!</p>
+    <p class="mut" style="font-size:13px;margin:0 auto;max-width:420px">You're now a verified ${esc(roleLabel)} on PromoSlot. ${vfBadgeTipText()}</p>
+  </div>`;
+}
+// Shared wording so the dashboard's short tip and My Account's fuller
+// congrats message never say this differently.
+function vfBadgeTipText(){
+  return "You'll see a Verified badge on your public profile, and on any listing or campaign you post from now on.";
+}
+function vfBadgeTipRowHtml(){
+  return `<div><small class="mut" style="font-size:11.5px">${vfBadgeTipText()}</small></div>`;
+}
 
 async function vfRenderPlat(){
   // Account-level — no listing required (Rob, 2026-08-27: identity + ownership
@@ -4222,6 +4244,7 @@ function renderBizDash(){
           <div><span>Budget</span><b>${gbp(b.budget)}</b></div>
           <div><span>Payment methods</span><b style="text-align:right">${b.payMethods.join(" · ")}</b></div>
           <div><span>Verification</span>${vfStatusBtnHtml("biz")}</div>
+          ${S.biz.verified?vfBadgeTipRowHtml():""}
         </div></div>
       <div class="panel"><div class="panel-h"><h4>Suggested for you</h4></div><div class="panel-b">
         ${allListings().filter(l=>l.ownerId!=="you"&&(b.platforms.includes(l.platform))).slice(0,3).map(l=>`<div class="op-row" style="margin-bottom:8px" onclick="openListing('${l.id}')">${pfp(l.name,l.platform)}<div><b>${esc(l.name)}</b><small>${l.platform} · ${fmtN(l.audience)}${priceFrom(l)?" · from "+gbp(priceFrom(l)):""}</small></div><span class="op-go">View →</span></div>`).join("")}
@@ -4263,6 +4286,7 @@ function renderPlatDash(){
       <div class="panel"><div class="panel-h"><h4>Verification</h4></div><div class="panel-b mini-rows">
         <div><span>Analytics evidence</span><b>${S.platVerified?'<span style="color:var(--money)">Verified ✔</span>':"Self-reported"}</b></div>
         <div><span>Verified listings win more deals</span>${vfStatusBtnHtml("plat")}</div>
+        ${S.platVerified?vfBadgeTipRowHtml():""}
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Payout settings</h4></div><div class="panel-b mini-rows" id="payoutPanel">
         <div><span>Payout method</span><b class="mut">Checking…</b></div>
@@ -5939,16 +5963,22 @@ function verifyPanelHtml(a){
   let bizDetail="";
   if(isBiz && S.bizVerifyReq){
     const st=S.bizVerifyReq.status;
-    if(st==="rejected") bizDetail+=vfRejectedNotice(S.bizVerifyReq);
-    if(st==="pending"||st==="rejected"||st==="approved") bizDetail+=vfBizSubmittedSummaryHtml(S.bizVerifyReq);
+    if(st==="approved") bizDetail+=vfVerifiedNoticeHtml("business");
+    else{
+      if(st==="rejected") bizDetail+=vfRejectedNotice(S.bizVerifyReq);
+      if(st==="pending"||st==="rejected") bizDetail+=vfBizSubmittedSummaryHtml(S.bizVerifyReq);
+    }
   }
   let platDetail="";
   if(isPlat){
     const r=S.platVerifyReqs||{};
-    if(r.platform_identity && (r.platform_identity.status==="pending"||r.platform_identity.status==="approved"))
-      platDetail+=vfIdentitySectionHtml(r.platform_identity,{});
-    if(r.platform_ownership && (r.platform_ownership.status==="pending"||r.platform_ownership.status==="approved"))
-      platDetail+=vfOwnershipSectionHtml(r.platform_ownership);
+    if(S.platVerified) platDetail+=vfVerifiedNoticeHtml("platform owner");
+    else{
+      if(r.platform_identity && (r.platform_identity.status==="pending"||r.platform_identity.status==="approved"))
+        platDetail+=vfIdentitySectionHtml(r.platform_identity,{});
+      if(r.platform_ownership && (r.platform_ownership.status==="pending"||r.platform_ownership.status==="approved"))
+        platDetail+=vfOwnershipSectionHtml(r.platform_ownership);
+    }
   }
   return `<h3>Verification</h3>
     <p>A Verified ✔ badge shows on your listings and profile once a PromoSlot reviewer confirms your identity.</p>
