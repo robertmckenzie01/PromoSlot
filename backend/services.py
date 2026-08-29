@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from . import audit, storage
 from .deal_state import can_transition
 from .models import (
-    AccountVerificationRequest, Business, ConnectedAccount, Deal, DealStatus, Dispute,
-    DisputeEvent, Notification, Payment, Platform, Proof, Transfer, User, Verification,
+    AccountVerificationRequest, AffiliateProgram, Business, ConnectedAccount, Deal, DealStatus,
+    Dispute, DisputeEvent, Notification, Payment, Platform, Proof, Transfer, User, Verification,
 )
 from .permissions import Perm, ROLE_PERMISSIONS
 from .stripe_client import stripe
@@ -404,6 +404,42 @@ def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
     db.commit()
     db.refresh(deal)
     return deal
+
+
+def mark_affiliate_program_funded_from_pi(db: Session, pi_id: str) -> Optional[AffiliateProgram]:
+    """Mark an affiliate program's pool funded — ONLY if Stripe confirms the
+    PaymentIntent succeeded. Same shape as mark_deal_funded_from_pi above,
+    called from the same payment_intent.succeeded webhook (a PaymentIntent
+    id is only ever tied to ONE of a Deal or an AffiliateProgram, never
+    both, so the dispatcher tries this as the fallback when no Deal
+    matches). Deliberately does NOT set campaign_starts_at/ends_at here —
+    the campaign clock only starts once tracking is confirmed and the
+    program goes live (see routers/affiliate.py's confirm_tracking), not
+    at funding, so a business doesn't lose campaign days to their own
+    checkout-setup time.
+    """
+    program = db.query(AffiliateProgram).filter_by(payment_intent_id=pi_id).first()
+    if program is None or program.status != "awaiting_funding":
+        return program
+
+    try:
+        pi = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        return program
+    if getattr(pi, "status", None) != "succeeded":
+        return program  # gate: real success only
+
+    program.status = "funded"
+    program.charge_id = getattr(pi, "latest_charge", None)
+
+    db.add(Notification(
+        user_id=program.business_id, type="affiliate_funded",
+        body=f"{program.name}'s pool is funded — connect your checkout tracking to go live.",
+        ref=f"affiliate_manage:{program.id}",
+    ))
+    db.commit()
+    db.refresh(program)
+    return program
 
 
 def verify_delivery(db: Session, deal: Deal, reviewer: User, decision: str,

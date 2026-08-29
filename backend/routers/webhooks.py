@@ -16,8 +16,9 @@ from ..db import get_db
 from ..models import Deal, DealStatus, WebhookEvent
 from ..services import (close_dispute_from_event, confirm_refund_from_charge,
                         handle_payout_event, handle_transfer_reversed,
-                        mark_deal_funded_from_pi, open_dispute_from_event,
-                        record_dispute_funds_event, update_dispute_from_event)
+                        mark_affiliate_program_funded_from_pi, mark_deal_funded_from_pi,
+                        open_dispute_from_event, record_dispute_funds_event,
+                        update_dispute_from_event)
 from ..stripe_client import stripe
 
 router = APIRouter(tags=["webhooks"])
@@ -63,10 +64,16 @@ def _dispatch(event, db) -> str:
     """
     etype = event["type"]
     if etype == "payment_intent.succeeded":
-        deal = mark_deal_funded_from_pi(db, event["data"]["object"]["id"])
-        if deal is None:
-            return IGNORED  # PaymentIntent not tied to any PromoSlot deal
-        return APPLIED if deal.funded_at is not None else RETRY
+        pi_id = event["data"]["object"]["id"]
+        deal = mark_deal_funded_from_pi(db, pi_id)
+        if deal is not None:
+            return APPLIED if deal.funded_at is not None else RETRY
+        # Not a deal's PaymentIntent — try the other thing a PaymentIntent
+        # can fund on PromoSlot before giving up as IGNORED.
+        program = mark_affiliate_program_funded_from_pi(db, pi_id)
+        if program is None:
+            return IGNORED  # PaymentIntent not tied to any PromoSlot deal or program
+        return APPLIED if program.status == "funded" else RETRY
     if etype == "charge.refunded":
         deal = confirm_refund_from_charge(db, event["data"]["object"]["id"])
         if deal is None:
