@@ -936,3 +936,200 @@ class Message(Base):
     body = Column(Text, nullable=False)
     read = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Affiliate marketplace — a PromoSlot-run, pool-funded affiliate program.
+#
+# Rob, 2026-08-29 (verbatim, the actual product spec this was built from):
+#   "A platform owner ... should be able to click on a business. Apply for
+#   affiliate program ... before a business will accept the application,
+#   they will add on their website a custom discount code for the platform
+#   owner applying, which will then be given to them after the business
+#   goes back to promoslot and accepts their application ... This discount
+#   code has to have the ability to track (through all websites) every sale
+#   that is made using that specific discount code. These sales also have
+#   to be reported back to promoslot as soon as possible after they occur.
+#   Once they are reported the admin(s), business, and [platform owner] can
+#   all see these records on their own separate dashboards. By the end of
+#   the affiliate campaign, the money will be released to the platform
+#   owner on how many sales they have made with promoslot taking a cut in
+#   specifically that from both ends ... whatever the business owner
+#   receives back (if budget is not fully used) should not be 'fee'd'."
+#
+# Four tables, deliberately separate rather than bolted onto Deal:
+#   AffiliateProgram    — the business's pool-funded program itself.
+#   AffiliateApplication — a platform owner's request to join. Pending until
+#                          the business reviews it (never auto-approved).
+#   AffiliateCode        — issued ONLY on approval, and the code string is
+#                          always the REAL one the business created on their
+#                          own store — PromoSlot never invents a code that
+#                          might not actually exist at their checkout.
+#   AffiliateConversion  — one tracked sale. Only ever created by a real
+#                          webhook (Shopify/WooCommerce order events,
+#                          signature-verified) or the fallback tracking
+#                          snippet — never self-reported by the platform
+#                          owner, which is what actually satisfies "the
+#                          platform owner not being able to lie about the
+#                          sales made."
+#
+# Settlement is once-at-campaign-end (same shape as Deal's per_view/
+# per_impression pool settlement — see services.pool_settlement_for), not a
+# continuous per-conversion payout: campaign_ends_at + holding_period_days
+# is when a reviewer/job can finally run one settlement per platform owner
+# against the shared pool. See services.py for that logic once it exists.
+# ---------------------------------------------------------------------------
+
+class AffiliateProgram(Base):
+    __tablename__ = "affiliate_programs"
+    id = Column(Integer, primary_key=True)
+    business_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    category = Column(String)
+
+    # "flat" -> commission_rate is whole pence per verified sale.
+    # "pct"  -> commission_rate is percent * 100 (e.g. 1250 = 12.50%), so it
+    #           never needs a float column for a fractional percentage.
+    commission_type = Column(String, nullable=False)
+    commission_rate = Column(Integer, nullable=False)
+
+    # Same dual-fee shape as every other deal on PromoSlot (see Deal above):
+    # funding_fee is charged to the business, on top, when the pool is
+    # funded; payout_fee is taken from each platform owner's earned
+    # commission at settlement. Defaults match Deal's seller/buyer fee.
+    funding_fee_percent = Column(Integer, default=5, nullable=False)
+    payout_fee_percent = Column(Integer, default=10, nullable=False)
+
+    # Grace window AFTER campaign_ends_at before settlement runs — catches
+    # late refunds/reversals. Not a per-sale timer (that was the earlier
+    # mockup's design; Rob's actual spec settles once at campaign end).
+    holding_period_days = Column(Integer, nullable=False, default=14)
+
+    currency = Column(String, default="gbp", nullable=False)
+    pool_max_budget = Column(Integer, nullable=False)   # pence, principal only (excludes funding_fee)
+    # Running total of commission owed against conversions recorded so far,
+    # capped at pool_max_budget — lets the browse page show real remaining
+    # budget without waiting for final settlement. Never itself paid out;
+    # only the final settlement moves real money (see pool_released_amount).
+    pool_committed_amount = Column(Integer, default=0, nullable=False)
+    # Set exactly once, at settlement. released = total paid to platform
+    # owners (fee taken on this slice only); refunded = returned to the
+    # business fee-free. released + refunded should always equal
+    # pool_max_budget once settled.
+    pool_released_amount = Column(Integer)
+    pool_refunded_amount = Column(Integer)
+    pool_settled_at = Column(DateTime)
+
+    # Selectable campaign window, same pattern as Deal.campaign_duration_days
+    # above: collected as "runs for N days" at creation; the real
+    # starts_at/ends_at are only ever computed from when funding actually
+    # succeeds, never optimistically at creation time.
+    campaign_duration_days = Column(Integer, nullable=False)
+    campaign_starts_at = Column(DateTime)
+    campaign_ends_at = Column(DateTime)
+
+    # Tracking setup — host is one of shopify|woo|squarespace|wix|custom.
+    # tracking_confirmed_at is set when the business has completed hookup
+    # (a real webhook registration for shopify/woo, or an explicit "I've
+    # added this to my site" confirmation for the snippet-based hosts) —
+    # the program cannot go live before this is set.
+    host = Column(String)
+    tracking_confirmed_at = Column(DateTime)
+    webhook_secret = Column(String)   # per-program shared secret for verifying inbound Shopify/WooCommerce webhook signatures
+
+    # draft -> awaiting_funding -> live -> ended -> settled -> closed
+    status = Column(String, default="draft", nullable=False, index=True)
+
+    payment_intent_id = Column(String, index=True)
+    charge_id = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    business = relationship("User", foreign_keys=[business_id])
+
+
+class AffiliateApplication(Base):
+    """A platform owner's request to join. Never auto-approved — see the
+    module note above on why the discount code has to come from a human
+    business decision, not an instant join."""
+    __tablename__ = "affiliate_applications"
+    id = Column(Integer, primary_key=True)
+    program_id = Column(Integer, ForeignKey("affiliate_programs.id"), nullable=False, index=True)
+    platform_owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    message = Column(Text)   # optional note from the owner, why they're a good fit
+    status = Column(String, default="pending", nullable=False, index=True)  # pending | approved | rejected
+
+    reviewed_by = Column(Integer, ForeignKey("users.id"))
+    reviewed_at = Column(DateTime)
+    rejected_reason = Column(Text)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    program = relationship("AffiliateProgram", foreign_keys=[program_id])
+    platform_owner = relationship("User", foreign_keys=[platform_owner_id])
+
+
+class AffiliateCode(Base):
+    """The REAL discount code, exactly as the business typed it in when
+    approving — never PromoSlot-generated. One row per approved
+    application; removing a partner deactivates this, never deletes it
+    (removed_* fields keep the record for PromoSlot's audit trail, per
+    Rob's 'this action is logged' requirement on the remove-partner flow)."""
+    __tablename__ = "affiliate_codes"
+    id = Column(Integer, primary_key=True)
+    program_id = Column(Integer, ForeignKey("affiliate_programs.id"), nullable=False, index=True)
+    platform_owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    application_id = Column(Integer, ForeignKey("affiliate_applications.id"), nullable=False, unique=True)
+
+    code = Column(String, nullable=False, index=True)
+    active = Column(Boolean, default=True, nullable=False)
+
+    removed_reason = Column(Text)
+    removed_message = Column(Text)
+    removed_by = Column(Integer, ForeignKey("users.id"))
+    removed_at = Column(DateTime)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    program = relationship("AffiliateProgram", foreign_keys=[program_id])
+    platform_owner = relationship("User", foreign_keys=[platform_owner_id])
+    application = relationship("AffiliateApplication", foreign_keys=[application_id])
+
+
+class AffiliateConversion(Base):
+    """One tracked sale. ONLY ever created by services that trust the
+    business's own store system (a signature-verified webhook, or the
+    fallback client snippet) — never by anything the platform owner
+    submits themselves. That's what actually makes 'the platform owner
+    can't lie about sales made' true structurally, not just by policy."""
+    __tablename__ = "affiliate_conversions"
+    id = Column(Integer, primary_key=True)
+    program_id = Column(Integer, ForeignKey("affiliate_programs.id"), nullable=False, index=True)
+    code_id = Column(Integer, ForeignKey("affiliate_codes.id"), nullable=False, index=True)
+
+    # The host's own order id/number where available — used to de-duplicate
+    # a webhook that fires more than once, and as an audit trail back to the
+    # real order. Nullable: the snippet fallback may not always have one.
+    external_order_ref = Column(String, index=True)
+
+    sale_amount = Column(Integer, nullable=False)         # pence, as reported by the store
+    commission_amount = Column(Integer, nullable=False)   # pence, computed at ingestion from the program's rate
+
+    source = Column(String, nullable=False)   # "webhook" | "snippet"
+
+    # pending -> still within the campaign/holding window, counted toward
+    #            pool_committed_amount and the eventual settlement.
+    # reversed -> the store reported a refund/cancellation; excluded from
+    #            settlement entirely, same as a reversed order on any deal.
+    status = Column(String, default="pending", nullable=False, index=True)
+    reversed_reason = Column(String)
+    reversed_at = Column(DateTime)
+
+    occurred_at = Column(DateTime, default=datetime.utcnow, nullable=False)   # when the sale happened, per the store
+    reported_at = Column(DateTime, default=datetime.utcnow, nullable=False)   # when PromoSlot received it
+
+    program = relationship("AffiliateProgram", foreign_keys=[program_id])
+    code = relationship("AffiliateCode", foreign_keys=[code_id])
