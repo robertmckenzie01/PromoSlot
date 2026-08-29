@@ -318,7 +318,14 @@ class AccountVerificationRequest(Base):
     reviewed_by = Column(Integer, ForeignKey("users.id"))
     reviewed_at = Column(DateTime)
 
-    status = Column(String, default="pending", nullable=False, index=True)  # pending | approved | rejected
+    # pending | approved | rejected | revoked. "revoked" is system-set, never
+    # by a reviewer: see services.revoke_platform_owner_verification — a
+    # previously-approved row whose underlying claim (a listing's name/
+    # handle/type/brand, or the owner's own display name) materially
+    # changed afterward. Never re-enters the admin queue on its own
+    # (verification_queue filters on status="pending" only); the owner
+    # must submit a fresh request for that same gate to be re-reviewed.
+    status = Column(String, default="pending", nullable=False, index=True)
     rejected_reason = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

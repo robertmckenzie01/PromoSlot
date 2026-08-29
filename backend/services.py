@@ -205,6 +205,80 @@ def platform_owner_verified(db: Session, owner_id: int) -> bool:
     return set(_PLATFORM_GATES).issubset(approved_types)
 
 
+def revoke_business_verification(db: Session, biz: Business, *, reason: str) -> None:
+    """A verified business materially edited what Stripe verified (its
+    company name) — see routers/businesses.py's upsert_business. Flips the
+    same real `verified` boolean decide_verification sets, so every
+    site-wide badge display built off it (see #187) goes stale-free
+    immediately, no separate 'is this still current' check needed anywhere
+    else. Does NOT create a new AccountVerificationRequest itself — the
+    business goes through the real submit_business_verification flow again
+    when ready, which re-checks live Stripe state rather than trusting
+    whatever prompted this revoke.
+    """
+    if not biz.verified:
+        return
+    biz.verified = False
+    db.add(Notification(
+        user_id=biz.owner_id, type="verification_revoked",
+        body=f"Your Verified badge was paused: {reason}. Resubmit for verification whenever you're ready.",
+        ref="verification:biz"))
+    audit.record(db, actor=db.get(User, biz.owner_id), action="verification.auto_revoke",
+                target_type="business_identity", target_id=biz.id,
+                previous_state={"verified": True}, new_state={"verified": False},
+                reason=reason)
+
+
+def revoke_platform_owner_verification(db: Session, owner_id: int, *, gate: str, reason: str) -> None:
+    """A verified platform owner materially edited whatever `gate` was
+    judged against — platform_ownership for a listing's name/handle/type/
+    brand (see routers/platforms.py's update_platform), platform_identity
+    for their own claimed name (see routers/profiles.py's update_profile).
+
+    Two sources of truth have to move together here, unlike the business
+    side's single `verified` boolean:
+      - Platform.verified: the cached, PUBLIC-facing badge (see #187) —
+        flipped off directly on every listing this owner has, account-level
+        same as approval (see #195), mirroring exactly how
+        decide_verification syncs it ON across all of them.
+      - platform_owner_verified()'s own computation, which
+        /verification/platform/my-requests (the SELF-service status
+        screen) reads instead of Platform.verified — it counts ANY
+        historically-approved row per gate, so simply flipping
+        Platform.verified would leave that screen still claiming
+        "You're verified" (reading a real bug caught while wiring this
+        up: the two were never the same field). Fixed by flipping the
+        SPECIFIC gate's approved row(s) to "revoked" — a new terminal
+        status (see AccountVerificationRequest.status), never rejected
+        (that implies the original evidence was bad, which it wasn't)
+        and never pending again on its own (never shows up in the admin
+        queue, which filters on status="pending").
+
+    Only the affected gate's row(s) are revoked — if the owner resubmits
+    just that one gate and it's re-approved, the badge is correctly
+    restored without redoing the OTHER gate, since that one was never in
+    question.
+    """
+    assert gate in ("platform_identity", "platform_ownership")
+    approved = db.query(AccountVerificationRequest).filter_by(
+        submitted_by=owner_id, subject_type=gate, status="approved").all()
+    listings = db.query(Platform).filter_by(owner_id=owner_id, verified=True).all()
+    if not approved and not listings:
+        return
+    for req in approved:
+        req.status = "revoked"
+    for p in listings:
+        p.verified = False
+    db.add(Notification(
+        user_id=owner_id, type="verification_revoked",
+        body=f"Your Verified badge was paused: {reason}. Resubmit for verification whenever you're ready.",
+        ref="verification:plat"))
+    audit.record(db, actor=db.get(User, owner_id), action="verification.auto_revoke",
+                target_type=gate, target_id=owner_id,
+                previous_state={"verified": True}, new_state={"verified": False},
+                reason=reason)
+
+
 def _wipe_evidence(req: AccountVerificationRequest) -> None:
     """Delete any uploaded evidence media the moment a decision is made —
     approved or rejected. Applies the same 'never retained' principle Rob

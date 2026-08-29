@@ -18,7 +18,7 @@ from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import Platform, PlatformMedia, Review, User
-from ..services import platform_owner_verified
+from ..services import platform_owner_verified, revoke_platform_owner_verification
 from ..storage import (delete_stored, save_generic, save_media_file,
                        serve_stored, stored_exists)
 
@@ -173,11 +173,27 @@ class PlatformUpdateIn(BaseModel):
     pricing: Optional[List[dict]] = None
 
 
+_MATERIAL_FIELDS = ("name", "handle", "platform_type", "brand")
+
+
 @router.post("/{platform_id:int}/update")
 def update_platform(platform_id: int, body: PlatformUpdateIn,
                     user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Edit a published listing and re-publish it with the new content."""
     p = _own_platform(db, platform_id, user)
+    # name/handle/platform_type/brand are what platform_ownership evidence
+    # (and the admin reviewer's "claimed platforms" comparison — see
+    # verification.py's _submitter_context) was actually judged against;
+    # editing any of them after the account-level badge was granted makes
+    # that judgment stale. bio/niches/audience/services/pricing etc. are
+    # just marketing/business details never compared against anything, so
+    # editing those alone leaves a verified badge untouched.
+    material_changed = any(
+        getattr(body, f) is not None and getattr(body, f) != getattr(p, f)
+        for f in _MATERIAL_FIELDS)
+    if material_changed and p.verified:
+        revoke_platform_owner_verification(db, p.owner_id, gate="platform_ownership",
+            reason=f"you changed \"{p.name}\"'s name, handle, type or brand since it was verified")
     for f in ("name", "platform_type", "handle", "brand", "bio", "niches",
               "audience", "avg_views", "impressions", "services", "pricing"):
         v = getattr(body, f)

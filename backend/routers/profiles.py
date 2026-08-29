@@ -19,7 +19,8 @@ from ..config import settings
 from ..db import get_db
 from ..deps import COOKIE_NAME, get_current_user
 from ..mailer import account_deactivated_email, account_deleted_email, send_email
-from ..models import ProfileAsset, User
+from ..models import Platform, ProfileAsset, User
+from ..services import revoke_platform_owner_verification
 from ..security import verify_password
 from ..storage import delete_stored, save_generic, serve_stored, stored_exists
 
@@ -107,6 +108,16 @@ def update_profile(body: ProfileIn, user: User = Depends(get_current_user),
         name = body.display_name.strip()
         if not name:
             raise HTTPException(status_code=422, detail="Display name cannot be empty")
+        # A platform owner's display_name is the "claimed on PromoSlot" side
+        # of the platform_identity check (see verification.py's
+        # _submitter_context — it's compared against Stripe's legal name).
+        # Business identity is verified against Business.company instead
+        # (see routers/businesses.py), never User.display_name, so this
+        # only matters for platform-owner accounts.
+        if user.is_platform_owner and name != (user.display_name or "") and \
+           db.query(Platform).filter_by(owner_id=user.id, verified=True).first() is not None:
+            revoke_platform_owner_verification(db, user.id, gate="platform_identity",
+                reason="your account name changed since it was verified")
         user.display_name = name
     if body.about_text is not None:
         user.about_text = body.about_text.strip() or None
