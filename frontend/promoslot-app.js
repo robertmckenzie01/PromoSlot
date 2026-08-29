@@ -4238,6 +4238,16 @@ function affStatusPill(status){
 function affCommissionText(p){
   return p.commission_type==="flat" ? `${gbpP(p.commission_rate)} flat per sale` : `${(p.commission_rate/100).toFixed(2)}% per sale`;
 }
+// Real fee split, shown wherever money is about to change hands: the
+// business pays pool_max_budget + funding_fee_percent up front (shown as
+// line_items at the Fund step); the platform owner's commission_amount is
+// gross — PromoSlot keeps payout_fee_percent of it at final settlement, same
+// deal_money() split as a normal deal's buyer/seller fee (see
+// services.affiliate_settlement_for). Neither side is editable per-program,
+// so it's always safe to read straight off the real program object.
+function affPayoutFeeNote(p){
+  return `PromoSlot keeps ${p.payout_fee_percent}% of commission at payout`;
+}
 
 /* ---- Business dashboard panel ---- */
 function affProgramsPanelHtml(){
@@ -4435,7 +4445,7 @@ function affRenderManageModal(){
 
   openModal(`<div class="m-pad">
     <div class="vf-head"><div><h3 class="m-title">${esc(p.name)} ${affStatusPill(p.status)}</h3>
-      <p class="m-sub">${affCommissionText(p)} · ${esc(p.host||"—")} tracking</p></div></div>
+      <p class="m-sub">${affCommissionText(p)} (partners keep ${100-p.payout_fee_percent}% of it — PromoSlot's ${p.payout_fee_percent}% payout fee comes out of their share, not yours) · ${esc(p.host||"—")} tracking</p></div></div>
     <div class="mini-rows" style="margin:10px 0">
       <div><span>Pool budget</span><b>${gbpP(p.pool_max_budget)}</b></div>
       <div><span>Committed so far</span><b>${gbpP(p.pool_committed_amount)}</b></div>
@@ -4563,7 +4573,7 @@ async function openAffiliateBrowse(){
 }
 function affBrowseRowHtml(p){
   return `<div class="op-row" style="margin-bottom:8px" onclick="openAffiliateProgramDetail(${p.id})">
-    <div><b>${esc(p.name)}</b><small>${esc(p.business_name||"")} · ${affCommissionText(p)} · pool ${gbpP(p.pool_remaining)} left</small></div>
+    <div><b>${esc(p.name)}</b><small>${esc(p.business_name||"")} · ${affCommissionText(p)} · ${affPayoutFeeNote(p)} · pool ${gbpP(p.pool_remaining)} left</small></div>
     <span class="op-go">View →</span></div>`;
 }
 async function openAffiliateProgramDetail(id){
@@ -4586,9 +4596,11 @@ async function openAffiliateProgramDetail(id){
     <p class="m-sub">${esc(p.business_name||"")}${p.description?" · "+esc(p.description):""}</p>
     <div class="mini-rows" style="margin:10px 0">
       <div><span>Commission</span><b>${affCommissionText(p)}</b></div>
+      <div><span>PromoSlot's fee at payout</span><b>${p.payout_fee_percent}%</b></div>
       <div><span>Pool remaining</span><b>${gbpP(p.pool_remaining)}</b></div>
       <div><span>Campaign ends</span><b>${p.campaign_ends_at?new Date(p.campaign_ends_at).toLocaleDateString("en-GB"):"—"}</b></div>
     </div>
+    <p class="mut" style="font-size:12px">Commission is calculated on each tracked sale; PromoSlot's fee is taken from that commission once, when the business settles the campaign — for every £1 of commission earned, you receive £${((100-p.payout_fee_percent)/100).toFixed(2)}.</p>
     ${applySection}
     <div class="m-actions"><button class="btn btn-o" onclick="openAffiliateBrowse()">← Back to programs</button></div></div>`,"wide");
 }
@@ -4615,8 +4627,13 @@ async function openMyAffiliateEarnings(){
     ]);
   }catch(e){ toast(e.message||"Could not load your affiliate activity"); closeModal(); return; }
   S.myAffiliateApplications=apps;   // keep the dashboard panel in sync
+  // "Tracked, not yet settled" is gross commission (pre-PromoSlot-fee) —
+  // the only number that exists before settlement runs. "Settled & paid"
+  // uses the real net Transfer amount recorded on each code at settlement
+  // (AffiliateCode.payout_net_amount), not a sum of gross commission_amount,
+  // so it never overstates what actually landed in the bank.
   const pendingTotal=convs.filter(c=>c.status==="pending").reduce((a,c)=>a+c.commission_amount,0);
-  const settledTotal=convs.filter(c=>c.status==="settled").reduce((a,c)=>a+c.commission_amount,0);
+  const settledTotal=codes.filter(c=>c.payout_at).reduce((a,c)=>a+(c.payout_net_amount||0),0);
   const convRows=convs.length
     ? `<div class="agree-doc">${convs.slice(0,15).map(c=>`<div class="ad-row"><span class="k">${esc(c.program_name||"—")} · ${new Date(c.reported_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}${c.status==="reversed"?" · reversed":c.status==="settled"?" · settled":""}</span><span class="v">${gbpP(c.commission_amount)}</span></div>`).join("")}</div>`
     : `<p class="mut" style="font-size:12.5px">No tracked sales yet.</p>`;
@@ -4626,6 +4643,7 @@ async function openMyAffiliateEarnings(){
       <div><span>Settled &amp; paid</span><b>${gbpP(settledTotal)}</b></div>
       <div><span>Active codes</span><b>${codes.length}</b></div>
     </div>
+    <p class="mut" style="font-size:12px">"Tracked, not yet settled" is gross commission before PromoSlot's payout fee (see each program for its rate). "Settled &amp; paid" is the real amount already sent to your account, fee already taken.</p>
     <div class="det-sec"><h5>Your applications</h5>
       ${apps.length?apps.map(a=>`<div class="op-row" style="margin-bottom:6px"><div><b>${esc(a.program_name||"Affiliate program")}</b><small>${esc(a.business_name||"")}${a.status==="approved"?` · code ${esc(a.code||"—")}`:a.status==="rejected"?` · ${esc(a.rejected_reason||"Not approved")}`:" · awaiting review"}</small></div>${affAppStatusPill(a.status)}</div>`).join(""):`<p class="mut" style="font-size:12.5px">No applications yet.</p>`}</div>
     <div class="det-sec"><h5>Recent tracked sales</h5>${convRows}</div>
@@ -4710,6 +4728,8 @@ function affRenderAdminDetail(){
         <div><span>Pool budget</span><b>${gbpP(p.pool_max_budget)}</b></div>
         <div><span>Committed so far</span><b>${gbpP(p.pool_committed_amount)}</b></div>
         <div><span>Remaining</span><b>${gbpP(p.pool_remaining)}</b></div>
+        <div><span>Funding fee (business, charged upfront)</span><b>${p.funding_fee_percent}%</b></div>
+        <div><span>Payout fee (owners, taken at settlement)</span><b>${p.payout_fee_percent}%</b></div>
       </div>
       ${settleSection}
       <div class="det-sec"><h5>Tracked sales</h5>${convRows}</div>
