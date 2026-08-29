@@ -487,6 +487,28 @@ def program_applications(program_id: int, status: Optional[str] = None,
     return [application_dict(db, a) for a in rows]
 
 
+@router.get("/programs/{program_id}/codes")
+def program_codes(program_id: int, active: Optional[bool] = None,
+                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Business's own view of the real AffiliateCode rows on their program —
+    with the real code_id remove_partner needs, unlike application_dict's
+    code (just the string). Includes inactive/removed ones by default so a
+    business can see their own removal history, not just current partners."""
+    p = _my_program(db, program_id, user)
+    q = db.query(AffiliateCode).filter_by(program_id=p.id)
+    if active is not None:
+        q = q.filter(AffiliateCode.active == active)
+    rows = q.order_by(AffiliateCode.created_at.desc()).all()
+    out = []
+    for c in rows:
+        d = code_dict(db, c)
+        owner = db.get(User, c.platform_owner_id)
+        d["platform_owner_id"] = c.platform_owner_id
+        d["platform_owner_name"] = owner.display_name if owner else None
+        out.append(d)
+    return out
+
+
 @router.get("/programs/{program_id}/conversions")
 def program_conversions(program_id: int, status: Optional[str] = None,
                         user: User = Depends(get_current_user), db: Session = Depends(get_db)):
