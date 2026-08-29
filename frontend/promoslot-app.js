@@ -4633,6 +4633,103 @@ async function openMyAffiliateEarnings(){
   </div>`,"wide");
 }
 
+/* ==================== AFFILIATE MARKETPLACE (admin oversight) ====================
+   Read-only visibility across every business's programs (Perm.AFFILIATE_VIEW,
+   same "nl-*" nav-toggle + NAV_ACTIONS + view-deal/dealWrap pattern as
+   openVerificationQueue), plus the one settlement action itself
+   (Perm.PAYOUT_RELEASE, same weight/pattern as realRelease's deal payout). */
+async function openAffiliateAdminQueue(){
+  if(!can("affiliate.view")){ toast("Admin access required"); return; }
+  setRoute("affiliate-admin-queue");
+  showView("view-deal");
+  let list=[]; try{ list=await PSApi.get("/affiliate/admin/programs"); }catch(e){}
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="goHome()">← Home</button>
+      <h2>Affiliate programs</h2>
+      <span class="status-pill st-review">${list.length} total</span></div>
+    <div class="panel"><div class="panel-b">${list.length?list.map(p=>`
+      <div class="deal-row" onclick="openAffiliateAdminDetail(${p.id})">
+        <div class="pfp" style="background:var(--acc)">🤝</div>
+        <div><div class="dr-t">${esc(p.name)} · ${esc(p.business_name||"—")}</div>
+          <div class="dr-s">${affCommissionText(p)} · pool ${gbpP(p.pool_remaining)} left of ${gbpP(p.pool_max_budget)}</div></div>
+        ${affStatusPill(p.status)}
+      </div>`).join("")
+      :`<div class="empty-state"><div class="es-ico">🤝</div><h4>No affiliate programs yet</h4><p>Business-created affiliate programs appear here once they exist.</p></div>`}</div></div>`;
+}
+async function openAffiliateAdminDetail(id){
+  if(!can("affiliate.view")){ toast("Admin access required"); return; }
+  showView("view-deal");
+  $("dealWrap").innerHTML=`<div style="text-align:center;padding:60px"><span class="spin"></span></div>`;
+  let p,convs,preview=null;
+  try{
+    p=await PSApi.get(`/affiliate/programs/${id}`);
+    convs=await PSApi.get(`/affiliate/admin/conversions?program_id=${id}`);
+  }catch(e){ toast(e.message||"Could not load program"); openAffiliateAdminQueue(); return; }
+  if(p.status!=="settled"){
+    try{ preview=await PSApi.get(`/affiliate/admin/programs/${id}/settlement-preview`); }catch(e){ preview=null; }
+  }
+  S._affAdminDetail={program:p,convs,preview};
+  affRenderAdminDetail();
+}
+function affRenderAdminDetail(){
+  const {program:p,convs,preview}=S._affAdminDetail;
+  const settleableAt=p.campaign_ends_at ? new Date(new Date(p.campaign_ends_at).getTime()+p.holding_period_days*86400000) : null;
+  const now=new Date();
+  const eligible=settleableAt && now>=settleableAt && p.status!=="settled";
+  const canSettle=can("payout.release");
+
+  let settleSection="";
+  if(p.status==="settled"){
+    settleSection=`<div class="note blue">Settled ${new Date(p.pool_settled_at||p.created_at).toLocaleDateString("en-GB")} — ${gbpP(p.pool_released_amount||0)} released to platform owners, ${gbpP(p.pool_refunded_amount||0)} refunded to the business.</div>`;
+  } else if(eligible && preview){
+    const notReady=preview.not_ready||[];
+    settleSection=`<div class="det-sec"><h5>Settlement</h5>
+      <div class="mini-rows">
+        <div><span>Total commission earned</span><b>${gbpP(preview.total_commission)}</b></div>
+        <div><span>Capped to pool</span><b>${gbpP(preview.total_commission_capped)}</b></div>
+        <div><span>Refund to business</span><b>${gbpP(preview.refund_to_business)}</b></div>
+        <div><span>PromoSlot's take</span><b>${gbpP(preview.platform_take)}</b></div>
+      </div>
+      ${notReady.length?`<div class="hint-err" style="margin-top:8px">${notReady.length} owner(s) not payout-ready: ${notReady.map(x=>esc(x.detail)).join("; ")}</div>`:""}
+      ${canSettle?`<button class="btn btn-g btn-sm" style="margin-top:10px" onclick="affAdminSettle(${p.id})" ${notReady.length?"disabled":""}>💸 Settle now</button>`:`<p class="mut" style="font-size:12px">Only a Super-Admin/payout-release admin can trigger settlement.</p>`}
+    </div>`;
+  } else if(settleableAt){
+    settleSection=`<p class="mut" style="font-size:12.5px">Settles ${settleableAt.toLocaleDateString("en-GB")} (campaign ends ${new Date(p.campaign_ends_at).toLocaleDateString("en-GB")} + ${p.holding_period_days}-day holding period).</p>`;
+  }
+
+  const convRows=convs.length
+    ? `<div class="agree-doc">${convs.slice(0,30).map(c=>`<div class="ad-row"><span class="k">${esc(c.platform_owner_name||"—")} · ${esc(c.code||"")} · ${new Date(c.reported_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}${c.status!=="pending"?" · "+c.status:""}</span><span class="v">${gbpP(c.commission_amount)}</span></div>`).join("")}</div>`
+    : `<p class="mut" style="font-size:12.5px">No tracked sales yet.</p>`;
+
+  $("dealWrap").innerHTML=`
+    <div class="deal-top"><button class="btn btn-ghost" onclick="openAffiliateAdminQueue()">← Affiliate programs</button>
+      <h2>${esc(p.name)}</h2>${affStatusPill(p.status)}</div>
+    <div class="panel"><div class="panel-b">
+      <p class="mut" style="font-size:12.5px">${esc(p.business_name||"—")} · ${affCommissionText(p)} · ${esc(p.host||"—")} tracking</p>
+      <div class="mini-rows" style="margin:10px 0">
+        <div><span>Pool budget</span><b>${gbpP(p.pool_max_budget)}</b></div>
+        <div><span>Committed so far</span><b>${gbpP(p.pool_committed_amount)}</b></div>
+        <div><span>Remaining</span><b>${gbpP(p.pool_remaining)}</b></div>
+      </div>
+      ${settleSection}
+      <div class="det-sec"><h5>Tracked sales</h5>${convRows}</div>
+    </div></div>`;
+}
+async function affAdminSettle(programId){
+  // Same weight/shape as realRelease's deal payout: a routine, expected
+  // admin action (not a destructive override like refund/delete), so a
+  // recorded reason via prompt is the right amount of friction — not an
+  // extra confirm() dialog on top.
+  const reason=window.prompt("Settle this program now — this sends real Stripe payouts to platform owners and refunds unused pool budget to the business. This cannot be undone.\n\nState a reason (recorded permanently in the audit log):","Routine campaign-end settlement");
+  if(reason===null) return;
+  if(reason.trim().length<3){ toast("A reason of at least 3 characters is required"); return; }
+  try{
+    await PSApi.post(`/affiliate/admin/programs/${programId}/settle`,{reason:reason.trim()});
+    toast("Settled — payouts released",true);
+    openAffiliateAdminDetail(programId);
+  }catch(e){ toast(e.message||"Could not settle"); }
+}
+
 function renderBizDash(){
   const b=S.biz;
   // Real analytics from actual deals where this account is the business.
@@ -4988,6 +5085,7 @@ function authReflect(){
   $("nl-payouts").classList.toggle("hide", !canReview);
   $("nl-disputes").classList.toggle("hide", !can("dispute.manage"));
   $("nl-verification").classList.toggle("hide", !can("verification.view"));
+  $("nl-affiliate-admin").classList.toggle("hide", !can("affiliate.view"));
   $("nl-completed").classList.toggle("hide", !canReview);
   $("nl-admin").classList.toggle("hide", !can("admin.view"));
   if(a){
@@ -7197,6 +7295,7 @@ const NAV_ACTIONS={
   "payouts":()=>openPayouts(),
   "disputes-queue":()=>openDisputesQueue(),
   "verification-queue":()=>openVerificationQueue(),
+  "affiliate-admin-queue":()=>openAffiliateAdminQueue(),
   "completed":()=>openCompleted(),
   "admin":()=>openAdmin(),
   "wiz-biz":()=>startWizard("biz"),
@@ -8069,7 +8168,8 @@ openEditDisplayName,saveDisplayName,
 openEditPhone,savePhone,clearPhone,setMarketingPreference,
 openNewAffiliateProgram,affCTypeChange,affSubmitCreate,openAffiliateProgram,affPickHost,affConfirmTracking,affPay,
 affShowTopupForm,affTopup,affTopupPay,affApprove,affReject,affRemovePartner,
-openAffiliateBrowse,openAffiliateProgramDetail,affSubmitApply,openMyAffiliateEarnings};
+openAffiliateBrowse,openAffiliateProgramDetail,affSubmitApply,openMyAffiliateEarnings,
+openAffiliateAdminQueue,openAffiliateAdminDetail,affAdminSettle};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
