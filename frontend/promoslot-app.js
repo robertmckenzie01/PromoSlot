@@ -2624,6 +2624,31 @@ async function realDecline(dealId){
   try{ await PSApi.post(`/deals/${dealId}/decline`); }catch(err){ toast(err.message||"Could not decline"); return; }
   toast("Deal declined",true); openDash();
 }
+// Express Checkout Element — one-tap Apple Pay / Google Pay / Link, sharing
+// the same PaymentIntent + `elements` instance as whichever card Payment
+// Element is mounted alongside it. Its "confirm" event fires onConfirm,
+// which is always the SAME function that flow's own card "Pay" button
+// already calls (realPay/affPay/affTopupPay) — Stripe collects the express
+// payment method into `elements`, then that function's existing
+// stripe.confirmPayment() call finalizes it exactly as if a card had been
+// typed in, so every bit of existing success/error/refresh handling is
+// reused unchanged, nothing new to duplicate or get out of sync.
+// Apple Pay only actually renders once the domain is verified in the
+// Stripe Dashboard; Google Pay only once enabled there (off by default).
+// Until Rob does that, the "ready" event's availablePaymentMethods comes
+// back empty and this hides itself rather than showing broken buttons —
+// the card form below is unaffected either way.
+function mountExpressCheckout(elements, wrapId, elId, onConfirm){
+  const wrap=$(wrapId), el=$(elId);
+  if(!wrap||!el) return;
+  wrap.style.display="none";
+  try{
+    const ece=elements.create("expressCheckout",{buttonType:{applePay:"buy",googlePay:"buy"}});
+    ece.on("ready",({availablePaymentMethods})=>{ if(availablePaymentMethods) wrap.style.display=""; });
+    ece.on("confirm",()=>onConfirm());
+    ece.mount(el);
+  }catch(e){ /* Express Checkout unsupported here — card form still works */ }
+}
 function ensureStripeJs(){
   // The design-tool runtime rebuilds <head>, stripping static external scripts,
   // so we load Stripe.js dynamically at point of use.
@@ -2644,6 +2669,7 @@ async function realFund(dealId){
   const li=r.line_items.map(x=>`<div class="ad-row"><span class="k">${esc(x.label)}</span><span class="v">${gbpP(x.amount)}</span></div>`).join("");
   $("fundArea").innerHTML=`
     <div class="agree-doc" style="margin:14px 0">${li}<div class="ad-row"><span class="k"><b>Total to pay</b></span><span class="v"><b>${gbpP(r.total_charged)}</b></span></div></div>
+    <div id="express-wrap" style="display:none"><div id="express-checkout-element" style="margin-bottom:6px"></div><p class="mut" style="font-size:12px;text-align:center;margin:2px 0 10px">or pay by card</p></div>
     <div id="payment-element" style="margin:12px 0"></div>
     <div class="hint-err hide" id="pay-err"></div>
     <button class="btn btn-g btn-lg" id="pay-btn" onclick="realPay()">Pay ${gbpP(r.total_charged)}</button>
@@ -2654,6 +2680,7 @@ async function realFund(dealId){
   const pe=elements.create("payment");
   pe.mount("#payment-element");
   window._stripeCtx={stripe,elements,dealId,total:r.total_charged};
+  mountExpressCheckout(elements,"express-wrap","express-checkout-element",realPay);
 }
 function cardErrorMessage(err){
   // Stripe's raw err.message can be verbose/internal-sounding (e.g. the live-mode
@@ -2669,7 +2696,15 @@ function cardErrorMessage(err){
 async function realPay(){
   const ctx=window._stripeCtx; if(!ctx) return;
   const btn=$("pay-btn"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Processing…`;
-  const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required"});
+  // confirmParams.return_url is required by Stripe whenever a payment method
+  // that *could* redirect is in play (which Express Checkout's wallets bring
+  // in, even though redirect:"if_required" means it's essentially never
+  // actually used by Apple Pay/Google Pay in practice — the auth happens
+  // in-page). Points back at wherever the user already was; if a redirect
+  // ever truly does happen, the deal itself is still funded server-side by
+  // the webhook regardless of what the page shows on return.
+  const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required",
+    confirmParams:{return_url:window.location.href}});
   if(res.error){ btn.disabled=false; btn.textContent="Pay "+gbpP(ctx.total); const e=$("pay-err"); e.textContent=cardErrorMessage(res.error); e.classList.remove("hide"); return; }
   // Reconcile with the backend (real Stripe re-verify; the deal funds only if
   // Stripe confirms the PaymentIntent succeeded).
@@ -4327,6 +4362,7 @@ async function affFund(programId){
   const li=r.line_items.map(x=>`<div class="ad-row"><span class="k">${esc(x.label)}</span><span class="v">${gbpP(x.amount)}</span></div>`).join("");
   const area=$("affFundArea"); if(!area) return;
   area.innerHTML=`<div class="agree-doc" style="margin:14px 0">${li}<div class="ad-row"><span class="k"><b>Total to pay</b></span><span class="v"><b>${gbpP(r.total_charged)}</b></span></div></div>
+    <div id="aff-express-wrap" style="display:none"><div id="aff-express-checkout-element" style="margin-bottom:6px"></div><p class="mut" style="font-size:12px;text-align:center;margin:2px 0 10px">or pay by card</p></div>
     <div id="aff-payment-element" style="margin:12px 0"></div>
     <div class="hint-err hide" id="aff-pay-err"></div>
     <button class="btn btn-g btn-lg" id="aff-pay-btn" onclick="affPay()">Pay ${gbpP(r.total_charged)}</button>
@@ -4336,11 +4372,13 @@ async function affFund(programId){
   const elements=stripe.elements({clientSecret:r.client_secret});
   const pe=elements.create("payment"); pe.mount("#aff-payment-element");
   window._affStripeCtx={stripe,elements,programId,total:r.total_charged};
+  mountExpressCheckout(elements,"aff-express-wrap","aff-express-checkout-element",affPay);
 }
 async function affPay(){
   const ctx=window._affStripeCtx; if(!ctx) return;
   const btn=$("aff-pay-btn"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Processing…`;
-  const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required"});
+  const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required",
+    confirmParams:{return_url:window.location.href}});
   if(res.error){ btn.disabled=false; btn.textContent="Pay "+gbpP(ctx.total); const e=$("aff-pay-err"); e.textContent=cardErrorMessage(res.error); e.classList.remove("hide"); return; }
   try{ await PSApi.post(`/affiliate/programs/${ctx.programId}/refresh`); }catch(e){}
   window._affStripeCtx=null;
@@ -4521,17 +4559,20 @@ async function affTopup(programId){
   const li=r.line_items.map(x=>`<div class="ad-row"><span class="k">${esc(x.label)}</span><span class="v">${gbpP(x.amount)}</span></div>`).join("");
   const payArea=$("aff-topup-pay-area"); if(!payArea) return;
   payArea.innerHTML=`<div class="agree-doc" style="margin:10px 0">${li}<div class="ad-row"><span class="k"><b>Total to pay</b></span><span class="v"><b>${gbpP(r.total_charged)}</b></span></div></div>
+    <div id="aff-topup-express-wrap" style="display:none"><div id="aff-topup-express-checkout-element" style="margin-bottom:6px"></div><p class="mut" style="font-size:12px;text-align:center;margin:2px 0 10px">or pay by card</p></div>
     <div id="aff-topup-payment-element"></div>
     <button class="btn btn-g btn-sm" id="aff-topup-pay-btn" style="margin-top:8px" onclick="affTopupPay()">Pay ${gbpP(r.total_charged)}</button>`;
   const stripe=Stripe(r.publishable_key);
   const elements=stripe.elements({clientSecret:r.client_secret});
   const pe=elements.create("payment"); pe.mount("#aff-topup-payment-element");
   window._affTopupCtx={stripe,elements,programId,topupId:r.topup_id,total:r.total_charged};
+  mountExpressCheckout(elements,"aff-topup-express-wrap","aff-topup-express-checkout-element",affTopupPay);
 }
 async function affTopupPay(){
   const ctx=window._affTopupCtx; if(!ctx) return;
   const btn=$("aff-topup-pay-btn"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Processing…`;
-  const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required"});
+  const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required",
+    confirmParams:{return_url:window.location.href}});
   if(res.error){ btn.disabled=false; btn.textContent="Pay "+gbpP(ctx.total); toast(cardErrorMessage(res.error)); return; }
   try{ await PSApi.post(`/affiliate/topups/${ctx.topupId}/refresh`); }catch(e){}
   window._affTopupCtx=null;
