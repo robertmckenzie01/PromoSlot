@@ -4215,6 +4215,320 @@ function kpi(cfg){
     +(spark?sparkline((label||"").length+(to||0),spark):"")+'</div>'
     +'<div class="kl">'+label+'</div><div class="kd '+cls+'">'+delta+'</div></div>';
 }
+/* ==================== AFFILIATE MARKETPLACE (business side) ====================
+   Rob, 2026-08-29: real pool-funded programs, real discount codes, real
+   tracked sales, real one-time settlement — see backend/routers/affiliate.py
+   and affiliate_tracking.py. This wires the business-facing half (create ->
+   fund -> confirm tracking -> manage) into the live app. Platform-owner
+   browse/apply and admin oversight are the next slice — not built here. */
+const AFF_HOSTS=[
+  {v:"shopify",l:"Shopify",d:"Real signed order webhook — sales tracked automatically."},
+  {v:"woo",l:"WooCommerce",d:"Real signed order webhook — sales tracked automatically."},
+  {v:"squarespace",l:"Squarespace",d:"Tracking snippet — weaker, sales reported from the page itself."},
+  {v:"wix",l:"Wix",d:"Tracking snippet — weaker, sales reported from the page itself."},
+  {v:"custom",l:"Custom / other",d:"Tracking snippet — weaker, sales reported from the page itself."},
+];
+function affStatusPill(status){
+  const map={draft:["Draft","st-draft"],awaiting_funding:["Awaiting funding","st-draft"],
+    funded:["Ready to go live","st-review"],live:["Live","st-live"],
+    ended:["Campaign ended","st-review"],settled:["Settled","st-live"]};
+  const [label,cls]=map[status]||["—","st-draft"];
+  return `<span class="status-pill ${cls}">${label}</span>`;
+}
+function affCommissionText(p){
+  return p.commission_type==="flat" ? `${gbpP(p.commission_rate)} flat per sale` : `${(p.commission_rate/100).toFixed(2)}% per sale`;
+}
+
+/* ---- Business dashboard panel ---- */
+function affProgramsPanelHtml(){
+  const rows=S.myAffiliatePrograms||[];
+  return `<div class="panel" id="yourAffiliatePrograms"><div class="panel-h"><h4>Affiliate programs</h4><button class="btn btn-o btn-sm" onclick="openNewAffiliateProgram()">＋ New program</button></div>
+    <div class="panel-b">${rows.length?rows.map(p=>`
+      <div class="op-row" style="margin-bottom:8px" onclick="openAffiliateProgram(${p.id})">
+        <div><b>${esc(p.name)}</b><small>${affCommissionText(p)} · pool ${gbpP(p.pool_remaining)} left of ${gbpP(p.pool_max_budget)}</small></div>
+        ${affStatusPill(p.status)}
+      </div>`).join(""):`<div class="empty-state"><h4>No affiliate programs yet</h4><p>Create a pool-funded program: platform owners apply, you approve with a real discount code from your own store, and every tracked sale is reported and recorded automatically.</p><button class="btn btn-p btn-sm" onclick="openNewAffiliateProgram()">＋ Create your first program</button></div>`}</div></div>`;
+}
+
+/* ---- Create ---- */
+function openNewAffiliateProgram(){
+  openModal(`<div class="m-pad"><h3 class="m-title">New affiliate program</h3>
+    <p class="m-sub">Platform owners apply, you approve with a real discount code from your own store, and every tracked sale is reported automatically. Settlement happens once, at the end of the campaign — any unused pool budget is refunded to you in full, fee-free.</p>
+    <div class="row2"><div><label>Program name</label><input type="text" id="afc-name" placeholder="Summer affiliate program"></div>
+      <div><label>Category (optional)</label><input type="text" id="afc-category" placeholder="Fitness"></div></div>
+    <div><label>Description (optional)</label><input type="text" id="afc-desc" placeholder="What are affiliates promoting?"></div>
+    <div class="row2"><div><label>Commission type</label><select id="afc-ctype" onchange="affCTypeChange()"><option value="pct">% per sale</option><option value="flat">Flat £ per sale</option></select></div>
+      <div><label id="afc-crate-label">Commission (%)</label><input type="number" id="afc-crate" placeholder="12" step="0.01" min="0"></div></div>
+    <div class="row2"><div><label>Campaign length (days)</label><input type="number" id="afc-duration" placeholder="30" min="7" max="180"></div>
+      <div><label>Holding period after campaign ends (days)</label><input type="number" id="afc-holding" placeholder="14" min="3" max="60"></div></div>
+    <div><label>Pool budget (£) — the most you'll ever pay out this campaign</label><input type="number" id="afc-budget" placeholder="500" min="50" step="1"></div>
+    <div class="hint-err hide" id="afc-err"></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Cancel</button><button class="btn btn-p" onclick="affSubmitCreate()">Create draft →</button></div></div>`,"wide");
+}
+function affCTypeChange(){
+  const isFlat=$("afc-ctype").value==="flat";
+  $("afc-crate-label").textContent=isFlat?"Commission (£ per sale)":"Commission (%)";
+}
+async function affSubmitCreate(){
+  const name=$("afc-name").value.trim();
+  const ctype=$("afc-ctype").value;
+  const rateRaw=Number($("afc-crate").value);
+  const duration=Number($("afc-duration").value);
+  const holding=Number($("afc-holding").value)||14;
+  const budget=Number($("afc-budget").value);
+  const err=$("afc-err");
+  if(!name||!rateRaw||!duration||!budget){ err.textContent="Fill in the program name, commission, campaign length and pool budget."; err.classList.remove("hide"); return; }
+  // commission_rate is pence for "flat", percent*100 for "pct" — same convention the backend uses.
+  const commission_rate=Math.round(rateRaw*100);
+  const body={name, description:$("afc-desc").value.trim()||null, category:$("afc-category").value.trim()||null,
+    commission_type:ctype, commission_rate, holding_period_days:holding, campaign_duration_days:duration,
+    pool_max_budget:Math.round(budget*100)};
+  try{
+    const p=await PSApi.post("/affiliate/programs",body);
+    (S.myAffiliatePrograms=S.myAffiliatePrograms||[]).unshift(p);
+    toast("Draft created — now fund the pool",true);
+    openAffiliateProgram(p.id);
+  }catch(e){ err.textContent=e.message||"Could not create program"; err.classList.remove("hide"); }
+}
+
+/* ---- Lifecycle router ---- */
+async function openAffiliateProgram(id){
+  openModal(`<div class="m-pad" style="text-align:center;padding:48px 20px"><span class="spin"></span></div>`,"wide");
+  await affRenderProgram(id);
+}
+async function affRenderProgram(id){
+  let p; try{ p=await PSApi.get(`/affiliate/programs/${id}`); }catch(e){ toast(e.message||"Could not load program"); closeModal(); return; }
+  if(p.status==="draft"||p.status==="awaiting_funding") return affFundScreen(p);
+  if(p.status==="funded") return affTrackingScreen(p);
+  return affManageScreen(p);   // live | ended | settled
+}
+
+/* ---- Fund ---- */
+async function affFundScreen(p){
+  openModal(`<div class="m-pad"><h3 class="m-title">Fund ${esc(p.name)}</h3>
+    <p class="m-sub">Your pool is charged once, up front. Once it's connected to your checkout in the next step, tracked sales start counting against it automatically.</p>
+    <div id="affFundArea"><div style="text-align:center;padding:24px"><span class="spin"></span></div></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Do this later</button></div></div>`,"wide");
+  await affFund(p.id);
+}
+async function affFund(programId){
+  let r; try{ r=await PSApi.post(`/affiliate/programs/${programId}/fund`); }catch(e){ toast(e.message||"Could not start funding"); return; }
+  try{ await ensureStripeJs(); }catch(e){ toast("Stripe.js failed to load"); return; }
+  const li=r.line_items.map(x=>`<div class="ad-row"><span class="k">${esc(x.label)}</span><span class="v">${gbpP(x.amount)}</span></div>`).join("");
+  const area=$("affFundArea"); if(!area) return;
+  area.innerHTML=`<div class="agree-doc" style="margin:14px 0">${li}<div class="ad-row"><span class="k"><b>Total to pay</b></span><span class="v"><b>${gbpP(r.total_charged)}</b></span></div></div>
+    <div id="aff-payment-element" style="margin:12px 0"></div>
+    <div class="hint-err hide" id="aff-pay-err"></div>
+    <button class="btn btn-g btn-lg" id="aff-pay-btn" onclick="affPay()">Pay ${gbpP(r.total_charged)}</button>
+    ${String(r.publishable_key||"").startsWith("pk_live_")?"":'<p class="mut" style="font-size:12px;margin-top:8px">Test card: 4242 4242 4242 4242 · any future expiry · any CVC.</p>'}`;
+  if(typeof Stripe==="undefined"){ const e=$("aff-pay-err"); e.textContent="Stripe.js failed to load."; e.classList.remove("hide"); return; }
+  const stripe=Stripe(r.publishable_key);
+  const elements=stripe.elements({clientSecret:r.client_secret});
+  const pe=elements.create("payment"); pe.mount("#aff-payment-element");
+  window._affStripeCtx={stripe,elements,programId,total:r.total_charged};
+}
+async function affPay(){
+  const ctx=window._affStripeCtx; if(!ctx) return;
+  const btn=$("aff-pay-btn"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Processing…`;
+  const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required"});
+  if(res.error){ btn.disabled=false; btn.textContent="Pay "+gbpP(ctx.total); const e=$("aff-pay-err"); e.textContent=cardErrorMessage(res.error); e.classList.remove("hide"); return; }
+  try{ await PSApi.post(`/affiliate/programs/${ctx.programId}/refresh`); }catch(e){}
+  window._affStripeCtx=null;
+  toast("Pool funded — now connect your checkout",true);
+  affRenderProgram(ctx.programId);
+}
+
+/* ---- Confirm tracking ---- */
+function affTrackingScreen(p){
+  openModal(`<div class="m-pad"><h3 class="m-title">Connect your checkout</h3>
+    <p class="m-sub">Pick where ${esc(p.name)} sells. Shopify and WooCommerce track sales automatically via a signed webhook; other platforms use a lighter tracking snippet. The campaign clock starts once you confirm this.</p>
+    <div id="aff-host-list">${AFF_HOSTS.map(h=>`<div class="proof-item" style="cursor:pointer" onclick="affPickHost('${h.v}')" id="aff-host-${h.v}"><span class="pi-ico">${h.v==="shopify"||h.v==="woo"?"🔒":"📎"}</span><div class="vf-body"><b>${h.l}</b><small>${h.d}</small></div></div>`).join("")}</div>
+    <div class="hint-err hide" id="aff-host-err"></div>
+    <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Do this later</button><button class="btn btn-p" onclick="affConfirmTracking(${p.id})">Go live →</button></div></div>`,"wide");
+  window._affHostPick=null;
+}
+function affPickHost(v){
+  window._affHostPick=v;
+  AFF_HOSTS.forEach(h=>{ const el=$("aff-host-"+h.v); if(el) el.classList.toggle("got",h.v===v); });
+}
+async function affConfirmTracking(programId){
+  const host=window._affHostPick;
+  if(!host){ const e=$("aff-host-err"); e.textContent="Pick where your checkout lives first."; e.classList.remove("hide"); return; }
+  try{
+    const p=await PSApi.post(`/affiliate/programs/${programId}/confirm-tracking`,{host});
+    const idx=(S.myAffiliatePrograms||[]).findIndex(x=>x.id===programId);
+    if(idx>-1) S.myAffiliatePrograms[idx]=p;
+    toast("You're live! Platform owners can now apply.",true);
+    affRenderProgram(programId);
+  }catch(e){ toast(e.message||"Could not confirm tracking"); }
+}
+
+/* ---- Manage (live / ended / settled) ---- */
+async function affManageScreen(p){
+  openModal(`<div class="m-pad" style="text-align:center;padding:48px 20px"><span class="spin"></span></div>`,"wide");
+  S._affManage={program:p, pending:[], codes:[], convs:[], topups:[]};
+  await affReloadManage();
+}
+async function affReloadManage(){
+  const cur=S._affManage; if(!cur) return;
+  const pid=cur.program.id;
+  let fresh,pending,codes,convs,topups;
+  try{
+    fresh=await PSApi.get(`/affiliate/programs/${pid}`);
+    [pending,codes,convs,topups]=await Promise.all([
+      PSApi.get(`/affiliate/programs/${pid}/applications?status=pending`),
+      PSApi.get(`/affiliate/programs/${pid}/codes`),
+      PSApi.get(`/affiliate/programs/${pid}/conversions`),
+      PSApi.get(`/affiliate/programs/${pid}/topups`),
+    ]);
+  }catch(e){ toast(e.message||"Could not load program"); return; }
+  S._affManage={program:fresh, pending, codes, convs, topups};
+  const idx=(S.myAffiliatePrograms||[]).findIndex(x=>x.id===fresh.id);
+  if(idx>-1) S.myAffiliatePrograms[idx]=fresh;
+  affRenderManageModal();
+}
+function affConversionsTableHtml(convs){
+  if(!convs.length) return `<p class="mut" style="font-size:12.5px">No tracked sales yet.</p>`;
+  const rows=convs.slice(0,10).map(c=>`<div class="ad-row"><span class="k">${esc(c.code||"—")} · ${new Date(c.reported_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}${c.status==="reversed"?" · reversed":c.status==="settled"?" · settled":""}</span><span class="v">${gbpP(c.commission_amount)}</span></div>`).join("");
+  return `<div class="agree-doc">${rows}</div>`;
+}
+function affPendingRowHtml(a){
+  return `<div style="border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:10px">
+    <div class="op-row" style="padding:0"><div><b>${esc(a.platform_owner_name||"—")}</b><small>${esc(a.platform_owner_email||"")} · applied ${new Date(a.created_at).toLocaleDateString("en-GB")}</small></div></div>
+    ${a.message?`<p class="mut" style="font-size:12.5px;margin:6px 0">"${esc(a.message)}"</p>`:""}
+    <div class="row2" style="margin-top:8px">
+      <div><label>Real discount code from your store</label><input type="text" id="afa-code-${a.id}" placeholder="OWNER10"></div>
+      <div><label>Message to them (optional)</label><input type="text" id="afa-msg-${a.id}" placeholder=""></div>
+    </div>
+    <div><label>Reason (only needed if rejecting)</label><input type="text" id="afa-reason-${a.id}" placeholder=""></div>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn btn-g btn-sm" onclick="affApprove(${a.id})">✓ Approve with this code</button>
+      <button class="btn btn-danger btn-sm" onclick="affReject(${a.id})">✕ Reject</button>
+    </div>
+    <div id="afa-err-${a.id}" class="hint-err hide" style="margin-top:6px"></div>
+  </div>`;
+}
+function affPartnerRowHtml(c){
+  return `<div class="proof-item" style="align-items:flex-start">
+    <span class="pi-ico">🤝</span>
+    <div class="vf-body" style="flex:1">
+      <b>${esc(c.platform_owner_name||"—")}</b><small>Code: ${esc(c.code)}${c.payout_at?` · paid ${gbpP(c.payout_net_amount||0)}`:""}</small>
+      <div class="row2" style="margin-top:6px">
+        <input type="text" id="afr-reason-${c.id}" placeholder="Reason for removal">
+        <input type="text" id="afr-msg-${c.id}" placeholder="Message to them (optional)">
+      </div>
+      <button class="btn btn-danger btn-sm" style="margin-top:6px" onclick="affRemovePartner(${c.id})">Remove partner</button>
+      <div id="afr-err-${c.id}" class="hint-err hide" style="margin-top:4px"></div>
+    </div>
+  </div>`;
+}
+function affRenderManageModal(){
+  const {program:p,pending,codes,convs}=S._affManage;
+  const activePartners=codes.filter(c=>c.active);
+  const removedPartners=codes.filter(c=>!c.active);
+  const settleableAt=p.campaign_ends_at ? new Date(new Date(p.campaign_ends_at).getTime()+p.holding_period_days*86400000) : null;
+  const now=new Date();
+  let settleMsg="";
+  if(p.status==="settled") settleMsg=`<div class="note blue">Settled ${new Date(p.pool_settled_at||p.created_at).toLocaleDateString("en-GB")} — ${gbpP(p.pool_released_amount||0)} released to platform owners, ${gbpP(p.pool_refunded_amount||0)} refunded to you.</div>`;
+  else if(settleableAt && now>=settleableAt) settleMsg=`<div class="note blue">Campaign and holding period have ended — PromoSlot will settle this program and release payouts shortly.</div>`;
+  else if(settleableAt) settleMsg=`<p class="mut" style="font-size:12.5px">Campaign ends ${new Date(p.campaign_ends_at).toLocaleDateString("en-GB")} · settles ${settleableAt.toLocaleDateString("en-GB")} (after the ${p.holding_period_days}-day holding period).</p>`;
+
+  openModal(`<div class="m-pad">
+    <div class="vf-head"><div><h3 class="m-title">${esc(p.name)} ${affStatusPill(p.status)}</h3>
+      <p class="m-sub">${affCommissionText(p)} · ${esc(p.host||"—")} tracking</p></div></div>
+    <div class="mini-rows" style="margin:10px 0">
+      <div><span>Pool budget</span><b>${gbpP(p.pool_max_budget)}</b></div>
+      <div><span>Committed so far</span><b>${gbpP(p.pool_committed_amount)}</b></div>
+      <div><span>Remaining</span><b>${gbpP(p.pool_remaining)}</b></div>
+    </div>
+    ${settleMsg}
+    <div class="det-sec"><h5>Add budget</h5><button class="btn btn-o btn-sm" onclick="affShowTopupForm(${p.id})">＋ Top up pool</button><div id="aff-topup-area"></div></div>
+    <div class="det-sec"><h5>Pending applications (${pending.length})</h5>
+      ${pending.length?pending.map(affPendingRowHtml).join(""):`<p class="mut" style="font-size:12.5px">No pending applications.</p>`}</div>
+    <div class="det-sec"><h5>Active partners (${activePartners.length})</h5>
+      ${activePartners.length?activePartners.map(affPartnerRowHtml).join(""):`<p class="mut" style="font-size:12.5px">No approved partners yet.</p>`}
+      ${removedPartners.length?`<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px;color:var(--mut)">${removedPartners.length} removed partner${removedPartners.length===1?"":"s"}</summary>${removedPartners.map(c=>`<div class="proof-item"><span class="pi-ico">🚫</span><div class="vf-body"><b>${esc(c.platform_owner_name||"—")}</b><small>Code ${esc(c.code)} · removed ${c.removed_at?new Date(c.removed_at).toLocaleDateString("en-GB"):""} · ${esc(c.removed_reason||"")}</small></div></div>`).join("")}</details>`:""}
+    </div>
+    <div class="det-sec"><h5>Recent tracked sales</h5>
+      ${affConversionsTableHtml(convs)}
+      <a href="/affiliate/programs/${p.id}/conversions/export" target="_blank" class="btn btn-o btn-sm" style="margin-top:8px">⬇ Export CSV</a>
+    </div>
+    <div class="m-actions"><button class="btn btn-p" onclick="closeModal()">Close</button></div>
+  </div>`,"wide");
+}
+
+/* ---- Applications: approve / reject ---- */
+async function affApprove(appId){
+  const code=($("afa-code-"+appId)||{}).value||"";
+  const msg=($("afa-msg-"+appId)||{}).value||"";
+  const errEl=$("afa-err-"+appId);
+  if(!code.trim()){ if(errEl){errEl.textContent="Enter the real discount code you created for them."; errEl.classList.remove("hide");} return; }
+  try{
+    await PSApi.post(`/affiliate/applications/${appId}/approve`,{code:code.trim(),message:msg.trim()||null});
+    toast("Approved — code issued",true);
+    affReloadManage();
+  }catch(e){ if(errEl){errEl.textContent=e.message||"Could not approve"; errEl.classList.remove("hide");} }
+}
+async function affReject(appId){
+  const reason=($("afa-reason-"+appId)||{}).value||"";
+  const errEl=$("afa-err-"+appId);
+  if(!reason.trim()){ if(errEl){errEl.textContent="A reason is required to reject."; errEl.classList.remove("hide");} return; }
+  try{
+    await PSApi.post(`/affiliate/applications/${appId}/reject`,{reason:reason.trim()});
+    toast("Application rejected",true);
+    affReloadManage();
+  }catch(e){ if(errEl){errEl.textContent=e.message||"Could not reject"; errEl.classList.remove("hide");} }
+}
+
+/* ---- Partners: remove ---- */
+async function affRemovePartner(codeId){
+  const reason=($("afr-reason-"+codeId)||{}).value||"";
+  const msg=($("afr-msg-"+codeId)||{}).value||"";
+  const errEl=$("afr-err-"+codeId);
+  if(!reason.trim()){ if(errEl){errEl.textContent="A reason is required."; errEl.classList.remove("hide");} return; }
+  try{
+    await PSApi.post(`/affiliate/codes/${codeId}/remove`,{reason:reason.trim(),message:msg.trim()||null});
+    toast("Partner removed — this action is logged for PromoSlot's records",true);
+    affReloadManage();
+  }catch(e){ if(errEl){errEl.textContent=e.message||"Could not remove partner"; errEl.classList.remove("hide");} }
+}
+
+/* ---- Pool top-up ---- */
+function affShowTopupForm(programId){
+  const area=$("aff-topup-area"); if(!area) return;
+  area.innerHTML=`<div class="row2" style="margin-top:8px"><div><label>Add to pool (£)</label><input type="number" id="aff-topup-amount" placeholder="100" min="10" step="1"></div>
+    <div style="display:flex;align-items:flex-end"><button class="btn btn-p btn-sm" onclick="affTopup(${programId})">Fund top-up</button></div></div>
+    <div id="aff-topup-pay-area"></div>
+    <div class="hint-err hide" id="aff-topup-err"></div>`;
+}
+async function affTopup(programId){
+  const amt=Number(($("aff-topup-amount")||{}).value);
+  const errEl=$("aff-topup-err");
+  if(!amt||amt<10){ if(errEl){errEl.textContent="Enter at least £10."; errEl.classList.remove("hide");} return; }
+  let r; try{ r=await PSApi.post(`/affiliate/programs/${programId}/topup`,{amount:Math.round(amt*100)}); }
+  catch(e){ if(errEl){errEl.textContent=e.message||"Could not start top-up"; errEl.classList.remove("hide");} return; }
+  try{ await ensureStripeJs(); }catch(e){ toast("Stripe.js failed to load"); return; }
+  const li=r.line_items.map(x=>`<div class="ad-row"><span class="k">${esc(x.label)}</span><span class="v">${gbpP(x.amount)}</span></div>`).join("");
+  const payArea=$("aff-topup-pay-area"); if(!payArea) return;
+  payArea.innerHTML=`<div class="agree-doc" style="margin:10px 0">${li}<div class="ad-row"><span class="k"><b>Total to pay</b></span><span class="v"><b>${gbpP(r.total_charged)}</b></span></div></div>
+    <div id="aff-topup-payment-element"></div>
+    <button class="btn btn-g btn-sm" id="aff-topup-pay-btn" style="margin-top:8px" onclick="affTopupPay()">Pay ${gbpP(r.total_charged)}</button>`;
+  const stripe=Stripe(r.publishable_key);
+  const elements=stripe.elements({clientSecret:r.client_secret});
+  const pe=elements.create("payment"); pe.mount("#aff-topup-payment-element");
+  window._affTopupCtx={stripe,elements,programId,topupId:r.topup_id,total:r.total_charged};
+}
+async function affTopupPay(){
+  const ctx=window._affTopupCtx; if(!ctx) return;
+  const btn=$("aff-topup-pay-btn"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Processing…`;
+  const res=await ctx.stripe.confirmPayment({elements:ctx.elements, redirect:"if_required"});
+  if(res.error){ btn.disabled=false; btn.textContent="Pay "+gbpP(ctx.total); toast(cardErrorMessage(res.error)); return; }
+  try{ await PSApi.post(`/affiliate/topups/${ctx.topupId}/refresh`); }catch(e){}
+  window._affTopupCtx=null;
+  toast("Top-up funded — pool budget increased",true);
+  affReloadManage();
+}
+
 function renderBizDash(){
   const b=S.biz;
   // Real analytics from actual deals where this account is the business.
@@ -4236,6 +4550,7 @@ function renderBizDash(){
       <div class="panel" id="yourCampaigns"><div class="panel-h"><h4>Your campaigns</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">View in marketplace</button></div>
         <div class="panel-b">${S.myCampaigns.length?`<div class="cards tight">${S.myCampaigns.map((c,i)=>campaignCard(c,i,true)).join("")}</div>`:`<div class="empty-state"><h4>No campaigns yet</h4><p>Publish a campaign describing what you want promoted and what you'll pay. Platform owners apply to you.</p><button class="btn btn-p btn-sm" onclick="openNewCampaign()">＋ Post your first campaign</button></div>`}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('platforms')">Start a deal</button></div><div class="panel-b">${dealRows()}</div></div>
+      ${affProgramsPanelHtml()}
     </div><div>
       <div class="panel"><div class="panel-h"><h4>Activity</h4></div><div class="panel-b">${notifRows()}</div></div>
       <div class="panel"><div class="panel-h"><h4>Your public profile</h4><button class="btn btn-o btn-sm" onclick="startWizard('biz')">Edit</button></div>
@@ -4511,6 +4826,16 @@ function openNotif(ref){
   // real status screen for that role — see services.py's decide_verification.
   if(typeof ref==="string" && ref.indexOf("verification:")===0){
     openVerify(ref.slice(13)); return;
+  }
+  // Affiliate program alerts (funded/application/conversion/settled) open
+  // straight into that program's manage screen — see services.py's
+  // record_affiliate_conversion, mark_affiliate_program_funded_from_pi,
+  // and settle_affiliate_program, which all use this ref shape.
+  if(typeof ref==="string" && ref.indexOf("affiliate_manage:")===0){
+    openAffiliateProgram(parseInt(ref.slice(17),10)); return;
+  }
+  if(typeof ref==="string" && ref.indexOf("affiliate_review:")===0){
+    openAffiliateProgram(parseInt(ref.slice(17),10)); return;
   }
   if(findListing(ref)){ openListing(ref); return; }
   if(findCampaign(ref)){ openCampaign(ref); return; }
@@ -5442,7 +5767,7 @@ async function openPayouts(){
       :`<div class="empty-state"><div class="es-ico">💸</div><h4>No payouts pending</h4><p>Verified deals awaiting payout appear here until you release the funds.</p></div>`}</div></div>`;
 }
 async function loadMine(){
-  if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; S.platVerified=false; return; }
+  if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; S.platVerified=false; S.myAffiliatePrograms=[]; return; }
   await Promise.all([
     S.account.is_platform_owner
       ? PSApi.get("/platforms/mine").then(r=>{S.myPlatforms=r;}).catch(()=>{S.myPlatforms=[];})
@@ -5463,6 +5788,9 @@ async function loadMine(){
     S.account.is_business
       ? PSApi.get("/campaigns/mine").then(r=>{S.myCampaigns=r;}).catch(()=>{S.myCampaigns=[];})
       : Promise.resolve(S.myCampaigns=[]),
+    S.account.is_business
+      ? PSApi.get("/affiliate/programs/mine").then(r=>{S.myAffiliatePrograms=r;}).catch(()=>{S.myAffiliatePrograms=[];})
+      : Promise.resolve(S.myAffiliatePrograms=[]),
     // Merge real fields (verified, has_stripe_account, id) onto S.biz without
     // clobbering the wizard-only display fields (product/target/intents/...)
     // that have no backing column on Business — see finishBiz(). Defaults go
@@ -7624,7 +7952,9 @@ resRender,resPickModel,resScenario,resVisOpen,resVisClose,resVisStep,
 refreshPayoutStatus,connectPayouts,refreshInstantStatus,toggleInstantPayout,openAddDebitCard,submitDebitCard,realInstantPayout,
 openDisputesQueue,openDispute,claimDispute,addDisputeNote,requestDisputeInfo,
 openEditDisplayName,saveDisplayName,
-openEditPhone,savePhone,clearPhone,setMarketingPreference};
+openEditPhone,savePhone,clearPhone,setMarketingPreference,
+openNewAffiliateProgram,affCTypeChange,affSubmitCreate,openAffiliateProgram,affPickHost,affConfirmTracking,affPay,
+affShowTopupForm,affTopup,affTopupPay,affApprove,affReject,affRemovePartner};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
