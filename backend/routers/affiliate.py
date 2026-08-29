@@ -27,11 +27,14 @@ can't apply before there's anywhere for a sale to be tracked to. Settlement
 itself (once at campaign_ends_at + holding_period_days) is a later piece —
 see models.AffiliateProgram's docstring in models.py for the full spec.
 """
+import csv
+import io
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -39,7 +42,7 @@ from .. import audit
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
 from ..models import (AffiliateApplication, AffiliateCode, AffiliateConversion, AffiliateProgram,
-                      ConnectedAccount, Notification, User)
+                      AffiliateTopUp, ConnectedAccount, Notification, User)
 from ..permissions import Perm, is_super_admin
 from ..services import affiliate_settlement_for, deal_money, onboarding_complete, settle_affiliate_program, sync_connected_account
 from ..stripe_client import client, stripe
@@ -58,6 +61,7 @@ WEBHOOK_CAPABLE_HOSTS = ("shopify", "woo")
 MIN_CAMPAIGN_DAYS, MAX_CAMPAIGN_DAYS = 7, 180
 MIN_HOLDING_DAYS, MAX_HOLDING_DAYS = 3, 60
 MIN_POOL_BUDGET = 5000       # pence (£50) — a pool smaller than this isn't worth running
+MIN_TOPUP_AMOUNT = 1000      # pence (£10) — same reasoning, smaller isn't worth a whole PaymentIntent
 MAX_PCT_RATE = 10000         # commission_rate for "pct" is percent*100, so 10000 = 100.00%
 
 
@@ -122,7 +126,9 @@ def code_dict(db: Session, c: AffiliateCode) -> dict:
     return {
         "id": c.id, "program_id": c.program_id, "program_name": program.name if program else None,
         "code": c.code, "active": c.active,
-        "removed_reason": c.removed_reason, "removed_at": c.removed_at,
+        "removed_reason": c.removed_reason, "removed_message": c.removed_message,
+        "removed_at": c.removed_at,
+        "payout_net_amount": c.payout_net_amount, "payout_at": c.payout_at,
         "created_at": c.created_at,
     }
 
@@ -256,6 +262,72 @@ def fund_program(program_id: int, user: User = Depends(get_current_user), db: Se
         ],
         "total_charged": money["charge_amount"],
     }
+
+
+def topup_dict(t: AffiliateTopUp) -> dict:
+    return {
+        "id": t.id, "program_id": t.program_id, "amount": t.amount,
+        "funding_fee_percent": t.funding_fee_percent, "status": t.status,
+        "created_at": t.created_at, "funded_at": t.funded_at,
+    }
+
+
+class TopUpIn(BaseModel):
+    amount: int = Field(gt=0)   # pence, principal to add (excludes funding fee)
+
+
+@router.post("/programs/{program_id}/topup", status_code=201)
+def topup_program(program_id: int, body: TopUpIn,
+                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Add more budget to an already-live pool. Its own PaymentIntent, its
+    own AffiliateTopUp row — pool_max_budget only increases once Stripe
+    confirms this succeeded (services.mark_affiliate_topup_funded_from_pi),
+    never optimistically here. Only while the program is actually live and
+    running — topping up a draft (fund it properly instead) or a program
+    whose campaign has already ended doesn't make sense."""
+    p = _my_program(db, program_id, user)
+    if p.status != "live":
+        raise HTTPException(status_code=409, detail="Only a live program can be topped up")
+    if body.amount < MIN_TOPUP_AMOUNT:
+        raise HTTPException(status_code=422, detail=f"Top-up amount must be at least {MIN_TOPUP_AMOUNT} pence")
+
+    money = deal_money(body.amount, p.payout_fee_percent, p.funding_fee_percent)
+    try:
+        pi = stripe.PaymentIntent.create(
+            amount=money["charge_amount"],
+            currency=p.currency,
+            payment_method_types=["card"],
+            metadata={"affiliate_program_id": str(p.id), "promoslot": "affiliate_program_topup"},
+            description=f"PromoSlot affiliate program #{p.id} — {p.name} (pool top-up)",
+        )
+    except Exception as e:
+        raise _stripe_error(e)
+
+    t = AffiliateTopUp(program_id=p.id, amount=body.amount, funding_fee_percent=p.funding_fee_percent,
+                       payment_intent_id=pi.id, status="pending")
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+
+    return {
+        "topup_id": t.id, "program_id": p.id,
+        "client_secret": pi.client_secret,
+        "publishable_key": settings.stripe_publishable_key,
+        "currency": p.currency, "status": pi.status,
+        "line_items": [
+            {"label": "Pool top-up", "amount": body.amount},
+            {"label": f"PromoSlot fee ({p.funding_fee_percent}%)", "amount": money["buyer_fee"]},
+        ],
+        "total_charged": money["charge_amount"],
+    }
+
+
+@router.get("/programs/{program_id}/topups")
+def program_topups(program_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    p = _my_program(db, program_id, user)
+    rows = (db.query(AffiliateTopUp).filter_by(program_id=p.id)
+           .order_by(AffiliateTopUp.created_at.desc()).all())
+    return [topup_dict(t) for t in rows]
 
 
 class TrackingIn(BaseModel):
@@ -399,6 +471,35 @@ def program_conversions(program_id: int, status: Optional[str] = None,
     return [conversion_dict(db, c) for c in rows]
 
 
+@router.get("/programs/{program_id}/conversions/export")
+def export_program_conversions(program_id: int, status: Optional[str] = None,
+                               user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """CSV of the same rows /programs/{id}/conversions returns — for a
+    business's own bookkeeping/reconciliation, not a different view of the
+    data."""
+    p = _my_program(db, program_id, user)
+    q = db.query(AffiliateConversion).filter_by(program_id=p.id)
+    if status:
+        q = q.filter(AffiliateConversion.status == status)
+    rows = q.order_by(AffiliateConversion.reported_at.desc()).all()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["conversion_id", "reported_at", "occurred_at", "code", "platform_owner",
+                     "external_order_ref", "sale_amount_pence", "commission_amount_pence",
+                     "source", "status", "reversed_reason"])
+    for c in rows:
+        d = conversion_dict(db, c)
+        writer.writerow([d["id"], d["reported_at"], d["occurred_at"], d["code"],
+                         d["platform_owner_name"], d["external_order_ref"] or "",
+                         d["sale_amount"], d["commission_amount"], d["source"], d["status"],
+                         d["reversed_reason"] or ""])
+    buf.seek(0)
+    filename = f"promoslot-affiliate-{p.id}-conversions.csv"
+    return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
 def _my_application(db: Session, application_id: int, user: User) -> AffiliateApplication:
     a = db.get(AffiliateApplication, application_id)
     if a is None:
@@ -468,6 +569,66 @@ def reject_application(application_id: int, body: RejectIn,
                         ref=f"affiliate_browse"))
     db.commit()
     return application_dict(db, a)
+
+
+# ---------------------------------------------------------------------------
+# Business: remove a partner (revoke an approved code)
+# ---------------------------------------------------------------------------
+
+def _my_code(db: Session, code_id: int, user: User) -> AffiliateCode:
+    c = db.get(AffiliateCode, code_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Code not found")
+    p = db.get(AffiliateProgram, c.program_id)
+    if p is None or p.business_id != user.id:
+        raise HTTPException(status_code=404, detail="Code not found")
+    return c
+
+
+class RemovePartnerIn(BaseModel):
+    reason: str = Field(min_length=1)
+    message: Optional[str] = None
+
+
+@router.post("/codes/{code_id}/remove")
+def remove_partner(code_id: int, body: RemovePartnerIn, request: Request,
+                   user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Deactivate a platform owner's code immediately — no more sales will
+    ever be tracked against it (services.record_affiliate_conversion checks
+    active) — while keeping the row itself as the permanent record (never
+    deleted). A reason is required, an optional message is passed to the
+    owner alongside it. Every already-tracked, still-pending conversion on
+    this code is untouched here and still counts toward that owner's payout
+    at settlement — removing a partner ends the relationship going forward,
+    it doesn't erase commission already earned. This action is logged for
+    PromoSlot's records (see the audit.record call below)."""
+    c = _my_code(db, code_id, user)
+    if not c.active:
+        raise HTTPException(status_code=409, detail="This partner has already been removed")
+
+    before = {"active": c.active}
+    c.active = False
+    c.removed_reason = body.reason.strip()
+    c.removed_message = (body.message or "").strip() or None
+    c.removed_by = user.id
+    c.removed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(c)
+
+    p = db.get(AffiliateProgram, c.program_id)
+    db.add(Notification(
+        user_id=c.platform_owner_id, type="affiliate_partner_removed",
+        body=(f"You've been removed from {p.name if p else 'an affiliate program'}. "
+              f"Reason: {c.removed_reason}." + (f" {c.removed_message}" if c.removed_message else "")),
+        ref="affiliate_codes",
+    ))
+    db.commit()
+
+    audit.record(db, actor=user, action="affiliate.remove_partner", target_type="affiliate_code",
+                target_id=c.id, previous_state=before, new_state={"active": c.active},
+                reason=body.reason, request=request)
+
+    return code_dict(db, c)
 
 
 # ---------------------------------------------------------------------------

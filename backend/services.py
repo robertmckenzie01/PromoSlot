@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from . import audit, storage
 from .deal_state import can_transition
 from .models import (
-    AccountVerificationRequest, AffiliateCode, AffiliateConversion, AffiliateProgram, Business,
-    ConnectedAccount, Deal, DealStatus, Dispute, DisputeEvent, Notification, Payment, Platform,
-    Proof, Transfer, User, Verification,
+    AccountVerificationRequest, AffiliateCode, AffiliateConversion, AffiliateProgram,
+    AffiliateTopUp, Business, ConnectedAccount, Deal, DealStatus, Dispute, DisputeEvent,
+    Notification, Payment, Platform, Proof, Transfer, User, Verification,
 )
 from .permissions import Perm, ROLE_PERMISSIONS
 from .stripe_client import stripe
@@ -441,6 +441,45 @@ def mark_affiliate_program_funded_from_pi(db: Session, pi_id: str) -> Optional[A
     db.commit()
     db.refresh(program)
     return program
+
+
+def mark_affiliate_topup_funded_from_pi(db: Session, pi_id: str) -> Optional[AffiliateTopUp]:
+    """Mark a pool top-up funded — ONLY if Stripe confirms the PaymentIntent
+    succeeded. Same shape and same real-success gate as
+    mark_affiliate_program_funded_from_pi/mark_deal_funded_from_pi, tried as
+    the LAST fallback in the payment_intent.succeeded dispatcher (a
+    PaymentIntent id only ever matches one of a Deal, an AffiliateProgram's
+    original funding, or an AffiliateTopUp — never more than one).
+    program.pool_max_budget only increases here, once, on real confirmed
+    success — never optimistically when the top-up is first requested.
+    """
+    topup = db.query(AffiliateTopUp).filter_by(payment_intent_id=pi_id).first()
+    if topup is None or topup.status == "funded":
+        return topup
+
+    try:
+        pi = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        return topup
+    if getattr(pi, "status", None) != "succeeded":
+        return topup  # gate: real success only
+
+    topup.status = "funded"
+    topup.funded_at = datetime.utcnow()
+    topup.charge_id = getattr(pi, "latest_charge", None)
+
+    program = db.get(AffiliateProgram, topup.program_id)
+    if program is not None:
+        program.pool_max_budget = (program.pool_max_budget or 0) + topup.amount
+        db.add(Notification(
+            user_id=program.business_id, type="affiliate_topup_funded",
+            body=f"Your top-up of {program.currency.upper()} {topup.amount/100:.2f} for "
+                 f"{program.name} is confirmed — the pool budget has increased.",
+            ref=f"affiliate_manage:{program.id}",
+        ))
+    db.commit()
+    db.refresh(topup)
+    return topup
 
 
 def record_affiliate_conversion(db: Session, program: AffiliateProgram, code: AffiliateCode,

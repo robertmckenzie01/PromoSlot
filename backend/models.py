@@ -1055,6 +1055,35 @@ class AffiliateProgram(Base):
     business = relationship("User", foreign_keys=[business_id])
 
 
+class AffiliateTopUp(Base):
+    """A business adding more budget to an already-funded/live program.
+
+    Its own row + its own PaymentIntent per top-up (never reusing
+    AffiliateProgram.payment_intent_id, which is the ORIGINAL funding
+    PaymentIntent) — a program can be topped up more than once over a
+    campaign, and each needs to be tracked to completion independently by
+    the payment_intent.succeeded webhook, exactly like the original
+    funding flow (see services.mark_affiliate_topup_funded_from_pi).
+    program.pool_max_budget only increases once Stripe confirms this
+    succeeded — never optimistically at request time.
+    """
+    __tablename__ = "affiliate_topups"
+    id = Column(Integer, primary_key=True)
+    program_id = Column(Integer, ForeignKey("affiliate_programs.id"), nullable=False, index=True)
+
+    amount = Column(Integer, nullable=False)              # pence, principal only (excludes funding fee)
+    funding_fee_percent = Column(Integer, nullable=False)  # locked from the program at request time
+
+    payment_intent_id = Column(String, index=True)
+    charge_id = Column(String)
+    status = Column(String, default="pending", nullable=False, index=True)  # pending | funded
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    funded_at = Column(DateTime)
+
+    program = relationship("AffiliateProgram", foreign_keys=[program_id])
+
+
 class AffiliateApplication(Base):
     """A platform owner's request to join. Never auto-approved — see the
     module note above on why the discount code has to come from a human
