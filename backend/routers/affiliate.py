@@ -111,8 +111,12 @@ def program_dict(db: Session, p: AffiliateProgram) -> dict:
 def application_dict(db: Session, a: AffiliateApplication) -> dict:
     owner = db.get(User, a.platform_owner_id)
     code = db.query(AffiliateCode).filter_by(application_id=a.id).first()
+    program = db.get(AffiliateProgram, a.program_id)
+    business = db.get(User, program.business_id) if program else None
     return {
         "id": a.id, "program_id": a.program_id,
+        "program_name": program.name if program else None,
+        "business_name": business.display_name if business else None,
         "platform_owner_id": a.platform_owner_id,
         "platform_owner_name": owner.display_name if owner else None,
         "platform_owner_email": owner.email if owner else None,
