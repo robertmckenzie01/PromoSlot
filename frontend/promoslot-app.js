@@ -2899,16 +2899,23 @@ const PM_MODELS={
     amount:v=>Number(v.min)||0, detail:v=>`${Number(v.min)?`£${v.min} guaranteed + `:""}£${v.rate||0} per 1,000 verified impressions · up to £${v.budget||0} over ${v.days||0} days`},
   time:{label:"Time-based",fields:[{id:"price",l:"Price (£)",t:"number",d:"40"},{id:"unit",l:"Per",t:"select",opts:["day","week","month"],d:"week"},{id:"dur",l:"Duration",t:"number",d:"4"}],
     amount:v=>Number(v.price)||0, detail:v=>`£${v.price||0} per ${v.unit||"week"} · ${v.dur||1} ${v.unit||"week"}(s)`},
-  affiliate:{label:"Affiliate",fields:[{id:"pct",l:"% per sale",t:"number",d:"12"},{id:"cookie",l:"Cookie window (days)",t:"number",d:"30"},{id:"min",l:"Min payout (£)",t:"number",d:"0"}],
-    amount:v=>Number(v.min)||0, detail:v=>`${v.pct||0}% per sale · ${v.cookie||30}-day cookie${Number(v.min)?` · £${v.min} min`:""}`},
   // Kept only so PM_LABEL/PM_MODELS lookups don't break on any pre-existing
-  // stored "hybrid" tier — no longer reachable via PM_ORDER, see above.
+  // stored "hybrid"/"affiliate" tier — neither is reachable via PM_ORDER any
+  // more. "affiliate" was removed 2026-08-30 (task #147/#210): a Deal never
+  // actually settled it per-sale (silently became a plain fixed deal — see
+  // backend/routers/deals.py's PRICING_MODELS, which never had an
+  // "affiliate" value), and the real per-sale marketplace now exists
+  // separately (AffiliateProgram — see openNewAffiliateProgram() and
+  // affProgramsPanelHtml() above), so this dead-end option was removed
+  // from every creation surface rather than left silently non-functional.
+  affiliate:{label:"Affiliate (legacy)",fields:[{id:"pct",l:"% per sale",t:"number",d:"12"},{id:"cookie",l:"Cookie window (days)",t:"number",d:"30"},{id:"min",l:"Min payout (£)",t:"number",d:"0"}],
+    amount:v=>Number(v.min)||0, detail:v=>`${v.pct||0}% per sale · ${v.cookie||30}-day cookie${Number(v.min)?` · £${v.min} min`:""}`},
   hybrid:{label:"Hybrid (guaranteed + performance)",fields:[{id:"guar",l:"Guaranteed (£)",t:"number",d:"50"},{id:"extra",l:"Plus performance terms",t:"text",d:"£5 per 1,000 views"}],
     amount:v=>Number(v.guar)||0, detail:v=>`£${v.guar||0} guaranteed + ${v.extra||"performance"}`},
   custom:{label:"Custom",fields:[{id:"note",l:"Describe the terms",t:"text",d:""}],
     amount:()=>0, detail:v=>v.note||"Custom terms"},
 };
-const PM_ORDER=["fixed","per-view","per-imp","time","affiliate","custom"];
+const PM_ORDER=["fixed","per-view","per-imp","time","custom"];
 function pmFieldsHtml(idx,type){
   const m=PM_MODELS[type]||PM_MODELS.fixed;
   return `<div class="row2">${m.fields.map(f=>f.t==="select"
@@ -3238,9 +3245,11 @@ const BIZ_PAY_METHODS=[
   {key:"per-view", label:"Price per view",       field:"Rate per 1,000 views (£)",
    unlocks:["Looking to market a product","Testing a new market"],
    detail:v=>`${gbp(v)} per 1,000 verified views`},
-  {key:"affiliate",label:"Affiliate commission", field:"Commission per verified sale (%)",
-   unlocks:["Looking to offer affiliate partnerships"],
-   detail:v=>`${v}% commission per verified sale`},
+  // "affiliate" removed 2026-08-30 (task #147): a Deal never actually
+  // settled per-sale commission — see PM_MODELS.affiliate's comment above
+  // for the full reasoning. Affiliate partnerships now go through the real
+  // Affiliate Program marketplace instead (see payMethodsHtml() below,
+  // which shows a redirect note when this goal is picked).
   {key:"product",  label:"Free product",         field:"Retail value of the product supplied (£)",
    unlocks:["Looking to market a product","Wanting UGC content"],
    detail:v=>v?`Free product supplied (${gbp(v)} value)`:"Free product supplied"},
@@ -3273,8 +3282,14 @@ function collectPaySel(){
 }
 function payMethodsHtml(){
   const list=unlockedPayMethods(W.d.intentsB);
-  if(!list.length) return `<p class="mut" style="font-size:12.5px">Go back to step 1 and pick a goal. The payment methods you can offer follow from it.</p>`;
-  return `<div class="chips-lg">${list.map(m=>
+  // "Looking to offer affiliate partnerships" no longer unlocks a payment
+  // method here (see BIZ_PAY_METHODS above) — point them at the real
+  // Affiliate Program feature instead of leaving a goal they picked with
+  // no visible effect, which would look like a bug.
+  const affNote = W.d.intentsB.has("Looking to offer affiliate partnerships")
+    ? `<p class="mut" style="font-size:12.5px;margin-bottom:8px">Affiliate commission is handled by a dedicated Affiliate Program, not a payment method here — set one up separately from your dashboard once this campaign is created (real discount codes, tracked sales, one-time settlement).</p>` : "";
+  if(!list.length) return affNote || `<p class="mut" style="font-size:12.5px">Go back to step 1 and pick a goal. The payment methods you can offer follow from it.</p>`;
+  return affNote + `<div class="chips-lg">${list.map(m=>
       `<button type="button" class="chip ${paySel(m.key).on?"on":""}" onclick="togglePayMethod('${m.key}')">${esc(m.label)}</button>`).join("")}</div>`
     + list.filter(m=>paySel(m.key).on).map(m=>{
       const c=paySel(m.key);
@@ -3300,11 +3315,18 @@ function collectCampaignPayments(){
 }
 
 const GIVEAWAY_PM="Giveaway prize";
-const BIZ_INTENTS=[["📦","Looking to market a product","Get your product in front of the right audiences"],["🤝","Looking to offer affiliate partnerships","Pay commission on verified sales"],["🎁","Wanting to run a giveaway","Grow awareness with hosted giveaways"],["🌟","Looking for long-term brand ambassadors","Monthly retainers with creators you trust"],["🎬","Wanting UGC content","Videos for your own ads, not posted to creator pages"],["🧪","Testing a new market","Small campaigns to validate a niche or country"]];
+// "Looking to offer affiliate partnerships"/"I want to offer affiliate
+// promotions" stay as selectable goals (still real signal about what the
+// person wants) but their copy now points at the real Affiliate Program
+// marketplace rather than implying this wizard sets up per-sale commission
+// itself — see payMethodsHtml()'s redirect note for the business side; the
+// platform-owner one was already inert (never unlocked anything, per #147's
+// audit), so only its wording needed to change.
+const BIZ_INTENTS=[["📦","Looking to market a product","Get your product in front of the right audiences"],["🤝","Looking to offer affiliate partnerships","Set up via the dedicated Affiliate Program, after creating this campaign"],["🎁","Wanting to run a giveaway","Grow awareness with hosted giveaways"],["🌟","Looking for long-term brand ambassadors","Monthly retainers with creators you trust"],["🎬","Wanting UGC content","Videos for your own ads, not posted to creator pages"],["🧪","Testing a new market","Small campaigns to validate a niche or country"]];
 // First card was hardcoded to "TikTok" regardless of which of the 18
 // platform types the person actually has — generalized so it reads
 // correctly for a newsletter, podcast, Discord server, etc. too.
-const PLAT_INTENTS=[["🎵","I want to monetize my platform","Turn views into deal flow"],["🗂","I have multiple platforms to list","Each platform gets its own listing, audience & prices"],["💼","I'm looking for brand deals","Sponsored posts, integrations, reviews"],["🔗","I want to offer affiliate promotions","Earn commission on verified sales"],["📮","I run a community/newsletter","Discord, Substack, forums, communities monetise too"]];
+const PLAT_INTENTS=[["🎵","I want to monetize my platform","Turn views into deal flow"],["🗂","I have multiple platforms to list","Each platform gets its own listing, audience & prices"],["💼","I'm looking for brand deals","Sponsored posts, integrations, reviews"],["🔗","I want to offer affiliate promotions","Browse live Affiliate Programs from your dashboard once you're listed"],["📮","I run a community/newsletter","Discord, Substack, forums, communities monetise too"]];
 
 function defW(){
   return {
@@ -3498,10 +3520,9 @@ function wizStepHtml(step){
         pmIn("pm-pi-min","Guaranteed floor (£, optional)","0")+pmIn("pm-pi-rate","Rate per 1,000 verified impressions (£)","5"))}
       ${pmBox("time","Time-based placement","Pinned posts, link-in-bio, banners",
         pmIn("pm-tm-price","Price (£)","40")+`<div><label>Per</label><select id="pm-tm-unit"><option>day</option><option selected>week</option><option>month</option></select></div>`+pmIn("pm-tm-min","Minimum duration","1")+pmIn("pm-tm-max","Maximum duration","4")+`<div><label>Renewal</label><select id="pm-tm-renew"><option selected>Renewable</option><option>Not renewable</option></select></div>`)}
-      ${pmBox("affiliate","Affiliate commission","Earn per verified sale or lead",
-        pmIn("pm-af-pct","% per verified sale","15")+pmIn("pm-af-lead","Flat per qualified lead (£, optional)","0")+pmIn("pm-af-cookie","Cookie / attribution (days)","30")+pmIn("pm-af-min","Minimum payout (£)","20"))}
       ${pmBox("custom","Custom quote","Invite businesses to request a personalised proposal","<div style='grid-column:1/-1;font-size:12.5px;color:var(--mut)'>Businesses will see a “Request quote” button on this listing.</div>")}
-      </div></div>`,
+      </div>
+      <p class="mut" style="font-size:12.5px;margin-top:8px">Want to earn commission per sale? That's handled by the Affiliate Program marketplace now, not a pricing model here — browse live programs from your dashboard once you're listed.</p></div>`,
       collect:collectPricing,
       valid:()=>{ collectPricing(); return d.pServices.size&&d.pricing.length?null:"Pick at least one service and one pricing model."; }};
     case "p-review": {
@@ -3531,7 +3552,6 @@ function collectPricing(){
     detail:`${Number(v("pm-pi-min"))?`£${v("pm-pi-min")} guaranteed + `:""}£${v("pm-pi-rate")} per 1,000 verified impressions`,
     amount:Number(v("pm-pi-min"))||0, rate_pence:Math.round((Number(v("pm-pi-rate"))||0)*100), rate_qty:1000});
   if(on("time")) d.pricing.push({key:"time",type:"time",label:`Placement: per ${v("pm-tm-unit")}`,detail:`£${v("pm-tm-price")} per ${v("pm-tm-unit")} · min ${v("pm-tm-min")}, max ${v("pm-tm-max")} ${v("pm-tm-unit")}s · ${v("pm-tm-renew").toLowerCase()}`,amount:Number(v("pm-tm-price"))||0});
-  if(on("affiliate")) d.pricing.push({key:"affiliate",type:"affiliate",label:"Affiliate promotion",detail:`${v("pm-af-pct")}% per verified sale${Number(v("pm-af-lead"))?` · £${v("pm-af-lead")} per qualified lead`:""} · ${v("pm-af-cookie")}-day cookie · £${v("pm-af-min")} min payout`,amount:0});
   if(on("custom")) d.pricing.push({key:"custom",type:"custom",label:"Custom quote",detail:"Invite businesses to request a personalised proposal",amount:0});
 }
 function buildMyListing(){
@@ -8150,9 +8170,14 @@ const RES_MODELS={
   time:{what:"A price per day, week or month for a placement that stays live for a set duration.",
     best:"Positions you rent rather than content you commission: pinned messages, stream overlays, sidebar and resource-page links, board placements.",
     watch:"A period is only verifiable if it is checked at both ends. Ask for dated evidence at the start and at the end of the window, not just a screenshot on day one."},
-  affiliate:{what:"A percentage per sale, with a cookie window and an optional minimum payout.",
-    best:"A product with a working checkout, tracking you already trust, and an audience close enough to buying that a recommendation converts on its own.",
-    watch:"It can pay nothing through nobody's fault, so experienced partners often decline it on its own. Only the minimum payout is held up front. With no minimum, nothing is escrowed."},
+  // Deprecated as a Deal pricing model 2026-08-30 (task #147) — a Deal
+  // never actually settled commission per sale, it silently became a plain
+  // fixed deal. Kept here (and in PM_MODELS/RES_SCENARIOS) only so this
+  // entry can still explain the redirect if someone lands on it directly;
+  // removed from PM_ORDER so it no longer appears as a pickable button.
+  affiliate:{what:"Not a Deal pricing model any more — a percentage per sale, with real per-sale settlement, is handled by the dedicated Affiliate Program marketplace instead.",
+    best:"A business creates a pool-funded Affiliate Program; platform owners apply, get approved with a real discount code, and every tracked sale is reported and settled automatically. Set one up from your business dashboard.",
+    watch:"A one-to-one Deal here can't do real per-sale commission tracking — use the Affiliate Program marketplace for that instead of proposing 'affiliate' terms on a Deal."},
   hybrid:{what:"A guaranteed amount held up front, plus agreed performance terms on top of it.",
     best:"A first campaign together, or any deal where you and the partner genuinely disagree about the likely result and both have a defensible case.",
     watch:"Write the performance half as a formula with one named source and one window: five pounds per thousand views on the post's own analytics, counted 30 days after publication. Never as an adjective like strong performance."},
@@ -8165,7 +8190,7 @@ const RES_SCENARIOS=[
   {t:"Reach could be huge or nothing",k:"per-view",why:"Per view shares the uncertainty rather than arguing about it: the minimum protects the partner, the rate rewards a hit, the cap protects you."},
   {t:"I'm renting a position for a while",k:"time",why:"Pins, overlays, sidebars and boards are positions rather than posts. Price the period, and evidence both ends of it."},
   {t:"I'm buying newsletter or banner inventory",k:"per-imp",why:"Placement inventory is sold on volume delivered. Agree which figure the platform reports before you fund anything."},
-  {t:"I want to pay on sales only",k:"affiliate",why:"Affiliate works when checkout and tracking are already reliable. Expect fewer partners to accept it with no guaranteed element."},
+  {t:"I want to pay on sales only",k:"affiliate",why:"This isn't a Deal pricing model any more — set up a pool-funded Affiliate Program instead, which does real per-sale tracking and settlement (unlike a Deal, which can't verify sales on its own)."},
   {t:"First campaign with this partner",k:"hybrid",why:"Hybrid is the honest answer when neither side can predict the result: guarantee enough to be worth their time, and put the rest on numbers you have both named."},
   {t:"None of these describe it",k:"custom",why:"Custom carries no defaults, so anything left out of the terms cannot be checked later. Write more than feels necessary."}
 ];
