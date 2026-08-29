@@ -4529,6 +4529,110 @@ async function affTopupPay(){
   affReloadManage();
 }
 
+/* ==================== AFFILIATE MARKETPLACE (platform-owner side) ====================
+   Browse live programs, apply, and see your own applications/codes/tracked
+   sales. Business side (create/fund/manage) is above. Admin oversight is
+   the next slice. */
+function affAppStatusPill(status){
+  const map={pending:["Pending review","st-review"],approved:["Approved","st-live"],rejected:["Not approved","st-dispute"]};
+  const [label,cls]=map[status]||["—","st-draft"];
+  return `<span class="status-pill ${cls}">${label}</span>`;
+}
+
+/* ---- Owner dashboard panel ---- */
+function affOwnerPanelHtml(){
+  const apps=S.myAffiliateApplications||[];
+  return `<div class="panel" id="yourAffiliateActivity"><div class="panel-h"><h4>Affiliate programs</h4><button class="btn btn-o btn-sm" onclick="openAffiliateBrowse()">Browse programs</button></div>
+    <div class="panel-b">${apps.length?apps.map(a=>`
+      <div class="op-row" style="margin-bottom:8px" onclick="openMyAffiliateEarnings()">
+        <div><b>${esc(a.program_name||"Affiliate program")}</b><small>${a.status==="approved"?`Code: ${esc(a.code||"—")}`:a.status==="rejected"?esc(a.rejected_reason||"Not approved"):"Awaiting review"}</small></div>
+        ${affAppStatusPill(a.status)}
+      </div>`).join(""):`<div class="empty-state"><h4>No affiliate applications yet</h4><p>Browse live affiliate programs and apply — approved partners get a real discount code from the business and earn commission on every tracked sale.</p><button class="btn btn-p btn-sm" onclick="openAffiliateBrowse()">Browse programs</button></div>`}
+    ${apps.length?`<button class="btn btn-o btn-sm" style="margin-top:10px" onclick="openMyAffiliateEarnings()">💷 My affiliate earnings</button>`:""}
+    </div></div>`;
+}
+
+/* ---- Browse + apply ---- */
+async function openAffiliateBrowse(){
+  openModal(`<div class="m-pad" style="text-align:center;padding:48px 20px"><span class="spin"></span></div>`,"wide");
+  let rows=[]; try{ rows=await PSApi.get("/affiliate/programs"); }catch(e){ toast(e.message||"Could not load programs"); closeModal(); return; }
+  openModal(`<div class="m-pad"><h3 class="m-title">Affiliate programs</h3>
+    <p class="m-sub">Apply to a program — once approved, the business gives you a real discount code and every tracked sale earns commission.</p>
+    ${rows.length?rows.map(affBrowseRowHtml).join(""):`<div class="empty-state"><h4>No live affiliate programs right now</h4><p>Check back soon — businesses are setting these up.</p></div>`}
+    <div class="m-actions"><button class="btn btn-p" onclick="closeModal()">Close</button></div></div>`,"wide");
+}
+function affBrowseRowHtml(p){
+  return `<div class="op-row" style="margin-bottom:8px" onclick="openAffiliateProgramDetail(${p.id})">
+    <div><b>${esc(p.name)}</b><small>${esc(p.business_name||"")} · ${affCommissionText(p)} · pool ${gbpP(p.pool_remaining)} left</small></div>
+    <span class="op-go">View →</span></div>`;
+}
+async function openAffiliateProgramDetail(id){
+  openModal(`<div class="m-pad" style="text-align:center;padding:48px 20px"><span class="spin"></span></div>`,"wide");
+  let p; try{ p=await PSApi.get(`/affiliate/programs/${id}`); }catch(e){ toast(e.message||"Could not load program"); closeModal(); return; }
+  const existing=(S.myAffiliateApplications||[]).find(a=>a.program_id===id);
+  let applySection;
+  if(existing){
+    applySection=`<div class="note blue">You've already applied — ${affAppStatusPill(existing.status)}${existing.status==="approved"?` · your code is <b>${esc(existing.code||"—")}</b>`:existing.status==="rejected"?` · ${esc(existing.rejected_reason||"")}`:""}</div>`;
+  } else if(!S.account){
+    applySection=`<button class="btn btn-p" onclick="authGate('signup')">Sign up to apply</button>`;
+  } else if(!S.account.is_platform_owner){
+    applySection=`<p class="mut" style="font-size:12.5px">Only platform-owner accounts can apply to affiliate programs.</p>`;
+  } else {
+    applySection=`<div><label>Message to the business (optional)</label><input type="text" id="affa-msg" placeholder="Why you're a good fit"></div>
+      <div class="hint-err hide" id="affa-err"></div>
+      <button class="btn btn-p" style="margin-top:8px" onclick="affSubmitApply(${p.id})">Apply</button>`;
+  }
+  openModal(`<div class="m-pad"><h3 class="m-title">${esc(p.name)}</h3>
+    <p class="m-sub">${esc(p.business_name||"")}${p.description?" · "+esc(p.description):""}</p>
+    <div class="mini-rows" style="margin:10px 0">
+      <div><span>Commission</span><b>${affCommissionText(p)}</b></div>
+      <div><span>Pool remaining</span><b>${gbpP(p.pool_remaining)}</b></div>
+      <div><span>Campaign ends</span><b>${p.campaign_ends_at?new Date(p.campaign_ends_at).toLocaleDateString("en-GB"):"—"}</b></div>
+    </div>
+    ${applySection}
+    <div class="m-actions"><button class="btn btn-o" onclick="openAffiliateBrowse()">← Back to programs</button></div></div>`,"wide");
+}
+async function affSubmitApply(programId){
+  const msg=($("affa-msg")||{}).value||"";
+  const err=$("affa-err");
+  try{
+    const a=await PSApi.post(`/affiliate/programs/${programId}/apply`,{message:msg.trim()||null});
+    (S.myAffiliateApplications=S.myAffiliateApplications||[]).unshift(a);
+    toast("Applied — you'll be notified once the business reviews it",true);
+    openAffiliateProgramDetail(programId);
+  }catch(e){ if(err){err.textContent=e.message||"Could not apply"; err.classList.remove("hide");} }
+}
+
+/* ---- My affiliate activity (applications + codes + tracked sales) ---- */
+async function openMyAffiliateEarnings(){
+  openModal(`<div class="m-pad" style="text-align:center;padding:48px 20px"><span class="spin"></span></div>`,"wide");
+  let apps=[],codes=[],convs=[];
+  try{
+    [apps,codes,convs]=await Promise.all([
+      PSApi.get("/affiliate/applications/mine"),
+      PSApi.get("/affiliate/codes/mine"),
+      PSApi.get("/affiliate/conversions/mine"),
+    ]);
+  }catch(e){ toast(e.message||"Could not load your affiliate activity"); closeModal(); return; }
+  S.myAffiliateApplications=apps;   // keep the dashboard panel in sync
+  const pendingTotal=convs.filter(c=>c.status==="pending").reduce((a,c)=>a+c.commission_amount,0);
+  const settledTotal=convs.filter(c=>c.status==="settled").reduce((a,c)=>a+c.commission_amount,0);
+  const convRows=convs.length
+    ? `<div class="agree-doc">${convs.slice(0,15).map(c=>`<div class="ad-row"><span class="k">${esc(c.program_name||"—")} · ${new Date(c.reported_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}${c.status==="reversed"?" · reversed":c.status==="settled"?" · settled":""}</span><span class="v">${gbpP(c.commission_amount)}</span></div>`).join("")}</div>`
+    : `<p class="mut" style="font-size:12.5px">No tracked sales yet.</p>`;
+  openModal(`<div class="m-pad"><h3 class="m-title">Your affiliate activity</h3>
+    <div class="mini-rows" style="margin:10px 0">
+      <div><span>Tracked, not yet settled</span><b>${gbpP(pendingTotal)}</b></div>
+      <div><span>Settled &amp; paid</span><b>${gbpP(settledTotal)}</b></div>
+      <div><span>Active codes</span><b>${codes.length}</b></div>
+    </div>
+    <div class="det-sec"><h5>Your applications</h5>
+      ${apps.length?apps.map(a=>`<div class="op-row" style="margin-bottom:6px"><div><b>${esc(a.program_name||"Affiliate program")}</b><small>${esc(a.business_name||"")}${a.status==="approved"?` · code ${esc(a.code||"—")}`:a.status==="rejected"?` · ${esc(a.rejected_reason||"Not approved")}`:" · awaiting review"}</small></div>${affAppStatusPill(a.status)}</div>`).join(""):`<p class="mut" style="font-size:12.5px">No applications yet.</p>`}</div>
+    <div class="det-sec"><h5>Recent tracked sales</h5>${convRows}</div>
+    <div class="m-actions"><button class="btn btn-o" onclick="openAffiliateBrowse()">Browse more programs</button><button class="btn btn-p" onclick="closeModal()">Close</button></div>
+  </div>`,"wide");
+}
+
 function renderBizDash(){
   const b=S.biz;
   // Real analytics from actual deals where this account is the business.
@@ -4593,6 +4697,7 @@ function renderPlatDash(){
         <div class="panel-b">${S.myPlatforms.length?`<div class="cards tight">${S.myPlatforms.map((l,i)=>listingCard(l,i,true)).join("")}</div>`:`<div class="empty-state"><h4>No listings yet</h4><p>Register each platform you control: its own audience, services and prices.</p><button class="btn btn-p btn-sm" onclick="openRegisterPlatform()">＋ Register a platform</button></div>`}
         ${S.myPlatforms.length&&S.myPlatforms.length<3?`<div class="note blue" style="margin-top:14px">💡 Owners with multiple listings get seen by more campaigns: list each platform you own separately, each with its own audience and prices. <a href="#" onclick="openRegisterPlatform();return false">Register another platform →</a></div>`:""}</div></div>
       <div class="panel" id="yourDeals"><div class="panel-h"><h4>Your deals</h4><button class="btn btn-o btn-sm" onclick="openMarket('campaigns')">Find campaigns</button></div><div class="panel-b">${dealRows()}</div></div>
+      ${affOwnerPanelHtml()}
     </div><div>
       <div class="panel"><div class="panel-h"><h4>Activity</h4></div><div class="panel-b">${notifRows()}</div></div>
       <div class="panel"><div class="panel-h"><h4>Campaigns matching your niches</h4></div><div class="panel-b">
@@ -4837,6 +4942,12 @@ function openNotif(ref){
   if(typeof ref==="string" && ref.indexOf("affiliate_review:")===0){
     openAffiliateProgram(parseInt(ref.slice(17),10)); return;
   }
+  // Owner-facing affiliate alerts (approved/settled -> "affiliate_codes",
+  // rejected -> "affiliate_browse") — see routers/affiliate.py's
+  // approve_application/reject_application and
+  // services.settle_affiliate_program.
+  if(ref==="affiliate_codes"){ openMyAffiliateEarnings(); return; }
+  if(ref==="affiliate_browse"){ openAffiliateBrowse(); return; }
   if(findListing(ref)){ openListing(ref); return; }
   if(findCampaign(ref)){ openCampaign(ref); return; }
   if(/^\d+$/.test(String(ref))){ showView("view-deal"); renderRealDeal(parseInt(ref,10)); return; }  // deal notifications
@@ -5767,7 +5878,7 @@ async function openPayouts(){
       :`<div class="empty-state"><div class="es-ico">💸</div><h4>No payouts pending</h4><p>Verified deals awaiting payout appear here until you release the funds.</p></div>`}</div></div>`;
 }
 async function loadMine(){
-  if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; S.platVerified=false; S.myAffiliatePrograms=[]; return; }
+  if(!S.account){ S.myPlatforms=[]; S.myCampaigns=[]; S.platVerified=false; S.myAffiliatePrograms=[]; S.myAffiliateApplications=[]; return; }
   await Promise.all([
     S.account.is_platform_owner
       ? PSApi.get("/platforms/mine").then(r=>{S.myPlatforms=r;}).catch(()=>{S.myPlatforms=[];})
@@ -5791,6 +5902,9 @@ async function loadMine(){
     S.account.is_business
       ? PSApi.get("/affiliate/programs/mine").then(r=>{S.myAffiliatePrograms=r;}).catch(()=>{S.myAffiliatePrograms=[];})
       : Promise.resolve(S.myAffiliatePrograms=[]),
+    S.account.is_platform_owner
+      ? PSApi.get("/affiliate/applications/mine").then(r=>{S.myAffiliateApplications=r;}).catch(()=>{S.myAffiliateApplications=[];})
+      : Promise.resolve(S.myAffiliateApplications=[]),
     // Merge real fields (verified, has_stripe_account, id) onto S.biz without
     // clobbering the wizard-only display fields (product/target/intents/...)
     // that have no backing column on Business — see finishBiz(). Defaults go
@@ -7954,7 +8068,8 @@ openDisputesQueue,openDispute,claimDispute,addDisputeNote,requestDisputeInfo,
 openEditDisplayName,saveDisplayName,
 openEditPhone,savePhone,clearPhone,setMarketingPreference,
 openNewAffiliateProgram,affCTypeChange,affSubmitCreate,openAffiliateProgram,affPickHost,affConfirmTracking,affPay,
-affShowTopupForm,affTopup,affTopupPay,affApprove,affReject,affRemovePartner};
+affShowTopupForm,affTopup,affTopupPay,affApprove,affReject,affRemovePartner,
+openAffiliateBrowse,openAffiliateProgramDetail,affSubmitApply,openMyAffiliateEarnings};
 Object.assign(window,EXPORTS);
 window.S=S;
 Object.defineProperty(window,"W",{get:()=>W,set:v=>{W=v}});
