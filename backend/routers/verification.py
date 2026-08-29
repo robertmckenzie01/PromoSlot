@@ -219,10 +219,24 @@ def my_business_request(user: User = Depends(get_current_user), db: Session = De
 
 
 @router.post("/business/submit")
-def submit_business_verification(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def submit_business_verification(body: OwnershipSubmitIn = OwnershipSubmitIn(),
+                                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Queue this business for human review, once Stripe's own check passes.
     Stripe passing is a precondition to submit, not the approval itself —
-    see decide_verification for the required human step."""
+    see decide_verification for the required human step.
+
+    Optional evidence_checklist/evidence_notes ride along in the SAME call —
+    Rob, 2026-08-28: 'I want to remove that feature completely' (adding
+    evidence to an already-submitted application) because of the extra
+    backend surface it creates (resubmissions, a messier admin queue).
+    Evidence only ever attaches at the moment of submission, never after;
+    the frontend collects it on the same screen as this button, and any
+    file upload (POST .../business/evidence) must happen immediately after
+    this call, while the request this creates is still the caller's one
+    and only pending business_identity row. Universal, non-sensitive,
+    low-friction evidence a marketing hire can put together without going
+    through finance/legal ('hey boss, can you send me X') — never required,
+    Stripe + admin approval alone still fully verifies a business."""
     biz = _my_business(db, user)
     if biz is None or not biz.stripe_account_id:
         raise HTTPException(status_code=400, detail="Complete Stripe verification first")
@@ -241,7 +255,8 @@ def submit_business_verification(user: User = Depends(get_current_user), db: Ses
 
     req = AccountVerificationRequest(
         subject_type="business_identity", business_id=biz.id, submitted_by=user.id,
-        stripe_legal_name=stripe_legal_name_of(acct), stripe_verified_at=datetime.utcnow())
+        stripe_legal_name=stripe_legal_name_of(acct), stripe_verified_at=datetime.utcnow(),
+        evidence_checklist=body.evidence_checklist, evidence_notes=body.evidence_notes)
     db.add(req)
     db.commit()
     db.refresh(req)
@@ -252,32 +267,8 @@ def _pending_business_request(db: Session, biz: Business) -> AccountVerification
     req = db.query(AccountVerificationRequest).filter_by(
         business_id=biz.id, subject_type="business_identity", status="pending").first()
     if req is None:
-        raise HTTPException(status_code=400, detail="No pending application to add evidence to")
+        raise HTTPException(status_code=400, detail="No pending application to attach evidence to")
     return req
-
-
-@router.post("/business/add-evidence")
-def add_business_evidence(body: OwnershipSubmitIn, user: User = Depends(get_current_user),
-                          db: Session = Depends(get_db)):
-    """Optional, non-blocking supporting evidence on top of the Stripe check —
-    Rob, 2026-08-28: businesses need something universal (not registry-
-    dependent) and low-friction enough that a marketing hire can put it
-    together without going through finance/legal ('hey boss, can you send
-    me X'). Reuses business_identity's own evidence_checklist/notes columns
-    (already on the model for platform_ownership) rather than a new gate —
-    submitting this never blocks Business.verified, which still flips from
-    Stripe + admin approval alone; it just gives the reviewer more to go on.
-    Never required, always optional, same 'deleted on decision' rule as any
-    other evidence (see services._wipe_evidence)."""
-    biz = _my_business(db, user)
-    if biz is None:
-        raise HTTPException(status_code=400, detail="Set up your business profile first")
-    req = _pending_business_request(db, biz)
-    req.evidence_checklist = body.evidence_checklist
-    req.evidence_notes = body.evidence_notes
-    db.commit()
-    db.refresh(req)
-    return avr_dict(req)
 
 
 @router.post("/business/evidence")

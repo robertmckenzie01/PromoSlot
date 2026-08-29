@@ -3683,6 +3683,32 @@ function vfStatusPill(status){
   if(status==="rejected") return `<span class="status-pill st-dispute">Needs another look</span>`;
   return `<span class="status-pill st-draft">Not started</span>`;
 }
+// Rob, 2026-08-28 (verbatim): "on both the dashboard and my account page
+// the verification looks as if no application has been submitted from the
+// front before clicking on it... I need both of these to make it 100%
+// assuring that after a user submits an application for review, that it
+// says that." These two compute the real status; the dashboard/My Account
+// buttons below use them instead of the old plain verified boolean. The
+// click target was already correct (openVerify() resolves to the right
+// screen for any status — see vfRenderBiz/vfRenderPlat) — only the LABEL
+// was lying about there being nothing submitted yet.
+function vfBizStatus(){
+  if(S.biz && S.biz.verified) return "approved";
+  return (S.bizVerifyReq && S.bizVerifyReq.status) || null;
+}
+function vfPlatStatus(){
+  if(S.platVerified) return "approved";
+  const r=S.platVerifyReqs||{};
+  const statuses=[r.platform_identity,r.platform_ownership].filter(Boolean).map(x=>x.status);
+  if(statuses.includes("pending")) return "pending";
+  if(statuses.includes("rejected")) return "rejected";
+  return null;
+}
+function vfStatusBtnHtml(kind){
+  const status=kind==="biz"?vfBizStatus():vfPlatStatus();
+  const label={approved:"Verified ✔",pending:"Pending review",rejected:"Needs another look"}[status]||"Get verified";
+  return `<button class="btn btn-o btn-sm" onclick="openVerify('${kind}')">${label}</button>`;
+}
 function vfRejectedNotice(req){
   return `<div class="note" style="border-left:3px solid var(--red)">
     <b style="display:block;color:var(--red);font-size:13.5px">Not approved</b>
@@ -3716,34 +3742,26 @@ async function vfRenderBiz(){
       `<button class="btn btn-p" onclick="closeModal()">Close</button>`)); return;
   }
   const existing = await PSApi.get("/verification/business/my-request").catch(()=>null);
+  // Rob, 2026-08-28: "I want to remove that feature completely" (adding
+  // evidence to an already-submitted application) — "if they forgot to
+  // then too late... we just need to emphasise that the user must take
+  // this seriously and upload everything possible before clicking submit
+  // for review." Once a request exists, this is a pure read-only summary
+  // of what was submitted — never an editable form again.
   if(existing && existing.status==="pending"){
-    openModal(vfShell("Submitted for review","A PromoSlot reviewer will confirm this matches your profile before your badge appears. You'll be notified either way.",
-      vfBizEvidenceHtml(existing),
+    openModal(vfShell("Submitted ✓","A PromoSlot reviewer will confirm this matches your profile before your badge appears. You'll be notified either way — there's nothing else to do here.",
+      vfBizSubmittedSummaryHtml(existing),
       `<button class="btn btn-p" onclick="closeModal()">Got it</button>`),"wide"); return;
   }
+
   let status = {has_account:false};
   if(biz.has_stripe_account) status = await PSApi.get("/verification/business/status").catch(()=>({has_account:false}));
-
-  // One step, not two — Rob, 2026-08-28: "I want every verification to be
-  // a one step process that submits for verification on promoslot the
-  // second they finish their application." The moment Stripe's own check
-  // passes, submit for PromoSlot review automatically — no separate manual
-  // click to notice and take. Consent for that is captured up front instead
-  // (see the "Continue with Stripe" step below), not as a second click
-  // after the fact. Only on a FRESH attempt though — after a rejection,
-  // resubmitting is still an explicit act, not silent (see below).
-  if(status.verified_by_stripe && !existing){
-    try{
-      await PSApi.post("/verification/business/submit",{});
-      return vfRenderBiz();
-    }catch(e){ /* falls through to the normal ready-to-submit screen below as a fallback */ }
-  }
 
   const rejected = (existing && existing.status==="rejected") ? vfRejectedNotice(existing) : "";
 
   if(!status.has_account){
     openModal(vfShell("Get business verified",
-      "We verify your business through Stripe's own identity check — the same one used by businesses everywhere. PromoSlot never sees your documents; Stripe handles that directly and only ever tells us pass or fail, plus your verified legal name. The moment Stripe confirms it, this is submitted for PromoSlot review automatically — no extra step, and by continuing you confirm you're authorised to verify this business on PromoSlot's behalf.",
+      "We verify your business through Stripe's own identity check — the same one used by businesses everywhere. PromoSlot never sees your documents; Stripe handles that directly and only ever tells us pass or fail, plus your verified legal name. Once Stripe confirms it, you'll get one screen to attach anything else that helps, then submit — final, so worth doing properly the first time.",
       rejected+`<div class="det-sec"><h5>What Stripe checks</h5>
         <div class="proof-item"><span class="pi-ico">🏢</span><div class="vf-body"><b>Legal business name &amp; registration</b><small>Whatever's on file for your business</small></div></div>
         <div class="proof-item"><span class="pi-ico">🧑</span><div class="vf-body"><b>Representative identity</b><small>Whoever completes this on your business's behalf</small></div></div>
@@ -3753,19 +3771,21 @@ async function vfRenderBiz(){
   }
   if(!status.verified_by_stripe){
     openModal(vfShell("Finish verifying with Stripe",
-      status.requirements_due?"Stripe still needs a bit more information to finish this check.":"Stripe is reviewing what you've submitted — this can take a few minutes. Come back and reopen this once it's done; it'll submit for PromoSlot review on its own.",
+      status.requirements_due?"Stripe still needs a bit more information to finish this check.":"Stripe is reviewing what you've submitted — this can take a few minutes. Come back and reopen this once it's done.",
       rejected,
       `<button class="btn btn-o" onclick="closeModal()">Close</button>
        <button class="btn btn-p" onclick="vfStartBizStripe()">${status.requirements_due?"Continue with Stripe":"Refresh status"}</button>`)); return;
   }
-  // Only reachable after a REJECTED prior attempt with Stripe still (or
-  // again) passing, or if the auto-submit call above genuinely failed —
-  // resubmitting is a real decision either way, so it stays an explicit click.
-  openModal(vfShell("Ready to resubmit",
+  // Stripe's own check has passed and nothing's submitted yet (first
+  // attempt, or a fresh try after a rejection) — ONE screen: the Stripe
+  // result, an optional evidence chance, and a single real Submit button
+  // that creates the application AND attaches whatever was chosen, in one
+  // user action. This is the only chance to attach evidence — see
+  // vfBizEvidenceHtml/vfSubmitBizFinal below.
+  openModal(vfShell("Ready to submit",
     `Stripe verified this business as <b>${esc(status.stripe_legal_name||"—")}</b>.`,
-    rejected,
-    `<button class="btn btn-o" onclick="closeModal()">Not now</button>
-     <button class="btn btn-p" onclick="vfSubmitBiz()">Submit application to PromoSlot</button>`));
+    rejected+vfBizEvidenceHtml(),
+    `<button class="btn btn-o" onclick="closeModal()">Not now</button>`),"wide");
 }
 async function vfStartBizStripe(){
   try{
@@ -3774,20 +3794,23 @@ async function vfStartBizStripe(){
     window.location.href = r.url;
   }catch(e){ toast(e.message||"Could not start Stripe verification"); }
 }
-async function vfSubmitBiz(){
-  try{ await PSApi.post("/verification/business/submit",{}); toast("Submitted for review ✓",true); await vfRenderBiz(); }
-  catch(e){ toast(e.message||"Could not submit for review"); }
-}
 // Optional, non-blocking supporting evidence on top of the Stripe check —
 // Rob, 2026-08-28: "not sensitive information... accessible and easy" for
 // someone junior to put together without going through finance/legal.
 // Chosen items are all things a marketing hire can get from their own
 // day-to-day access, not documents they'd have to specially request.
-// Never required — Stripe's check alone is still enough to be reviewed;
-// see backend/routers/verification.py's add_business_evidence docstring.
-function vfBizEvidenceHtml(req){
-  const fileCount=(req.evidence_files||[]).length;
-  const hasEvidence = fileCount>0 || (req.evidence_checklist||[]).length>0 || req.evidence_notes;
+// Never required — Stripe's check alone is still enough to be reviewed.
+//
+// Rob, 2026-08-28 (verbatim): "I want to remove that feature completely
+// because I feel like it will make more bugs in the back-end... i just
+// feel like there should be the checklist, and if they forgot to then too
+// late and the admin can either approve or reject, we just need to
+// emphasise that the user must take this seriously and upload everything
+// possible before clicking submit for review." So this now renders BEFORE
+// any request exists, folded into the one real "Submit for review" action
+// (vfSubmitBizFinal) — there is no separate add-evidence call or endpoint
+// anymore, and no way to reach this screen again once submitted.
+function vfBizEvidenceHtml(){
   const items=[
     ["📧","Company email or workspace","A screenshot of your work email inbox or company Slack/Teams — just enough to show your account and the company name"],
     ["🌐","Website or social admin access","A screenshot or short recording of your company's website CMS, Google Business Profile, or social media business manager, logged in as an admin"],
@@ -3796,9 +3819,8 @@ function vfBizEvidenceHtml(req){
   window._vSelBiz=new Set(items.map(i=>i[1]));
   window._vfEvidenceFilesBiz=[];
   return `<div class="det-sec" style="margin-top:14px">
-    <h5>Strengthen your application (optional)</h5>
-    <p class="mut" style="font-size:13px">Not required — Stripe's check alone is enough to be reviewed. A bit of everyday, non-sensitive proof just gives a reviewer more confidence and can mean a faster decision. Same rule as everywhere else here: never shown publicly, and deleted the moment a decision is made.</p>
-    ${hasEvidence?`<p class="mut" style="font-size:12px">Already added: ${fileCount} file${fileCount===1?"":"s"}${req.evidence_notes?", plus a note":""}.</p>`:""}
+    <h5>Before you submit</h5>
+    <p class="mut" style="font-size:13px">This is your one chance to attach supporting evidence — once you submit, the application is final and can't be edited or added to. Stripe's check alone is enough to be reviewed, but a bit of everyday, non-sensitive proof gives a reviewer more confidence and can mean a faster decision. Take a minute to add what you can. Never shown publicly, and deleted the moment a decision is made either way.</p>
     ${items.map(([ico,t,sub])=>`<label class="vf-item on" data-v="${esc(t)}">
       <span class="pi-ico">${ico}</span><div class="vf-body"><b>${esc(t)}</b><small>${esc(sub)}</small></div>
       <input type="checkbox" checked onchange="this.checked?window._vSelBiz.add(this.closest('.vf-item').dataset.v):window._vSelBiz.delete(this.closest('.vf-item').dataset.v);this.closest('.vf-item').classList.toggle('on',this.checked)">
@@ -3806,7 +3828,8 @@ function vfBizEvidenceHtml(req){
     <label class="vf-upload" id="vfDropBiz" for="vfFileInputBiz"><span class="vf-up-ico">⬆️</span><div><b>Attach evidence</b><small id="vfFileLblBiz">A recording or screenshot — you can add more than one</small></div></label>
     <input type="file" id="vfFileInputBiz" class="pf-file-input" multiple onchange="vfPickBiz(event)">
     <div class="frm" style="margin-top:10px"><div><label>Anything else worth noting? (optional)</label><textarea id="vfNotesBiz" placeholder="Context for the reviewer…"></textarea></div></div>
-    <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="vfSubmitBizEvidence()">Add evidence</button>
+    <button class="btn btn-p" style="margin-top:14px;width:100%" onclick="vfSubmitBizFinal()">Submit for review</button>
+    <p class="mut" style="font-size:11.5px;text-align:center;margin-top:6px">Final — you won't be able to add anything after this.</p>
   </div>`;
 }
 function vfPickBiz(e){
@@ -3814,17 +3837,60 @@ function vfPickBiz(e){
   window._vfEvidenceFilesBiz=(window._vfEvidenceFilesBiz||[]).concat(files);
   const lbl=$("vfFileLblBiz"); if(lbl) lbl.textContent=window._vfEvidenceFilesBiz.length+" file"+(window._vfEvidenceFilesBiz.length===1?"":"s")+" attached";
 }
-async function vfSubmitBizEvidence(){
+async function vfSubmitBizFinal(){
   try{
-    await PSApi.post("/verification/business/add-evidence",
+    await PSApi.post("/verification/business/submit",
       {evidence_checklist:[...(window._vSelBiz||[])],evidence_notes:($("vfNotesBiz")||{}).value||null});
     for(const f of (window._vfEvidenceFilesBiz||[])){
       const fd=new FormData(); fd.append("file",f);
       await PSApi.postForm("/verification/business/evidence",fd);
     }
-    toast("Evidence added ✓",true);
+    toast("Submitted for review ✓",true);
     await vfRenderBiz();
-  }catch(e){ toast(e.message||"Could not add evidence"); }
+  }catch(e){ toast(e.message||"Could not submit for review"); }
+}
+// Read-only — shown for every already-submitted state (pending/approved/
+// rejected). Rob, 2026-08-28 (verbatim): "the user should see everything
+// like a checklist of what they have submitted on the front end, they
+// should have to click on everything to see what they have already
+// submitted." Each row is a native <details> — closed by default, so
+// the user actively opens each one to confirm what went in.
+function vfBizSubmittedSummaryHtml(req){
+  const items=[
+    ["📧","Company email or workspace"],
+    ["🌐","Website or social admin access"],
+    ["🏬","Product, storefront or office"],
+  ];
+  const checklist=new Set(req.evidence_checklist||[]);
+  const files=req.evidence_files||[];
+  const when=req.created_at?new Date(req.created_at).toLocaleString():"";
+  return `<div class="det-sec" style="margin-top:14px">
+    <h5>What you submitted</h5>
+    <details class="proof-item" style="display:block;cursor:pointer">
+      <summary style="cursor:pointer;font-weight:600;font-size:13.5px">Stripe verification${when?` · submitted ${esc(when)}`:""}</summary>
+      <div style="margin-top:8px;font-size:13px;color:var(--mut)">Verified legal name: <b style="color:var(--fg)">${esc(req.stripe_legal_name||"—")}</b></div>
+    </details>
+    ${items.map(([ico,t])=>{
+      const included=checklist.has(t);
+      return `<details class="proof-item ${included?"got":""}" style="display:block;cursor:pointer">
+        <summary style="cursor:pointer;display:flex;align-items:center;gap:11px;list-style:none">
+          <span class="pi-ico">${ico}</span><b style="flex:1">${esc(t)}</b>
+          <span class="${included?"ok":"mut"}" style="font-size:12.5px">${included?"Included ✓":"Not included"}</span>
+        </summary>
+        <div style="margin-top:8px;font-size:12.5px;color:var(--mut)">${included?"Marked as included when this application was submitted.":"Not marked as included — this application was submitted without it."}</div>
+      </details>`;
+    }).join("")}
+    <details class="proof-item" style="display:block;cursor:pointer">
+      <summary style="cursor:pointer;font-weight:600;font-size:13.5px">Files attached (${files.length})</summary>
+      ${files.length?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        ${files.map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener" style="font-size:12.5px">File ${i+1} — open ↗</a>`).join("")}
+      </div>`:`<div style="margin-top:8px;font-size:12.5px;color:var(--mut)">No files were attached to this application.</div>`}
+    </details>
+    <details class="proof-item" style="display:block;cursor:pointer">
+      <summary style="cursor:pointer;font-weight:600;font-size:13.5px">Note to reviewer</summary>
+      <div style="margin-top:8px;font-size:12.5px;color:var(--mut)">${req.evidence_notes?esc(req.evidence_notes):"No note was added."}</div>
+    </details>
+  </div>`;
 }
 
 async function vfRenderPlat(){
@@ -4155,7 +4221,7 @@ function renderBizDash(){
           <div><span>Product</span><b>${esc(b.product)}</b></div>
           <div><span>Budget</span><b>${gbp(b.budget)}</b></div>
           <div><span>Payment methods</span><b style="text-align:right">${b.payMethods.join(" · ")}</b></div>
-          <div><span>Verification</span><button class="btn btn-o btn-sm" onclick="S.biz.verified?toast('Your business is already verified ✔',true):openVerify('biz')">${S.biz.verified?"Verified ✔":"Get verified ✔"}</button></div>
+          <div><span>Verification</span>${vfStatusBtnHtml("biz")}</div>
         </div></div>
       <div class="panel"><div class="panel-h"><h4>Suggested for you</h4></div><div class="panel-b">
         ${allListings().filter(l=>l.ownerId!=="you"&&(b.platforms.includes(l.platform))).slice(0,3).map(l=>`<div class="op-row" style="margin-bottom:8px" onclick="openListing('${l.id}')">${pfp(l.name,l.platform)}<div><b>${esc(l.name)}</b><small>${l.platform} · ${fmtN(l.audience)}${priceFrom(l)?" · from "+gbp(priceFrom(l)):""}</small></div><span class="op-go">View →</span></div>`).join("")}
@@ -4196,7 +4262,7 @@ function renderPlatDash(){
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Verification</h4></div><div class="panel-b mini-rows">
         <div><span>Analytics evidence</span><b>${S.platVerified?'<span style="color:var(--money)">Verified ✔</span>':"Self-reported"}</b></div>
-        <div><span>Verified listings win more deals</span><button class="btn btn-o btn-sm" onclick="S.platVerified?toast('Your account is already verified ✔',true):openVerify('plat')">${S.platVerified?"Verified ✔":"Get verified ✔"}</button></div>
+        <div><span>Verified listings win more deals</span>${vfStatusBtnHtml("plat")}</div>
       </div></div>
       <div class="panel"><div class="panel-h"><h4>Payout settings</h4></div><div class="panel-b mini-rows" id="payoutPanel">
         <div><span>Payout method</span><b class="mut">Checking…</b></div>
@@ -5356,8 +5422,14 @@ async function loadMine(){
     // the "Get verified" buttons below instead of S.myPlatforms.some(verified),
     // which would stay permanently false for an owner with zero listings.
     S.account.is_platform_owner
-      ? PSApi.get("/verification/platform/my-requests").then(r=>{S.platVerified=!!(r&&r.verified);}).catch(()=>{S.platVerified=false;})
-      : Promise.resolve(S.platVerified=false),
+      ? PSApi.get("/verification/platform/my-requests").then(r=>{S.platVerified=!!(r&&r.verified);S.platVerifyReqs=r||{};}).catch(()=>{S.platVerified=false;S.platVerifyReqs={};})
+      : Promise.resolve(S.platVerified=false,S.platVerifyReqs={}),
+    // Rob, 2026-08-28: the dashboard/My Account "Get verified" buttons must
+    // reflect a real pending/rejected state, not just a binary verified
+    // boolean — see vfDashStatus/vfStatusButtonHtml below.
+    S.account.is_business
+      ? PSApi.get("/verification/business/my-request").then(r=>{S.bizVerifyReq=r;}).catch(()=>{S.bizVerifyReq=null;})
+      : Promise.resolve(S.bizVerifyReq=null),
     S.account.is_business
       ? PSApi.get("/campaigns/mine").then(r=>{S.myCampaigns=r;}).catch(()=>{S.myCampaigns=[];})
       : Promise.resolve(S.myCampaigns=[]),
@@ -5849,15 +5921,11 @@ function updateAcctTrack(){
 // wholesale rather than re-derived, so both places can never disagree.
 function verifyPanelHtml(a){
   const isBiz=!!a.is_business, isPlat=!!a.is_platform_owner;
-  const bizVerified = S.biz && S.biz.verified;
-  // Account-level, not tied to owning a listing yet — see loadMine()'s
-  // S.platVerified fetch and services.platform_owner_verified.
-  const platVerified = !!S.platVerified;
   return `<h3>Verification</h3>
     <p>A Verified ✔ badge shows on your listings and profile once a PromoSlot reviewer confirms your identity.</p>
     <div class="mini-rows" style="margin-top:12px">
-      ${isBiz?`<div><span>Business</span><button class="btn btn-o btn-sm" onclick="${bizVerified?"toast('Your business is already verified ✔',true)":"openVerify('biz')"}">${bizVerified?"Verified ✔":"Get verified"}</button></div>`:""}
-      ${isPlat?`<div><span>Platform owner</span><button class="btn btn-o btn-sm" onclick="${platVerified?"toast('Your account is already verified ✔',true)":"openVerify('plat')"}">${platVerified?"Verified ✔":"Get verified"}</button></div>`:""}
+      ${isBiz?`<div><span>Business</span>${vfStatusBtnHtml("biz")}</div>`:""}
+      ${isPlat?`<div><span>Platform owner</span>${vfStatusBtnHtml("plat")}</div>`:""}
     </div>`;
 }
 function updateVerifyPanel(){
@@ -7459,7 +7527,7 @@ function resScenario(i){
 }
 function resRender(){ resRenderPlaybooks(); resRenderModels(); }
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,vfPick,vfContactSupport,vfStartBizStripe,vfSubmitBiz,vfConnectPayouts,vfSubmitPlatIdentity,vfSubmitPlatOwnership,vfPickBiz,vfSubmitBizEvidence,openVerificationQueue,openVerificationDecision,decideVerification,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realOpenGracePeriod,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,vfPick,vfContactSupport,vfStartBizStripe,vfSubmitBizFinal,vfConnectPayouts,vfSubmitPlatIdentity,vfSubmitPlatOwnership,vfPickBiz,openVerificationQueue,openVerificationDecision,decideVerification,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realOpenGracePeriod,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,closeVerifyWait,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
