@@ -35,6 +35,14 @@ class Perm:
     VERIFICATION_VIEW = "verification.view"
     VERIFICATION_DECIDE = "verification.decide"
 
+    # Affiliate marketplace oversight — read-only visibility into every
+    # program/conversion, so admin can see the same tracked-sale records the
+    # business and platform owner see on their own dashboards (Rob's spec:
+    # "the admin(s), business, and [platform owner] can all see these
+    # records"). No affiliate-specific DECIDE permission yet — nothing here
+    # requires a human admin decision the way verification/dispute do.
+    AFFILIATE_VIEW = "affiliate.view"
+
     # Admin account management
     ADMIN_VIEW = "admin.view"
     ADMIN_CREATE = "admin.create"
@@ -67,6 +75,7 @@ _ADMIN_PERMS = frozenset({
     Perm.DISPUTE_MANAGE,
     Perm.VERIFICATION_VIEW,
     Perm.VERIFICATION_DECIDE,
+    Perm.AFFILIATE_VIEW,
 })
 
 _SUPER_ADMIN_PERMS = frozenset(_ADMIN_PERMS | {

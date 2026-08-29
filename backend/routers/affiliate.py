@@ -36,8 +36,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..deps import get_current_user
-from ..models import AffiliateApplication, AffiliateCode, AffiliateProgram, Notification, User
+from ..deps import RequirePerm, get_current_user
+from ..models import (AffiliateApplication, AffiliateCode, AffiliateConversion, AffiliateProgram,
+                      Notification, User)
+from ..permissions import Perm
 from ..services import deal_money
 from ..stripe_client import stripe
 from ..config import settings
@@ -121,6 +123,31 @@ def code_dict(db: Session, c: AffiliateCode) -> dict:
         "code": c.code, "active": c.active,
         "removed_reason": c.removed_reason, "removed_at": c.removed_at,
         "created_at": c.created_at,
+    }
+
+
+def conversion_dict(db: Session, c: AffiliateConversion) -> dict:
+    """One tracked sale, shaped for all three audiences (admin/business/
+    platform owner) that Rob's spec says must be able to see the same
+    record on their own dashboard — never three different views of the
+    truth, just three different filtered queries over this one table."""
+    code = db.get(AffiliateCode, c.code_id)
+    program = db.get(AffiliateProgram, c.program_id)
+    owner = db.get(User, code.platform_owner_id) if code else None
+    business = db.get(User, program.business_id) if program else None
+    return {
+        "id": c.id,
+        "program_id": c.program_id, "program_name": program.name if program else None,
+        "business_id": program.business_id if program else None,
+        "business_name": business.display_name if business else None,
+        "code_id": c.code_id, "code": code.code if code else None,
+        "platform_owner_id": code.platform_owner_id if code else None,
+        "platform_owner_name": owner.display_name if owner else None,
+        "external_order_ref": c.external_order_ref,
+        "sale_amount": c.sale_amount, "commission_amount": c.commission_amount,
+        "source": c.source, "status": c.status,
+        "reversed_reason": c.reversed_reason, "reversed_at": c.reversed_at,
+        "occurred_at": c.occurred_at, "reported_at": c.reported_at,
     }
 
 
@@ -325,6 +352,23 @@ def my_codes(user: User = Depends(get_current_user), db: Session = Depends(get_d
     return [code_dict(db, c) for c in rows]
 
 
+@router.get("/conversions/mine")
+def my_conversions(status: Optional[str] = None,
+                   user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Platform owner's own view of every tracked sale across all their
+    codes/programs — the same rows the business and admin see. Never built
+    from anything the owner submitted themselves (see
+    services.record_affiliate_conversion's docstring)."""
+    _require_platform_owner(user)
+    q = (db.query(AffiliateConversion)
+        .join(AffiliateCode, AffiliateConversion.code_id == AffiliateCode.id)
+        .filter(AffiliateCode.platform_owner_id == user.id))
+    if status:
+        q = q.filter(AffiliateConversion.status == status)
+    rows = q.order_by(AffiliateConversion.reported_at.desc()).all()
+    return [conversion_dict(db, c) for c in rows]
+
+
 # ---------------------------------------------------------------------------
 # Business: review applications
 # ---------------------------------------------------------------------------
@@ -338,6 +382,20 @@ def program_applications(program_id: int, status: Optional[str] = None,
         q = q.filter(AffiliateApplication.status == status)
     rows = q.order_by(AffiliateApplication.created_at.desc()).all()
     return [application_dict(db, a) for a in rows]
+
+
+@router.get("/programs/{program_id}/conversions")
+def program_conversions(program_id: int, status: Optional[str] = None,
+                        user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Business's own view of tracked sales on their program — the same
+    records the platform owner and admin see, never a business-only summary
+    the owner can't cross-check (see /conversions/mine below)."""
+    p = _my_program(db, program_id, user)
+    q = db.query(AffiliateConversion).filter_by(program_id=p.id)
+    if status:
+        q = q.filter(AffiliateConversion.status == status)
+    rows = q.order_by(AffiliateConversion.reported_at.desc()).all()
+    return [conversion_dict(db, c) for c in rows]
 
 
 def _my_application(db: Session, application_id: int, user: User) -> AffiliateApplication:
@@ -409,3 +467,34 @@ def reject_application(application_id: int, body: RejectIn,
                         ref=f"affiliate_browse"))
     db.commit()
     return application_dict(db, a)
+
+
+# ---------------------------------------------------------------------------
+# Admin: read-only oversight, same records the business/owner see
+# ---------------------------------------------------------------------------
+# Rob, 2026-08-29 (verbatim): "Once they are reported the admin(s), business,
+# and [platform owner] can all see these records on their own separate
+# dashboards." Deliberately no admin DECIDE endpoints here — there's no
+# human call to make on a conversion the way there is on a verification or a
+# dispute; these are just three filtered views over the same rows.
+
+@router.get("/admin/programs")
+def admin_programs(status: Optional[str] = None,
+                   user: User = Depends(RequirePerm(Perm.AFFILIATE_VIEW)), db: Session = Depends(get_db)):
+    q = db.query(AffiliateProgram)
+    if status:
+        q = q.filter(AffiliateProgram.status == status)
+    rows = q.order_by(AffiliateProgram.created_at.desc()).all()
+    return [program_dict(db, p) for p in rows]
+
+
+@router.get("/admin/conversions")
+def admin_conversions(program_id: Optional[int] = None, status: Optional[str] = None,
+                      user: User = Depends(RequirePerm(Perm.AFFILIATE_VIEW)), db: Session = Depends(get_db)):
+    q = db.query(AffiliateConversion)
+    if program_id:
+        q = q.filter(AffiliateConversion.program_id == program_id)
+    if status:
+        q = q.filter(AffiliateConversion.status == status)
+    rows = q.order_by(AffiliateConversion.reported_at.desc()).limit(500).all()
+    return [conversion_dict(db, c) for c in rows]
