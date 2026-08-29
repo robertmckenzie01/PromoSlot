@@ -240,11 +240,13 @@ def decide_verification(db: Session, req: AccountVerificationRequest, *, approve
     # than depending on autoflush config or identity-map object reuse.
     db.flush()
 
+    fully_verified = False
     if approve:
         if req.subject_type == "business_identity" and req.business_id:
             subject = db.query(Business).get(req.business_id)
             if subject:
                 subject.verified = True
+            fully_verified = True   # single-gate — this decision alone completes it
         elif req.subject_type in _PLATFORM_GATES:
             if platform_owner_verified(db, req.submitted_by):
                 # Account-level badge: sync onto every listing this owner has
@@ -252,6 +254,29 @@ def decide_verification(db: Session, req: AccountVerificationRequest, *, approve
                 # any listing they add later — neither depends on the other.
                 db.query(Platform).filter(Platform.owner_id == req.submitted_by).update(
                     {"verified": True}, synchronize_session=False)
+                fully_verified = True
+
+    # Rob, 2026-08-29 (verbatim): "users are not notified when they are
+    # approved and verified... I hope for a 'Great news! Your Platform
+    # ownership application has been approved, you're one step closer to
+    # getting verified'... there should be a red icon on the notification
+    # bell." One decision always ends the badge (business_identity), the
+    # other needs both gates (platform_*) — the copy reflects which case
+    # this is so a partial approval doesn't falsely claim the badge is live.
+    # ref "verification:biz"/"verification:plat" routes the frontend's
+    # openNotif() straight into openVerify(role) — see promoslot-app.js.
+    role = "biz" if req.subject_type == "business_identity" else "plat"
+    label = {"business_identity": "Business verification", "platform_identity": "Identity",
+              "platform_ownership": "Platform ownership"}[req.subject_type]
+    if approve:
+        body = (f"Great news! You're now Verified ✔ on PromoSlot — your badge is live."
+                if fully_verified else
+                f"Great news! Your '{label}' application has been approved — you're one step closer to getting verified.")
+        notif_type = "verification_approved"
+    else:
+        body = f"Your '{label}' application needs another look" + (f": {req.rejected_reason}." if req.rejected_reason else ".") + " Resubmit whenever you're ready."
+        notif_type = "verification_rejected"
+    db.add(Notification(user_id=req.submitted_by, type=notif_type, body=body, ref=f"verification:{role}"))
 
     audit.record(db, actor=reviewer, action="verification.decide",
                 target_type=req.subject_type,

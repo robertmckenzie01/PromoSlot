@@ -4415,7 +4415,8 @@ const NOTIF_FEED=[
 ];
 let notifOpen=false;
 const NOTIF_ICON={deal_funded:"🔒",delivery_checklist_ready:"📋",proof_grace_period_opened:"⏳",proof_grace_period_opened_business:"⏳",deal_verified:"✅",payout_sent:"💸",deal_completed:"🎉",deal_refunded:"↩︎",proof_submitted:"📤",deal_revision:"✏️",message:"💬",campaign_application:"📩",deal_declined:"🚫",deal_approved:"🤝",review_received:"⭐",listing_removed:"🗑️",campaign_removed:"🗑️",account_restored:"👋",
-  dispute_opened:"🛡️",dispute_opened_admin:"🛡️",dispute_closed:"✅",dispute_closed_admin:"✅",dispute_info_requested:"❓"};
+  dispute_opened:"🛡️",dispute_opened_admin:"🛡️",dispute_closed:"✅",dispute_closed_admin:"✅",dispute_info_requested:"❓",
+  verification_approved:"✅",verification_rejected:"⚠️"};
 function setBell(n){ const b=$("bellCnt"); if(!b) return; b.classList.toggle("hide",n<=0); b.textContent=n>9?"9+":n; }
 function bellSync(){ if(!S.account) setBell(0); }
 function _dot(id,on){ const e=$(id); if(e) e.classList.toggle("hide", !on); }
@@ -4481,6 +4482,11 @@ function openNotif(ref){
   // Admin-facing dispute alerts open straight into that dispute's detail view.
   if(typeof ref==="string" && ref.indexOf("dispute:")===0){
     openDispute(parseInt(ref.slice(8),10)); return;
+  }
+  // Verification decision alerts (approved/rejected) open straight into the
+  // real status screen for that role — see services.py's decide_verification.
+  if(typeof ref==="string" && ref.indexOf("verification:")===0){
+    openVerify(ref.slice(13)); return;
   }
   if(findListing(ref)){ openListing(ref); return; }
   if(findCampaign(ref)){ openCampaign(ref); return; }

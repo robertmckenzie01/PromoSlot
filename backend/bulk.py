@@ -14,19 +14,20 @@ from typing import Dict, Iterable, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .models import Campaign, Deal, DealStatus, Platform, Review, User
+from .models import Business, Campaign, Deal, DealStatus, Platform, Review, User
 
 
 class Ctx:
     """Pre-resolved lookups shared by every row in one response."""
 
-    __slots__ = ("users", "ratings", "campaign_applicants", "platform_deals")
+    __slots__ = ("users", "ratings", "campaign_applicants", "platform_deals", "biz_verified")
 
     def __init__(self):
         self.users: Dict[int, User] = {}
         self.ratings: Dict[int, tuple] = {}            # user_id -> (avg, count)
         self.campaign_applicants: Dict[int, int] = {}
         self.platform_deals: Dict[int, int] = {}
+        self.biz_verified: Dict[int, bool] = {}        # user_id (business owner) -> Business.verified
 
     def user(self, uid, db: Session):
         if uid not in self.users:                       # single-row fallback
@@ -40,6 +41,17 @@ class Ctx:
             self.ratings[uid] = ((round(float(avg), 1) if avg is not None else None),
                                  (count or 0))
         return self.ratings[uid]
+
+    def business_verified(self, uid, db: Session) -> bool:
+        # Rob, 2026-08-29: the "Verified" badge wasn't showing on public
+        # campaign cards/profiles because campaign_dict hardcoded verified
+        # to False instead of ever reading Business.verified. Campaign.
+        # business_id is a users.id (see models.Business's docstring), so
+        # this looks the Business row up by owner_id, not by primary key.
+        if uid not in self.biz_verified:                # single-row fallback
+            biz = db.query(Business).filter_by(owner_id=uid).first()
+            self.biz_verified[uid] = bool(biz and biz.verified)
+        return self.biz_verified[uid]
 
 
 def load_users(db: Session, ctx: Ctx, ids: Iterable[int]) -> None:
@@ -86,12 +98,23 @@ def for_listings(db: Session, rows) -> Ctx:
     return ctx
 
 
+def load_business_verified(db: Session, ctx: Ctx, ids: Iterable[int]) -> None:
+    want = {i for i in ids if i is not None and i not in ctx.biz_verified}
+    if not want:
+        return
+    for biz in db.query(Business).filter(Business.owner_id.in_(want)).all():
+        ctx.biz_verified[biz.owner_id] = bool(biz.verified)
+    for i in want:                                      # no Business row -> not verified
+        ctx.biz_verified.setdefault(i, False)
+
+
 def for_campaigns(db: Session, rows) -> Ctx:
     ctx = Ctx()
     biz_ids = [c.business_id for c in rows]
     load_users(db, ctx, biz_ids)
     load_ratings(db, ctx, biz_ids)
     load_campaign_applicants(db, ctx, [c.id for c in rows])
+    load_business_verified(db, ctx, biz_ids)
     return ctx
 
 

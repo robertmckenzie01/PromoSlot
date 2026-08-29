@@ -16,7 +16,7 @@ from .. import bulk
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
-from ..models import Campaign, Deal, DealStatus, Notification, Platform, Review, User
+from ..models import Business, Campaign, Deal, DealStatus, Notification, Platform, Review, User
 from ..services import deal_money_for
 from ..storage import delete_stored, save_generic, serve_stored, stored_exists
 from .deals import PRICING_MODELS, MAX_CAMPAIGN_DAYS, MIN_CAMPAIGN_DAYS, deal_dict, validate_pricing_fields
@@ -51,11 +51,14 @@ def campaign_dict(db: Session, c: Campaign, ctx=None) -> dict:
     if ctx is not None:
         biz = ctx.user(c.business_id, db)
         avg, count = ctx.rating(c.business_id, db)
+        verified = ctx.business_verified(c.business_id, db)
     else:
         biz = db.get(User, c.business_id)
         count, avg = (db.query(func.count(Review.id), func.avg(Review.rating))
                       .filter(Review.reviewee_id == c.business_id).one())
         avg = round(float(avg), 1) if avg is not None else None
+        biz_row = db.query(Business).filter_by(owner_id=c.business_id).first()
+        verified = bool(biz_row and biz_row.verified)
     # Real applicant count: platform owners who have a live (non-declined)
     # application to this campaign. Zero for a brand-new campaign.
     applicants = bulk.applicants_for(ctx, db, c.id)
@@ -66,7 +69,9 @@ def campaign_dict(db: Session, c: Campaign, ctx=None) -> dict:
         "company": biz.display_name if biz else "",
         "industry": c.industry or "",
         "title": c.title,
-        "verified": False,
+        # Rob, 2026-08-29: was hardcoded False — never reflected a real
+        # approved business_identity verification. See bulk.Ctx.business_verified.
+        "verified": verified,
         "rating": avg,
         "reviewCount": count or 0,
         "posted": "just now",
