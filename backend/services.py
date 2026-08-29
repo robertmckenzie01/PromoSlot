@@ -524,6 +524,188 @@ def reverse_affiliate_conversion(db: Session, program: AffiliateProgram,
     return conv
 
 
+def affiliate_settlement_for(program: AffiliateProgram, owner_commission_totals: dict) -> dict:
+    """Pure math for one-time campaign-end settlement of an affiliate pool —
+    no Stripe, no DB. Same shape as pool_settlement_for (deal_money() used
+    once for the full pool, once for the released slice, so refund =
+    charged_for_pool - kept_for_released can never drift from what
+    deal_money() would compute for either on its own), extended to split the
+    released slice across however many platform owners earned commission on
+    this program, since — unlike a Deal, which always has exactly one
+    platform owner — a program can have many.
+
+    owner_commission_totals: {platform_owner_id: sum of PENDING (non-
+    reversed) AffiliateConversion.commission_amount for that owner on this
+    program}. Reversed conversions must already be excluded by the caller's
+    query — this function has no way to tell the difference itself.
+
+    If total commission earned exceeds pool_max_budget, every owner's share
+    is scaled down proportionally to the capped total, rather than paying
+    out in some arbitrary order until the pool runs dry — that would make
+    payout depend on iteration order, not on what was actually earned.
+
+    Per-owner net is floor-rounded independently per owner (each gets their
+    own real, whole-pence Stripe Transfer). The sum of those may land a few
+    pence under the aggregate kept_for_released["net_to_owner"] purely from
+    splitting one floor-rounded number across several floor-rounded parts —
+    the same kind of harmless rounding slack pool_settlement_for's own
+    docstring already accepts ("real view counts are never round"). This
+    function never lets that slack push a payout OVER the aggregate net
+    budget, only under it by at most a few pence, which is not owed to
+    anyone and is simply retained rather than distributed.
+    """
+    total_commission = sum(owner_commission_totals.values())
+    total_commission_capped = min(total_commission, program.pool_max_budget)
+
+    charged_for_pool = deal_money(program.pool_max_budget, program.payout_fee_percent, program.funding_fee_percent)
+    kept_for_released = deal_money(total_commission_capped, program.payout_fee_percent, program.funding_fee_percent)
+    refund_to_business = max(0, charged_for_pool["charge_amount"] - kept_for_released["charge_amount"])
+
+    payouts = {}
+    net_budget_remaining = kept_for_released["net_to_owner"]
+    if total_commission > 0:
+        for owner_id, commission in owner_commission_totals.items():
+            share = commission * total_commission_capped // total_commission
+            net = deal_money(share, program.payout_fee_percent, 0)["net_to_owner"]
+            net = max(0, min(net, net_budget_remaining))  # never exceed what's actually kept back
+            net_budget_remaining -= net
+            payouts[owner_id] = {"commission": commission, "capped_share": share, "net_to_owner": net}
+
+    return {
+        "total_commission": total_commission,
+        "total_commission_capped": total_commission_capped,
+        "refund_to_business": refund_to_business,
+        "platform_take": kept_for_released["platform_take"],
+        "payouts": payouts,   # {platform_owner_id: {commission, capped_share, net_to_owner}}
+    }
+
+
+def settle_affiliate_program(db: Session, program: AffiliateProgram,
+                             owner_destinations: dict) -> dict:
+    """Execute the one-time campaign-end settlement for real: one Stripe
+    Transfer per platform owner who earned a nonzero payout, then one Stripe
+    Refund of whatever's left of the pool back to the business.
+
+    owner_destinations: {platform_owner_id: stripe_connected_account_id} for
+    every owner with a nonzero payout — caller (the admin endpoint) is
+    responsible for having already confirmed each of these accounts is
+    actually payout-ready; this function trusts the mapping it's given and
+    will let a bad/missing destination fail loudly via the real Stripe call
+    rather than silently skip a payout.
+
+    Transfers happen first, one at a time, each recorded on that owner's
+    AffiliateCode immediately after it succeeds — so a failure partway
+    through (owner 3 of 5 fails) leaves owners 1-2 correctly paid and
+    recorded, never rolled back, exactly like settle_pool_deal's "transfer
+    already happened for real" reasoning. The refund is attempted last, only
+    after every payout attempt has been made; if this program has an
+    unresolved partial failure the caller should not treat the program as
+    settled (see the endpoint, which checks the returned per-owner errors).
+    """
+    conversions = (db.query(AffiliateConversion)
+                  .join(AffiliateCode, AffiliateConversion.code_id == AffiliateCode.id)
+                  .filter(AffiliateConversion.program_id == program.id,
+                          AffiliateConversion.status == "pending").all())
+    owner_commission_totals: dict = {}
+    owner_codes: dict = {}
+    owner_conversion_rows: dict = {}
+    for c in conversions:
+        code = db.get(AffiliateCode, c.code_id)
+        if code is None:
+            continue
+        owner_commission_totals[code.platform_owner_id] = (
+            owner_commission_totals.get(code.platform_owner_id, 0) + c.commission_amount)
+        owner_codes[code.platform_owner_id] = code
+        owner_conversion_rows.setdefault(code.platform_owner_id, []).append(c)
+
+    math_result = affiliate_settlement_for(program, owner_commission_totals)
+
+    transfers = []
+    errors = []
+    for owner_id, payout in math_result["payouts"].items():
+        net = payout["net_to_owner"]
+        code = owner_codes.get(owner_id)
+        if code is None:
+            continue
+        if net <= 0:
+            # Genuinely earned nothing payable (e.g. proportional capping
+            # rounded them to zero) — their conversions are still finished
+            # settling, just for £0, so they're marked settled too rather
+            # than left "pending" forever with nothing left to ever act on.
+            for c in owner_conversion_rows.get(owner_id, []):
+                c.status = "settled"
+            db.commit()
+            continue
+        destination = owner_destinations.get(owner_id)
+        if not destination:
+            errors.append({"platform_owner_id": owner_id, "error": "No payout-ready destination account"})
+            continue  # conversions stay "pending" — genuinely unresolved, not silently closed out
+        try:
+            tr = stripe.Transfer.create(
+                amount=net,
+                currency=program.currency,
+                destination=destination,
+                source_transaction=program.charge_id,
+                transfer_group=f"affiliate_program_{program.id}",
+                metadata={"affiliate_program_id": str(program.id), "platform_owner_id": str(owner_id),
+                         "promoslot": "affiliate_settlement_payout"},
+            )
+        except Exception as e:
+            errors.append({"platform_owner_id": owner_id, "error": str(e)})
+            continue  # conversions stay "pending" — the money never actually moved
+        code.payout_transfer_id = tr.id
+        code.payout_net_amount = net
+        code.payout_at = datetime.utcnow()
+        for c in owner_conversion_rows.get(owner_id, []):
+            c.status = "settled"
+        db.add(Notification(
+            user_id=owner_id, type="affiliate_settled",
+            body=f"{program.name} has settled — {program.currency.upper()} {net/100:.2f} sent to you.",
+            ref="affiliate_codes",
+        ))
+        db.commit()
+        transfers.append({"platform_owner_id": owner_id, "transfer_id": tr.id, "net_to_owner": net})
+
+    refund_amount = math_result["refund_to_business"]
+    rf = None
+    if refund_amount > 0 and program.payment_intent_id:
+        try:
+            rf = stripe.Refund.create(
+                payment_intent=program.payment_intent_id,
+                amount=refund_amount,
+                reason="requested_by_customer",
+                metadata={"affiliate_program_id": str(program.id), "promoslot": "affiliate_pool_unused_refund"},
+            )
+            program.refund_id = rf.id
+        except Exception as e:
+            errors.append({"refund_error": str(e)})
+
+    program.pool_released_amount = math_result["total_commission_capped"]
+    program.pool_refunded_amount = refund_amount if rf is not None else 0
+    program.pool_settled_at = datetime.utcnow()
+    # Always finalizes to "settled", even if `errors` is non-empty — the
+    # endpoint has already pre-validated every destination before calling
+    # this, so an error here is a rare transient Stripe failure, not a
+    # foreseeable one. Any owner an error left un-paid keeps their
+    # conversions "pending" (see above) as an honest, visible signal that
+    # money still hasn't moved for them — a real gap that needs a human
+    # follow-up (support/manual Stripe action), not a fully automated retry
+    # path, which is out of scope here. The caller surfaces `errors` in the
+    # response specifically so this isn't silently swallowed.
+    program.status = "settled"
+    db.add(Notification(
+        user_id=program.business_id, type="affiliate_settled",
+        body=(f"{program.name} has settled."
+              + (f" {program.currency.upper()} {refund_amount/100:.2f} of unused pool budget was refunded to you."
+                 if refund_amount > 0 else " Full pool budget was earned, no refund due.")),
+        ref=f"affiliate_manage:{program.id}",
+    ))
+    db.commit()
+    db.refresh(program)
+
+    return {"math": math_result, "transfers": transfers, "refund": rf, "errors": errors}
+
+
 def verify_delivery(db: Session, deal: Deal, reviewer: User, decision: str,
                     notes: Optional[str] = None,
                     verified_quantity: Optional[int] = None) -> Verification:

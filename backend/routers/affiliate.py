@@ -31,17 +31,18 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from .. import audit
 from ..db import get_db
 from ..deps import RequirePerm, get_current_user
 from ..models import (AffiliateApplication, AffiliateCode, AffiliateConversion, AffiliateProgram,
-                      Notification, User)
-from ..permissions import Perm
-from ..services import deal_money
-from ..stripe_client import stripe
+                      ConnectedAccount, Notification, User)
+from ..permissions import Perm, is_super_admin
+from ..services import affiliate_settlement_for, deal_money, onboarding_complete, settle_affiliate_program, sync_connected_account
+from ..stripe_client import client, stripe
 from ..config import settings
 
 router = APIRouter(prefix="/affiliate", tags=["affiliate"])
@@ -498,3 +499,146 @@ def admin_conversions(program_id: Optional[int] = None, status: Optional[str] = 
         q = q.filter(AffiliateConversion.status == status)
     rows = q.order_by(AffiliateConversion.reported_at.desc()).limit(500).all()
     return [conversion_dict(db, c) for c in rows]
+
+
+# ---------------------------------------------------------------------------
+# Admin: campaign-end settlement + payout
+# ---------------------------------------------------------------------------
+# Rob, 2026-08-29 (verbatim): "By the end of the affiliate campaign, the
+# money will be released to the platform owner on how many sales they have
+# made with promoslot taking a cut in specifically that from both ends ...
+# whatever the business owner receives back (if budget is not fully used)
+# should not be 'fee'd'." One settlement event per program — see
+# services.settle_affiliate_program for the real Stripe execution and
+# services.affiliate_settlement_for for the pure fee/split math (same
+# deal_money()-twice shape as Deal's pool_settlement_for).
+#
+# Manual, admin-triggered — same pattern as /review/deals/{id}/settle-pool,
+# not a background cron job. There's no live campaign to time a scheduler
+# against yet; wiring this to a cron endpoint later (same shape as
+# routers/marketing.py's cron_send_campaign) is a trivial follow-up once
+# there is one.
+
+_INCLUDE = ["configuration.recipient", "requirements", "identity"]
+
+
+def _ready_connected_account_for_owner(db: Session, owner_id: int) -> ConnectedAccount:
+    """Live-checks one platform owner's payout account. Deliberately NOT
+    shared with routers/review.py's near-identical _ready_connected_account
+    (same v2 retrieve + sync_connected_account + onboarding_complete shape,
+    keyed by owner id here instead of by deal) — mirrors it rather than
+    refactoring it, so this new settlement path can't accidentally change
+    behavior on the already-live, already-tested deal payout path.
+    """
+    ca = db.query(ConnectedAccount).filter_by(user_id=owner_id).first()
+    if ca is None:
+        raise HTTPException(status_code=409,
+                            detail=f"Platform owner {owner_id} has not connected a payout account")
+    try:
+        acct = client.v2.core.accounts.retrieve(ca.stripe_account_id, {"include": _INCLUDE})
+        ca = sync_connected_account(db, acct) or ca
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Stripe error checking payout account: {e}")
+    if not onboarding_complete(ca):
+        raise HTTPException(status_code=409,
+                            detail=f"Platform owner {owner_id}'s payouts are not enabled yet (onboarding incomplete)")
+    return ca
+
+
+def _pending_commission_totals(db: Session, program_id: int) -> dict:
+    rows = (db.query(AffiliateConversion)
+           .join(AffiliateCode, AffiliateConversion.code_id == AffiliateCode.id)
+           .filter(AffiliateConversion.program_id == program_id,
+                   AffiliateConversion.status == "pending").all())
+    totals: dict = {}
+    for c in rows:
+        code = db.get(AffiliateCode, c.code_id)
+        if code is None:
+            continue
+        totals[code.platform_owner_id] = totals.get(code.platform_owner_id, 0) + c.commission_amount
+    return totals
+
+
+@router.get("/admin/programs/{program_id}/settlement-preview")
+def settlement_preview(program_id: int,
+                       user: User = Depends(RequirePerm(Perm.AFFILIATE_VIEW)), db: Session = Depends(get_db)):
+    """Read-only: exactly what /settle would pay out right now, without
+    moving any real money. Lets an admin sanity-check the numbers (and see
+    which owners aren't payout-ready yet) before triggering the real thing."""
+    p = db.get(AffiliateProgram, program_id)
+    if p is None:
+        raise HTTPException(status_code=404, detail="Program not found")
+    totals = _pending_commission_totals(db, p.id)
+    math_result = affiliate_settlement_for(p, totals)
+    not_ready = []
+    for owner_id in math_result["payouts"]:
+        try:
+            _ready_connected_account_for_owner(db, owner_id)
+        except HTTPException as e:
+            not_ready.append({"platform_owner_id": owner_id, "detail": e.detail})
+    return {**math_result, "not_ready": not_ready}
+
+
+class SettleIn(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.post("/admin/programs/{program_id}/settle")
+def settle_program(program_id: int, body: SettleIn, request: Request,
+                   user: User = Depends(RequirePerm(Perm.PAYOUT_RELEASE)), db: Session = Depends(get_db)):
+    """The one settlement event for this program's whole campaign. Blocks
+    entirely (no partial settlement) if any owner with a nonzero payout
+    isn't payout-ready yet — better to make the business/admin wait than to
+    settle the program, mark it closed, and strand an owner's earned
+    commission with no path to actually pay them.
+    """
+    p = db.get(AffiliateProgram, program_id)
+    if p is None:
+        raise HTTPException(status_code=404, detail="Program not found")
+    if p.status not in ("live", "ended"):
+        raise HTTPException(status_code=409, detail=f"Program is '{p.status}', not settleable")
+    if p.campaign_ends_at is None:
+        raise HTTPException(status_code=409, detail="Program has no campaign end date yet")
+    settleable_at = p.campaign_ends_at + timedelta(days=p.holding_period_days)
+    if datetime.utcnow() < settleable_at:
+        raise HTTPException(status_code=409,
+                            detail=f"Holding period hasn't ended yet — settleable from {settleable_at.isoformat()}")
+
+    totals = _pending_commission_totals(db, p.id)
+    math_result = affiliate_settlement_for(p, totals)
+
+    destinations = {}
+    for owner_id, payout in math_result["payouts"].items():
+        if payout["net_to_owner"] <= 0:
+            continue
+        ca = _ready_connected_account_for_owner(db, owner_id)  # raises 409/502, blocking settlement entirely
+        destinations[owner_id] = ca.stripe_account_id
+
+    total_payout = sum(pv["net_to_owner"] for pv in math_result["payouts"].values())
+    if total_payout > settings.payout_admin_limit_pence and not is_super_admin(user):
+        raise HTTPException(status_code=403,
+                            detail=(f"Settlement payout total above £{settings.payout_admin_limit_pence/100:,.2f} "
+                                    "requires Super-Admin approval."))
+
+    before = {"status": p.status, "pool_committed_amount": p.pool_committed_amount}
+    try:
+        result = settle_affiliate_program(db, p, destinations)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Stripe settlement failed: {e}")
+
+    audit.record(db, actor=user, action="affiliate.settle", target_type="affiliate_program",
+                target_id=p.id, previous_state=before,
+                new_state={"status": p.status, "pool_released_amount": p.pool_released_amount,
+                          "pool_refunded_amount": p.pool_refunded_amount},
+                reason=body.reason, request=request)
+
+    return {
+        "program_id": p.id, "status": p.status,
+        "total_commission": result["math"]["total_commission"],
+        "total_commission_capped": result["math"]["total_commission_capped"],
+        "platform_take": result["math"]["platform_take"],
+        "refund_to_business": result["math"]["refund_to_business"],
+        "transfers": result["transfers"],
+        "refund_id": result["refund"].id if result["refund"] else None,
+        "errors": result["errors"],
+    }

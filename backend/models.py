@@ -1044,6 +1044,11 @@ class AffiliateProgram(Base):
 
     payment_intent_id = Column(String, index=True)
     charge_id = Column(String)
+    # One Stripe Refund of unused pool budget back to the business, at
+    # settlement — exactly one per program, unlike payouts (see AffiliateCode
+    # below, which tracks each owner's OWN Transfer since a program can have
+    # many owners).
+    refund_id = Column(String)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -1092,6 +1097,16 @@ class AffiliateCode(Base):
     removed_by = Column(Integer, ForeignKey("users.id"))
     removed_at = Column(DateTime)
 
+    # This owner's own Stripe Transfer at their program's campaign-end
+    # settlement (services.settle_affiliate_program). Set at most once —
+    # settlement is a single event per program, never incremental/repeated.
+    # Nullable/unset the whole time the program is live; a code with no
+    # conversions still settles (and stays unpaid) rather than being
+    # skipped, so it always shows a real, explicit zero rather than nothing.
+    payout_transfer_id = Column(String)
+    payout_net_amount = Column(Integer)
+    payout_at = Column(DateTime)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     program = relationship("AffiliateProgram", foreign_keys=[program_id])
@@ -1120,10 +1135,17 @@ class AffiliateConversion(Base):
 
     source = Column(String, nullable=False)   # "webhook" | "snippet"
 
-    # pending -> still within the campaign/holding window, counted toward
-    #            pool_committed_amount and the eventual settlement.
+    # pending  -> still within the campaign/holding window, counted toward
+    #             pool_committed_amount and the eventual settlement.
     # reversed -> the store reported a refund/cancellation; excluded from
-    #            settlement entirely, same as a reversed order on any deal.
+    #             settlement entirely, same as a reversed order on any deal.
+    # settled  -> paid out (or correctly earned £0 after proportional
+    #             capping) at the program's one campaign-end settlement —
+    #             see services.settle_affiliate_program. Terminal; a
+    #             conversion an admin's settlement failed to actually pay
+    #             (a rare transient Stripe error, not a normal case) is
+    #             deliberately left "pending" rather than forced to
+    #             "settled", so it stays visibly unresolved.
     status = Column(String, default="pending", nullable=False, index=True)
     reversed_reason = Column(String)
     reversed_at = Column(DateTime)
