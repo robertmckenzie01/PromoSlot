@@ -5921,12 +5921,36 @@ function updateAcctTrack(){
 // wholesale rather than re-derived, so both places can never disagree.
 function verifyPanelHtml(a){
   const isBiz=!!a.is_business, isPlat=!!a.is_platform_owner;
+  // Rob, 2026-08-29: "I wish to see this submission page on the actual
+  // verification panel... instead of a blank grey panel." The card was
+  // stretching to match its taller grid sibling with nothing in the
+  // extra space — so once there's a real application (pending/approved/
+  // rejected), show the same read-only detail inline instead of leaving
+  // it empty behind a click. Safe to call these render functions directly
+  // (no modal, no side effects) since for pending/approved/rejected they
+  // return static markup — the interactive submit form only appears for
+  // a fresh, not-yet-submitted application, which stays modal-only.
+  let bizDetail="";
+  if(isBiz && S.bizVerifyReq){
+    const st=S.bizVerifyReq.status;
+    if(st==="rejected") bizDetail+=vfRejectedNotice(S.bizVerifyReq);
+    if(st==="pending"||st==="rejected"||st==="approved") bizDetail+=vfBizSubmittedSummaryHtml(S.bizVerifyReq);
+  }
+  let platDetail="";
+  if(isPlat){
+    const r=S.platVerifyReqs||{};
+    if(r.platform_identity && (r.platform_identity.status==="pending"||r.platform_identity.status==="approved"))
+      platDetail+=vfIdentitySectionHtml(r.platform_identity,{});
+    if(r.platform_ownership && (r.platform_ownership.status==="pending"||r.platform_ownership.status==="approved"))
+      platDetail+=vfOwnershipSectionHtml(r.platform_ownership);
+  }
   return `<h3>Verification</h3>
     <p>A Verified ✔ badge shows on your listings and profile once a PromoSlot reviewer confirms your identity.</p>
     <div class="mini-rows" style="margin-top:12px">
       ${isBiz?`<div><span>Business</span>${vfStatusBtnHtml("biz")}</div>`:""}
       ${isPlat?`<div><span>Platform owner</span>${vfStatusBtnHtml("plat")}</div>`:""}
-    </div>`;
+    </div>
+    ${bizDetail}${platDetail}`;
 }
 function updateVerifyPanel(){
   const host=$("verifyPanel"); if(host && S.account) host.innerHTML=verifyPanelHtml(S.account);
