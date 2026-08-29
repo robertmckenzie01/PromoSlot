@@ -5916,12 +5916,24 @@ function acctCompletenessSteps(a){
   // Rob, 2026-08-28: drop the video requirement entirely, lead with the
   // product tour instead — a recording shouldn't gate "getting started",
   // and the tour is the thing every new signup should actually do first.
-  return [
+  const steps = [
     {label:"PromoSlot tour", done:!!a.product_tour_completed_at, state:a.product_tour_completed_at?"Complete":"Not started"},
     {label:"Profile photo", done:!!a.avatar_url, state:a.avatar_url?"Added":"Not added yet"},
     {label:"Bio written", done:bio.length>0, state:bio.length>0?"Live on your profile":"Empty"},
     {label:firstLabel, done:hasFirst, state:hasFirst?(firstName||"Live"):(isPlat||isBiz?"None yet":"Business or platform owner")}
   ];
+  // Rob, 2026-08-29 (verbatim): "please do not make it impossible for
+  // either business or platform owners to use the site even if they
+  // havent completed this checklist... the checklist is a guide not
+  // strict rules." This is display-only — acctTrackHtml just counts done
+  // steps for a headline, nothing here gates any action. A dual-role
+  // account gets one row per role, same as My Account's own panel.
+  const vStateLabel = {approved:"Verified ✔",pending:"Pending review",rejected:"Action needed"};
+  if(isBiz) steps.push({label:"Get verified (business)", done:vfBizStatus()==="approved",
+    state:vStateLabel[vfBizStatus()]||"Not started — optional, but builds trust"});
+  if(isPlat) steps.push({label:"Get verified (platform)", done:vfPlatStatus()==="approved",
+    state:vStateLabel[vfPlatStatus()]||"Not started — optional, but builds trust"});
+  return steps;
 }
 function acctTrackHtml(a){
   const steps=acctCompletenessSteps(a);
