@@ -17,7 +17,7 @@ from ..deal_state import assert_transition, can_transition
 from ..deps import get_current_user
 from ..models import ConnectedAccount, Deal, DealStatus, Notification, Payment, User
 from ..services import (
-    deal_money, deal_money_for, deal_quote, delivery_checklist_for, mark_deal_funded_from_pi,
+    checklist_status_for, deal_money, deal_money_for, deal_quote, mark_deal_funded_from_pi,
     total_charge_for, try_instant_payout,
 )
 from ..stripe_client import stripe
@@ -315,7 +315,7 @@ def get_delivery_checklist(deal_id: int, user: User = Depends(get_current_user),
     if (user.id not in (d.business_id, d.platform_owner_id)
             and not has_permission(user, Perm.DEAL_VIEW_EVIDENCE)):
         raise HTTPException(status_code=403, detail="Not a party to this deal")
-    return {"deal_id": d.id, "items": delivery_checklist_for(d)}
+    return {"deal_id": d.id, "items": checklist_status_for(db, d)}
 
 
 @router.post("/{deal_id}/approve")

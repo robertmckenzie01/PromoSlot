@@ -15,6 +15,7 @@ from ..deal_state import PROOF_CLOSED_STATES, can_transition
 from ..deps import get_current_user
 from ..permissions import Perm, has_permission
 from ..models import Deal, DealStatus, Notification, Proof, User
+from ..services import delivery_checklist_for
 from ..storage import save_proof_file, serve_stored, stored_exists
 
 router = APIRouter(tags=["proofs"])
@@ -69,6 +70,16 @@ def submit_proof(
     if d.status in PROOF_CLOSED_STATES:
         raise HTTPException(status_code=409,
                             detail=f"This deal is {d.status} — evidence can no longer be added.")
+
+    # kind must be one of THIS deal's real Delivery Checklist item ids (task
+    # #33) — previously an unconstrained free-text field, which meant the
+    # checklist shown to the owner and the kind recorded on their proof had
+    # no enforced relationship to each other. "other" stays available as an
+    # escape hatch for evidence that doesn't map to a checklist item.
+    valid_kinds = {item["id"] for item in delivery_checklist_for(d)} | {"other"}
+    if kind not in valid_kinds:
+        raise HTTPException(status_code=422,
+                            detail=f"kind must be one of: {', '.join(sorted(valid_kinds))}")
 
     has_file = file is not None and (file.filename or "") != ""
     has_url = bool(url and url.strip())

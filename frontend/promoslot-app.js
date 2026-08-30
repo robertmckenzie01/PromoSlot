@@ -2482,6 +2482,10 @@ async function renderRealDeal(dealId){
   if(d.funded && (meBiz||meOwner||isReviewer)){ try{ proofs=await PSApi.get("/deals/"+dealId+"/proofs"); }catch(e){} }
   let checklist=[];
   if(d.funded && (meBiz||meOwner||isReviewer)){ try{ checklist=(await PSApi.get("/deals/"+dealId+"/delivery-checklist")).items; }catch(e){} }
+  // Shared with proofSlotHtml/addProofSlot below, so the Kind selector on the
+  // evidence-submission form always reflects THIS deal's real checklist items
+  // (and their live satisfied/unsatisfied status) rather than free text.
+  window._dealChecklistCtx={items:checklist};
   let myReview=null;
   if(d.paid && (meBiz||meOwner)){
     try{ const revs=await PSApi.get("/deals/"+dealId+"/reviews");
@@ -2561,11 +2565,10 @@ async function renderRealDeal(dealId){
       <div class="proof-item ${d.paid?"got":""}"><span class="pi-ico">💸</span>Payout released to owner<span class="ok">${d.paid?"✓ "+gbpP(d.instant_paid?d.instant_net_amount:d.net_to_owner)+(d.instant_paid?" (instant)":""):"pending"}</span></div></div>
     ${!d.verified && checklist.length ? `<div class="det-sec"><h5>Delivery Checklist</h5>
       <p class="mut" style="font-size:12.5px;margin:0 0 8px">${meOwner
-        ? "What to submit as proof. Ticking these is just for your own reference, it doesn't submit anything, and PromoSlot always verifies delivery independently regardless of what's checked."
-        : "What we ask the platform owner to submit as proof of delivery for this deal."}</p>
-      ${checklist.map(it=>`<label class="proof-item" style="cursor:${meOwner?"pointer":"default"}" onchange="this.classList.toggle('got',this.querySelector('input').checked)">
-        <input type="checkbox" style="width:16px;height:16px;accent-color:var(--acc);flex-shrink:0" ${meOwner?"":"disabled"}>
-        <span>${esc(it.label)}</span></label>`).join("")}</div>` : ""}
+        ? "What to submit as proof. Each item shows ✓ once you've submitted matching evidence below — PromoSlot always verifies delivery independently regardless of what's checked off here."
+        : "What we ask the platform owner to submit as proof of delivery for this deal, and whether they've submitted matching evidence yet."}</p>
+      ${checklist.map(it=>`<div class="proof-item ${it.satisfied?"got":""}"><span class="pi-ico">${it.satisfied?"✓":"○"}</span>
+        <span>${esc(it.label)}</span><span class="ok">${it.satisfied?"evidence submitted":"pending"}</span></div>`).join("")}</div>` : ""}
     <div class="det-sec"><h5>Delivery evidence</h5>${proofList}
       ${meOwner && proofs.length ? (d.paid
         ? (d.instant_paid
@@ -2744,9 +2747,20 @@ function reviewerControls(d, proofCount){
 // Delivery evidence: one slot by default, "+" adds more (no cap). Each slot
 // takes a link and/or a file via click OR drag-and-drop (any file type).
 function proofSlotHtml(idx){
+  // Kind is a real select bound to THIS deal's Delivery Checklist items (task
+  // #33) — previously free text with no enforced link to the checklist shown
+  // above; the backend now validates kind against exactly this vocabulary
+  // (see routers/proofs.py's submit_proof), so misaligned strings can no
+  // longer slip through unnoticed. Defaults to the first item that doesn't
+  // have evidence yet, so the common case ("add the next missing thing")
+  // needs no dropdown interaction at all.
+  const items=(window._dealChecklistCtx&&window._dealChecklistCtx.items)||[];
+  const firstUnsatisfied=items.find(it=>!it.satisfied);
+  const opts=items.map(it=>`<option value="${esc(it.id)}"${firstUnsatisfied&&it.id===firstUnsatisfied.id?" selected":""}>${esc(it.label)}${it.satisfied?" ✓ already have evidence":""}</option>`).join("")
+    +`<option value="other">Other evidence</option>`;
   return `<div class="pf-slot" data-idx="${idx}">
     <div class="row2">
-      <div><label>Kind</label><input type="text" id="pf-kind-${idx}" placeholder="screenshot / analytics / link" value="screenshot"></div>
+      <div><label>What does this evidence show?</label><select id="pf-kind-${idx}">${opts}</select></div>
       <div><label>Published link (optional)</label><input type="text" id="pf-url-${idx}" placeholder="https://tiktok.com/@you/video/…"></div>
     </div>
     <div class="dropzone" id="pf-dz-${idx}"
@@ -2777,7 +2791,7 @@ async function realSubmitProof(dealId){
   const items=[];
   document.querySelectorAll("#pf-slots .pf-slot").forEach(s=>{
     const idx=s.dataset.idx;
-    const kind=(($("pf-kind-"+idx)||{}).value||"screenshot").trim();
+    const kind=(($("pf-kind-"+idx)||{}).value||"other").trim();
     const url=(($("pf-url-"+idx)||{}).value||"").trim();
     const file=($("pf-file-"+idx)||{files:[]}).files[0];
     if(url||file) items.push({kind,url,file});
@@ -2787,7 +2801,7 @@ async function realSubmitProof(dealId){
   try{
     for(let i=0;i<items.length;i++){
       const it=items[i];
-      const fd=new FormData(); fd.append("kind",it.kind||"screenshot");
+      const fd=new FormData(); fd.append("kind",it.kind||"other");
       if(it.url) fd.append("url",it.url); if(it.file) fd.append("file",it.file);
       if(i===0 && vd!=="") fd.append("views_delivered", vd);   // owner-reported, once
       await PSApi.postForm(`/deals/${dealId}/proof`, fd);

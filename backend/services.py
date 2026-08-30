@@ -393,6 +393,35 @@ def delivery_checklist_for(deal: Deal) -> list:
     return items
 
 
+def checklist_status_for(db: Session, deal: Deal) -> list:
+    """The Delivery Checklist (delivery_checklist_for), cross-referenced
+    against REAL submitted Proof rows for this deal (task #33).
+
+    Previously the checklist was purely decorative copy — the frontend
+    rendered it as a local, unsaved checkbox list with the explicit caption
+    "Ticking these is just for your own reference, it doesn't submit
+    anything." That's still true in the sense that ticking a box never
+    drives verification (PromoSlot always independently verifies delivery —
+    see the module comment above DELIVERY_CHECKLIST_BASE), but there was no
+    way to tell a reviewer, business, or platform owner whether evidence
+    had actually been submitted for a given item versus just eyeballed.
+
+    Proof.kind is now validated at submission time (see routers/proofs.py's
+    submit_proof) against exactly this deal's checklist item ids, so a
+    kind-to-item match here is a real, enforced correspondence rather than
+    a coincidental string alignment.
+    """
+    items = delivery_checklist_for(deal)
+    proofs = db.query(Proof).filter_by(deal_id=deal.id).all()
+    by_kind: dict = {}
+    for p in proofs:
+        by_kind.setdefault(p.kind, []).append(p.id)
+    return [
+        {**item, "satisfied": bool(by_kind.get(item["id"])), "proof_ids": by_kind.get(item["id"], [])}
+        for item in items
+    ]
+
+
 def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
     """Mark a deal funded — ONLY if Stripe confirms the PaymentIntent succeeded.
 
