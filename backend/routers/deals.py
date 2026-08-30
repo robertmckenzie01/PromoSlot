@@ -17,7 +17,7 @@ from ..deal_state import assert_transition, can_transition
 from ..deps import get_current_user
 from ..models import ConnectedAccount, Deal, DealStatus, Notification, Payment, User
 from ..services import (
-    deal_money, deal_money_for, delivery_checklist_for, mark_deal_funded_from_pi,
+    deal_money, deal_money_for, deal_quote, delivery_checklist_for, mark_deal_funded_from_pi,
     total_charge_for, try_instant_payout,
 )
 from ..stripe_client import stripe
@@ -63,6 +63,35 @@ def validate_pricing_fields(pricing_model: str, listed_price: int,
             raise HTTPException(
                 status_code=422,
                 detail=f"{pricing_model} deals require: {', '.join(missing)}")
+
+
+@router.get("/quote")
+def quote_deal(
+    listed_price: int = 0,
+    pricing_model: str = "fixed",
+    rate_unit_pence: Optional[int] = None,
+    rate_unit_quantity: Optional[int] = None,
+    pool_max_budget: Optional[int] = None,
+    campaign_duration_days: Optional[int] = None,
+    user: User = Depends(get_current_user),
+):
+    """A real, live fee breakdown for a deal that doesn't exist yet.
+
+    Same shape as fund_deal()'s checkout line items, computed from the exact
+    same money.deal_quote() the real total_charge_for() is built on — just
+    run against whatever numbers the caller is currently typing into a form,
+    using the platform's current live fee rates (nothing is created, nothing
+    is locked in; see money.deal_quote()'s docstring). Lets the frontend show
+    an accurate "you'll pay £X / they'll receive £Y" while a business is
+    still filling out a buy-offer, or a platform owner an application, rather
+    than a static hardcoded percentage that would silently go stale the day
+    SELLER_FEE_PERCENT/BUYER_FEE_PERCENT ever changes.
+    """
+    validate_pricing_fields(pricing_model, listed_price, rate_unit_pence,
+                            rate_unit_quantity, pool_max_budget, campaign_duration_days)
+    q = deal_quote(listed_price=listed_price, pool_max_budget=pool_max_budget,
+                   seller_pct=settings.seller_fee_percent, buyer_pct=settings.buyer_fee_percent)
+    return {"pricing_model": pricing_model, **q}
 
 
 class DealCreateIn(BaseModel):
