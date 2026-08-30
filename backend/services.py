@@ -4,12 +4,12 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from . import audit, storage
+from . import audit, ledger, storage
 from .deal_state import can_transition
 from .models import (
     AccountVerificationRequest, AffiliateCode, AffiliateConversion, AffiliateProgram,
     AffiliateTopUp, Business, ConnectedAccount, Deal, DealStatus, Dispute, DisputeEvent,
-    Notification, Payment, Platform, Proof, Transfer, User, Verification,
+    LedgerKind, Notification, Payment, Platform, Proof, Transfer, User, Verification,
 )
 from .permissions import Perm, ROLE_PERMISSIONS
 from .stripe_client import stripe
@@ -446,6 +446,11 @@ def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
     if pay is not None:
         pay.status = "succeeded"
 
+    ledger.record(db, kind=LedgerKind.DEAL_CHARGE,
+                  amount=pay.amount if pay is not None else getattr(pi, "amount", 0),
+                  currency=deal.currency, deal_id=deal.id, stripe_ref=pi_id,
+                  note=f"Deal #{deal.id} funded")
+
     # Real event -> real notification for the platform owner.
     db.add(Notification(
         user_id=deal.platform_owner_id,
@@ -494,6 +499,10 @@ def mark_affiliate_program_funded_from_pi(db: Session, pi_id: str) -> Optional[A
     program.status = "funded"
     program.charge_id = getattr(pi, "latest_charge", None)
 
+    ledger.record(db, kind=LedgerKind.AFFILIATE_FUNDING, amount=getattr(pi, "amount", 0),
+                  currency=program.currency, affiliate_program_id=program.id, stripe_ref=pi_id,
+                  note=f"{program.name} pool funded")
+
     db.add(Notification(
         user_id=program.business_id, type="affiliate_funded",
         body=f"{program.name}'s pool is funded — connect your checkout tracking to go live.",
@@ -532,6 +541,9 @@ def mark_affiliate_topup_funded_from_pi(db: Session, pi_id: str) -> Optional[Aff
     program = db.get(AffiliateProgram, topup.program_id)
     if program is not None:
         program.pool_max_budget = (program.pool_max_budget or 0) + topup.amount
+        ledger.record(db, kind=LedgerKind.AFFILIATE_FUNDING, amount=getattr(pi, "amount", 0),
+                      currency=program.currency, affiliate_program_id=program.id, stripe_ref=pi_id,
+                      note=f"{program.name} top-up funded")
         db.add(Notification(
             user_id=program.business_id, type="affiliate_topup_funded",
             body=f"Your top-up of {program.currency.upper()} {topup.amount/100:.2f} for "
@@ -702,6 +714,9 @@ def settle_affiliate_program(db: Session, program: AffiliateProgram,
         code.payout_at = datetime.utcnow()
         for c in owner_conversion_rows.get(owner_id, []):
             c.status = "settled"
+        ledger.record(db, kind=LedgerKind.AFFILIATE_PAYOUT, amount=-net, currency=program.currency,
+                      affiliate_program_id=program.id, stripe_ref=tr.id,
+                      note=f"{program.name} settlement payout to platform owner #{owner_id}")
         db.add(Notification(
             user_id=owner_id, type="affiliate_settled",
             body=f"{program.name} has settled — {program.currency.upper()} {net/100:.2f} sent to you.",
@@ -721,6 +736,9 @@ def settle_affiliate_program(db: Session, program: AffiliateProgram,
                 metadata={"affiliate_program_id": str(program.id), "promoslot": "affiliate_pool_unused_refund"},
             )
             program.refund_id = rf.id
+            ledger.record(db, kind=LedgerKind.AFFILIATE_REFUND, amount=-refund_amount,
+                          currency=program.currency, affiliate_program_id=program.id,
+                          stripe_ref=rf.id, note=f"{program.name} unused pool refund")
         except Exception as e:
             errors.append({"refund_error": str(e)})
 
@@ -872,6 +890,8 @@ def create_deal_payout(db: Session, deal: Deal, destination: str) -> Transfer:
         currency=deal.currency,
         status="paid",
     ))
+    ledger.record(db, kind=LedgerKind.DEAL_PAYOUT, amount=-net, currency=deal.currency,
+                  deal_id=deal.id, stripe_ref=tr.id, note=f"Deal #{deal.id} payout")
     db.add(Notification(user_id=deal.platform_owner_id, type="payout_sent",
                         body=f"Payout of {deal.currency.upper()} {net/100:.2f} sent for deal #{deal.id} "
                              f"(listed price minus {deal.seller_fee_percent}% seller fee).",
@@ -918,6 +938,8 @@ def settle_pool_deal(db: Session, deal: Deal, destination: str, verified_quantit
     deal.pool_settled_at = datetime.utcnow()
     db.add(Transfer(deal_id=deal.id, stripe_transfer_id=tr.id, destination_account=destination,
                     amount=total_net_to_owner, currency=deal.currency, status="paid"))
+    ledger.record(db, kind=LedgerKind.DEAL_PAYOUT, amount=-total_net_to_owner, currency=deal.currency,
+                  deal_id=deal.id, stripe_ref=tr.id, note=f"Deal #{deal.id} pool settlement payout")
     db.add(Notification(user_id=deal.platform_owner_id, type="payout_sent",
                         body=f"Payout of {deal.currency.upper()} {total_net_to_owner/100:.2f} sent for "
                              f"deal #{deal.id} ({pool['units']} verified unit(s) of "
@@ -939,6 +961,8 @@ def settle_pool_deal(db: Session, deal: Deal, destination: str, verified_quantit
         )
         deal.refund_id = rf.id
         deal.pool_refunded_amount = refund_amount
+        ledger.record(db, kind=LedgerKind.DEAL_REFUND, amount=-refund_amount, currency=deal.currency,
+                      deal_id=deal.id, stripe_ref=rf.id, note=f"Deal #{deal.id} unused pool refund")
         db.add(Notification(user_id=deal.business_id, type="deal_completed",
                             body=f"Deal #{deal.id} settled — unused pool balance of "
                                  f"{deal.currency.upper()} {refund_amount/100:.2f} refunded to you.",
@@ -1199,6 +1223,16 @@ def refund_deal(db: Session, deal: Deal, reason: str = "requested_by_customer"):
     )
     deal.refund_id = rf.id
     deal.status = DealStatus.REFUNDED
+    # A pre-payout refund reverses the full original charge (nothing has
+    # been split into a payout yet) — total_charge_for(deal) is exactly
+    # what was charged, so it's exactly what's being refunded here. Falls
+    # back to Stripe's own reported amount if that's ever unavailable
+    # (e.g. a deal missing pool fields it shouldn't be), rather than
+    # guessing or skipping the ledger entry.
+    ledger.record(db, kind=LedgerKind.DEAL_REFUND,
+                  amount=-(total_charge_for(deal)["total_charge"] or getattr(rf, "amount", 0)),
+                  currency=deal.currency, deal_id=deal.id, stripe_ref=rf.id,
+                  note=f"Deal #{deal.id} refund ({reason})")
     db.add(Notification(user_id=deal.business_id, type="deal_refunded",
                         body=f"Deal #{deal.id} was refunded to you.", ref=str(deal.id)))
     db.add(Notification(user_id=deal.platform_owner_id, type="deal_refunded",
@@ -1238,6 +1272,17 @@ def confirm_refund_from_charge(db: Session, charge_id: str) -> Optional[Deal]:
                             "it; needs manual reconciliation."))
         return deal
     deal.status = DealStatus.REFUNDED
+    # This path only ever actually flips status for a refund that happened
+    # OUTSIDE our own refund_deal()/settle_pool_deal() calls (e.g. issued
+    # from the Stripe dashboard directly) — if this deal's own refund_deal()
+    # already ran, deal.status is already REFUNDED and the early-return
+    # above already caught it, so this can't double-ledger the same refund.
+    # ch.amount_refunded is the real, authoritative Stripe figure — more
+    # trustworthy here than reconstructing from deal_money, since we don't
+    # know exactly what was refunded (could be a partial dashboard refund).
+    ledger.record(db, kind=LedgerKind.DEAL_REFUND, amount=-getattr(ch, "amount_refunded", 0),
+                  currency=deal.currency, deal_id=deal.id, stripe_ref=charge_id,
+                  note=f"Deal #{deal.id} refund confirmed via charge.refunded webhook")
     db.commit()
     db.refresh(deal)
     return deal
@@ -1405,6 +1450,25 @@ def close_dispute_from_event(db: Session, stripe_dispute_id: str, deal: Deal) ->
     dispute.status = dp.status
     dispute.outcome = dp.status
     dispute.closed_at = datetime.utcnow()
+
+    # Stripe reverses the underlying charge on a lost dispute unconditionally
+    # — a real money movement out of the platform's balance that happens
+    # regardless of whether the owner had already been paid, distinct from
+    # any Refund PromoSlot itself issues (there isn't one here; Stripe does
+    # this unilaterally). Recorded here, before the payout_already_released
+    # branching below, specifically so it's captured for BOTH outcomes —
+    # the earlier draft of this only logged it inside the "not already
+    # released" branch, which meant the exact case ledger.absorbed_loss_total()
+    # exists to total up (paid the owner AND had the charge reversed) was the
+    # one case that never got a ledger entry. See absorbed_loss_total()'s
+    # docstring for how this combines with Dispute.payout_already_released.
+    if dp.status == "lost":
+        ledger.record(db, kind=LedgerKind.DISPUTE_LOST, amount=-dispute.amount,
+                      currency=dispute.currency, deal_id=deal.id,
+                      stripe_ref=dispute.stripe_dispute_id,
+                      note=(f"Deal #{deal.id} dispute lost — charge reversed by Stripe"
+                            + (" (payout had already been released: absorbed loss)"
+                               if dispute.payout_already_released else "")))
 
     if not dispute.payout_already_released:
         # Defensive: this deal should structurally always be DISPUTED here

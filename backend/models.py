@@ -585,6 +585,70 @@ class Transfer(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class LedgerKind:
+    """Closed set of LedgerEntry.kind values — a plain-string "enum" class,
+    same convention as DealStatus, for easy migration."""
+    DEAL_CHARGE = "deal_charge"                       # business funds a deal (+)
+    DEAL_PAYOUT = "deal_payout"                        # owner paid out on a deal (-)
+    DEAL_REFUND = "deal_refund"                        # business refunded on a deal (-)
+    AFFILIATE_FUNDING = "affiliate_funding"            # business funds/tops-up a program (+)
+    AFFILIATE_PAYOUT = "affiliate_payout"              # owner paid out on a program (-)
+    AFFILIATE_REFUND = "affiliate_refund"              # unused pool refunded to business (-)
+    DISPUTE_LOST = "dispute_lost"                      # Stripe reversed a charge on a lost dispute (-)
+
+
+class LedgerEntry(Base):
+    """One row per real, confirmed money movement — the single place that
+    answers "what actually moved, when, how much, and why" across the whole
+    platform, regardless of which of Payment/Transfer/Deal/AffiliateProgram/
+    AffiliateCode/AffiliateTopUp's own bare columns also recorded the same
+    fact for their own narrower purposes. Those tables/columns are left
+    exactly as they are (nothing here replaces them) — this is an additive,
+    append-only cross-cutting index over the same underlying Stripe events,
+    written from inside the same functions that already create/update a
+    Payment/Transfer/Dispute or flip a Deal/AffiliateProgram's status (see
+    backend/ledger.py's record()), never a separate write path that could
+    drift out of sync with what actually happened.
+
+    amount is always pence, from the PLATFORM's own perspective, signed:
+      positive = money moving INTO the platform's Stripe balance (a charge)
+      negative = money moving OUT of the platform's Stripe balance (a
+                 transfer to a connected account, or a refund to a business)
+    This lets a running balance be a plain running sum, and lets "total
+    taken in" vs. "total paid/refunded out" be answered with one WHERE
+    amount > 0 / < 0 — see backend/ledger.py's summary()/reconcile().
+    """
+    __tablename__ = "ledger_entries"
+    id = Column(Integer, primary_key=True)
+    kind = Column(String, nullable=False, index=True)
+    amount = Column(Integer, nullable=False)  # pence, signed — see docstring
+    currency = Column(String, default="gbp", nullable=False)
+
+    # Exactly one of these is ever set on a given row — which one says what
+    # this entry is about. Both nullable because a single ledger can't have
+    # a column that's NOT NULL for two different, mutually-exclusive parents.
+    deal_id = Column(Integer, ForeignKey("deals.id"), index=True)
+    affiliate_program_id = Column(Integer, ForeignKey("affiliate_programs.id"), index=True)
+
+    # The real Stripe object this entry reflects (a PaymentIntent, Transfer,
+    # or Refund id) — what backend/ledger.py's reconcile() matches against
+    # Stripe's own Transfer.list()/Refund.list() to find drift. Not a unique
+    # constraint: legitimately absent for a system-only entry, and Stripe ids
+    # are never reused for two DIFFERENT entries in practice but nothing here
+    # enforces that at the DB level.
+    stripe_ref = Column(String, index=True)
+
+    # Free-text context (which owner an affiliate payout was for, which
+    # dispute a loss came from) — same "reason" convention as audit.record,
+    # not meant to be machine-parsed.
+    note = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    deal = relationship("Deal", foreign_keys=[deal_id])
+    affiliate_program = relationship("AffiliateProgram", foreign_keys=[affiliate_program_id])
+
+
 class Dispute(Base):
     """A real Stripe chargeback (charge.dispute.*) on a deal's charge.
 
