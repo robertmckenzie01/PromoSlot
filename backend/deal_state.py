@@ -56,6 +56,14 @@ ALLOWED_TRANSITIONS = {
 # edited afterwards (no re-verifying, no changing amounts).
 FINAL_STATES = {DealStatus.PAID, DealStatus.REFUNDED, DealStatus.CANCELLED}
 
+# Once a deal has reached a verdict (or worse), no more delivery evidence can
+# be added: VERIFIED/REJECTED mean a reviewer already decided; DISPUTED means
+# it's frozen pending Stripe's outcome; the FINAL_STATES trio mean the money
+# outcome is fully settled. Named and shared here (rather than left as an
+# inline tuple in routers/proofs.py) so it can't quietly drift out of sync
+# with ALLOWED_TRANSITIONS above — see routers/proofs.py:submit_proof.
+PROOF_CLOSED_STATES = FINAL_STATES | {DealStatus.VERIFIED, DealStatus.REJECTED, DealStatus.DISPUTED}
+
 
 def can_transition(current: str, nxt: str) -> bool:
     return nxt in ALLOWED_TRANSITIONS.get(current, set())

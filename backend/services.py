@@ -442,6 +442,24 @@ def mark_deal_funded_from_pi(db: Session, pi_id: str) -> Optional[Deal]:
     if getattr(pi, "status", None) != "succeeded":
         return deal  # gate: real success only
 
+    # Defense in depth: a real Stripe charge just succeeded, but if the deal
+    # somehow isn't in a state FUNDED can legally follow (e.g. it was
+    # cancelled in the window between PaymentIntent creation and Stripe
+    # confirming it — a genuine race, not a hypothetical one), don't silently
+    # overwrite its status. That would hide a real discrepancy (money moved,
+    # deal record disagrees) behind a routine-looking status. Leave it
+    # untouched and log it for a human to reconcile instead.
+    if not can_transition(deal.status, DealStatus.FUNDED):
+        audit.record(db, actor=None, action="deal.webhook_transition_blocked",
+                    target_type="deal", target_id=deal.id,
+                    previous_state={"status": deal.status},
+                    new_state={"attempted": DealStatus.FUNDED},
+                    reason=(f"payment_intent.succeeded confirmed for {pi_id}, but the deal is "
+                            f"{deal.status}, not a state FUNDED can legally follow — left "
+                            "untouched. A real Stripe charge exists with nowhere safe to apply "
+                            "it; needs manual reconciliation."))
+        return deal
+
     deal.funded_at = datetime.utcnow()
     deal.status = DealStatus.FUNDED
     deal.charge_id = getattr(pi, "latest_charge", None)
@@ -849,7 +867,14 @@ def verify_delivery(db: Session, deal: Deal, reviewer: User, decision: str,
                             body=f"Deal #{deal.id} delivery verified by PromoSlot.",
                             ref=str(deal.id)))
     else:
-        deal.status = DealStatus.IN_DELIVERY
+        # Status is deliberately NOT set here: the caller (routers/review.py)
+        # already ran assert_transition(d.status, target) before calling this,
+        # where target is REJECTED or CHANGES_REQUESTED depending on the
+        # decision, and sets d.status = target itself right after this
+        # returns. This function used to also write DealStatus.IN_DELIVERY
+        # here, which was always immediately overwritten by the router's own
+        # write — dead code that made the actual transition harder to find
+        # (it looked like it happened here, but never actually took effect).
         db.add(Notification(
             user_id=deal.platform_owner_id, type="deal_revision",
             body=(f"Deal #{deal.id} evidence needs revision before it can be verified."
@@ -1314,6 +1339,20 @@ def confirm_refund_from_charge(db: Session, charge_id: str) -> Optional[Deal]:
         return deal
     if not getattr(ch, "refunded", False):
         return deal
+    # Same defense-in-depth as mark_deal_funded_from_pi above: Stripe just
+    # confirmed a real refund, but only apply it if REFUNDED is actually a
+    # legal next state for this deal (e.g. not already PAID) — otherwise
+    # leave it untouched and flag it rather than silently overwrite.
+    if not can_transition(deal.status, DealStatus.REFUNDED):
+        audit.record(db, actor=None, action="deal.webhook_transition_blocked",
+                    target_type="deal", target_id=deal.id,
+                    previous_state={"status": deal.status},
+                    new_state={"attempted": DealStatus.REFUNDED},
+                    reason=(f"charge.refunded confirmed for charge {charge_id}, but the deal is "
+                            f"{deal.status}, not a state REFUNDED can legally follow from — left "
+                            "untouched. A real Stripe refund exists with nowhere safe to apply "
+                            "it; needs manual reconciliation."))
+        return deal
     deal.status = DealStatus.REFUNDED
     db.commit()
     db.refresh(deal)
@@ -1484,14 +1523,30 @@ def close_dispute_from_event(db: Session, stripe_dispute_id: str, deal: Deal) ->
     dispute.closed_at = datetime.utcnow()
 
     if not dispute.payout_already_released:
-        if dp.status == "lost":
+        # Defensive: this deal should structurally always be DISPUTED here
+        # (nothing else can move it away from DISPUTED while frozen — every
+        # other path is blocked by FINAL_STATES or the freeze itself). If
+        # it somehow isn't, don't guess at a resolution — leave the deal
+        # exactly as-is and flag it, rather than let bespoke branching
+        # (restoring from status_before_dispute, or hard-setting REFUNDED)
+        # run against a deal it was never actually holding.
+        if deal.status != DealStatus.DISPUTED:
+            audit.record(db, actor=None, action="deal.webhook_transition_blocked",
+                        target_type="deal", target_id=deal.id,
+                        previous_state={"status": deal.status},
+                        new_state={"attempted": f"dispute_close:{dp.status}"},
+                        reason=(f"Dispute {stripe_dispute_id} closed ({dp.status}) but the deal "
+                                f"was {deal.status}, not DISPUTED as expected — left untouched, "
+                                "needs manual review."))
+        elif dp.status == "lost":
             deal.status = DealStatus.REFUNDED
+            deal.status_before_dispute = None
         else:  # won | warning_closed — restore exactly what it was frozen from.
                # deal.status_before_dispute is the live working value; Dispute
                # .deal_status_before is kept as the permanent audit record even
                # after the Deal's own field is cleared below.
             deal.status = deal.status_before_dispute or dispute.deal_status_before or DealStatus.FUNDED
-        deal.status_before_dispute = None
+            deal.status_before_dispute = None
     deal.dispute_status = None  # badge clears either way — case is resolved
 
     db.commit()

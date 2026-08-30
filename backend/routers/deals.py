@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..config import settings
 from ..db import get_db
+from ..deal_state import assert_transition, can_transition
 from ..deps import get_current_user
 from ..models import ConnectedAccount, Deal, DealStatus, Notification, Payment, User
 from ..services import (
@@ -297,7 +298,10 @@ def approve_deal(deal_id: int, user: User = Depends(get_current_user), db: Sessi
         d.business_approved = True
     if user.id == d.platform_owner_id:
         d.owner_approved = True
-    if d.business_approved and d.owner_approved and d.status == DealStatus.AWAITING_APPROVAL:
+    # can_transition (not a hardcoded == AWAITING_APPROVAL check) so this
+    # reads from the same single source of truth as every other transition
+    # site — see deal_state.py.
+    if d.business_approved and d.owner_approved and can_transition(d.status, DealStatus.APPROVED):
         d.status = DealStatus.APPROVED
 
     # Tell the other side. Without this an approval is invisible unless they
@@ -370,6 +374,11 @@ def fund_deal(deal_id: int, user: User = Depends(get_current_user), db: Session 
             )
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Stripe error: {e}")
+        # Defense in depth: the checks above (both approved, source not
+        # removed, not already funded) should already guarantee this deal is
+        # APPROVED, but confirm against the shared transition table rather
+        # than trusting that chain of individual checks never drifts.
+        assert_transition(d.status, DealStatus.AWAITING_FUNDING)
         d.payment_intent_id = pi.id
         d.status = DealStatus.AWAITING_FUNDING
         db.add(Payment(
@@ -434,7 +443,8 @@ def decline_deal(deal_id: int, user: User = Depends(get_current_user), db: Sessi
     if d.funded_at is not None:
         raise HTTPException(status_code=409, detail="A funded deal can't be declined; it resolves via verification or refund")
     if d.status in (DealStatus.CANCELLED, DealStatus.REFUNDED):
-        return deal_dict(d)
+        return deal_dict(d)  # idempotent no-op — already resolved
+    assert_transition(d.status, DealStatus.CANCELLED)
     d.status = DealStatus.CANCELLED
     other_id = d.platform_owner_id if user.id == d.business_id else d.business_id
     db.add(Notification(user_id=other_id, type="deal_declined",

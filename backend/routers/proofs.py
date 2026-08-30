@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
+from ..deal_state import PROOF_CLOSED_STATES, can_transition
 from ..deps import get_current_user
 from ..permissions import Perm, has_permission
 from ..models import Deal, DealStatus, Notification, Proof, User
@@ -65,6 +66,9 @@ def submit_proof(
         raise HTTPException(status_code=403, detail="Only the platform owner submits delivery proof")
     if d.funded_at is None:
         raise HTTPException(status_code=409, detail="Deal must be funded before submitting proof")
+    if d.status in PROOF_CLOSED_STATES:
+        raise HTTPException(status_code=409,
+                            detail=f"This deal is {d.status} — evidence can no longer be added.")
 
     has_file = file is not None and (file.filename or "") != ""
     has_url = bool(url and url.strip())
@@ -90,15 +94,19 @@ def submit_proof(
     # Owner-reported delivered views, backed by the evidence they just supplied.
     if views_delivered is not None and views_delivered >= 0:
         d.views_delivered = views_delivered
-    # CHANGES_REQUESTED was missing here even though deal_state.py's
-    # ALLOWED_TRANSITIONS has always permitted CHANGES_REQUESTED ->
-    # PROOF_SUBMITTED ("Owner can resubmit after changes were requested") —
-    # nothing actually drove that transition, so a resubmission after a
-    # reviewer asked for changes silently left the deal stuck showing
-    # changes_requested forever. Found while wiring the proof-update grace
-    # period (task #140), which specifically depends on a resubmission
-    # here moving the deal back into the normal review queue.
-    if d.status in (DealStatus.FUNDED, DealStatus.IN_DELIVERY, DealStatus.CHANGES_REQUESTED):
+    # Reads straight from deal_state.py's shared ALLOWED_TRANSITIONS table
+    # instead of a hardcoded allow-list of statuses — a hardcoded list here is
+    # exactly what caused a real bug (task #140): CHANGES_REQUESTED ->
+    # PROOF_SUBMITTED was always a legal transition per the table, but nothing
+    # actually drove it, so a resubmission after a reviewer asked for changes
+    # silently left the deal stuck showing changes_requested forever. Sourcing
+    # this from can_transition() means a future addition to the table (or a
+    # forgotten one) can't cause that same class of bug again. A deal already
+    # at PROOF_SUBMITTED or UNDER_REVIEW correctly stays put — this is a "move
+    # forward if possible" check, not a requirement that evidence always
+    # advances the status; adding more evidence while a reviewer already has
+    # it is allowed (see the PROOF_CLOSED_STATES guard above for what isn't).
+    if can_transition(d.status, DealStatus.PROOF_SUBMITTED):
         d.status = DealStatus.PROOF_SUBMITTED
     # Real event -> notify the business that evidence was submitted.
     db.add(Notification(user_id=d.business_id, type="proof_submitted",
