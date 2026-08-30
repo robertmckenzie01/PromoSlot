@@ -68,9 +68,22 @@ class Settings:
     # never a user session. Blank -> the endpoint refuses to run at all.
     marketing_cron_secret: str = os.environ.get("MARKETING_CRON_SECRET", "")
 
+    # Google OAuth ("Continue with Google" — see routers/google_auth.py).
+    # Blank in local dev / until Rob creates real credentials in Google Cloud
+    # Console and sets them on Render (tasks #19/#23) — google_oauth_configured
+    # below is what /auth/google/login checks before building a real
+    # authorize URL, same "refuse to run rather than half-work" posture as
+    # every other optional integration in this file.
+    google_client_id: str = os.environ.get("GOOGLE_CLIENT_ID", "")
+    google_client_secret: str = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+
     @property
     def marketing_cron_configured(self) -> bool:
         return bool(self.marketing_cron_secret)
+
+    @property
+    def google_oauth_configured(self) -> bool:
+        return bool(self.google_client_id and self.google_client_secret)
 
     @property
     def inbound_configured(self) -> bool:

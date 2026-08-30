@@ -167,6 +167,18 @@ class User(Base):
     marketing_opt_in_at = Column(DateTime)
     marketing_opt_in_source = Column(String)  # "signup" | "settings" | "email_link"
 
+    # ---- Google sign-in ----
+    # Google's stable per-account identifier (the OIDC "sub" claim) — never
+    # the email, which a Google account can technically change. Nullable +
+    # unique: most accounts have none (password-only), and no two accounts
+    # may ever claim the same Google identity. Set either at Google-signup
+    # completion (routers/google_auth.py's complete_google_signup) or
+    # backfilled the first time an existing password account signs in with
+    # Google using a matching, Google-verified email (account linking) —
+    # see google_login_callback's docstring for the full reasoning on why
+    # that link is safe to make automatically.
+    google_sub = Column(String, unique=True, index=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     @property
@@ -861,6 +873,30 @@ class MarketingOptToken(Base):
     purpose = Column(String, nullable=False)  # "optin" | "unsubscribe"
     expires_at = Column(DateTime)  # null = never expires (unsubscribe links)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class GooglePendingSignup(Base):
+    """Bridges a brand-new, Google-verified identity to the role-selection
+    step (task #21) that ordinary signup also requires — a Google login
+    alone tells us a real email + name, never which role(s) someone wants,
+    so a User row is deliberately NOT created yet when this row is.
+
+    Single-use (deleted the moment complete_google_signup succeeds — see
+    routers/google_auth.py) and short-lived (expires_at, long enough to
+    fill in the role-selection screen, short enough that an abandoned
+    Google sign-in attempt doesn't leave a stale, indefinitely-valid row
+    sitting around). email/display_name are exactly what Google's own
+    userinfo endpoint returned, never user-entered — the role-selection
+    step only ever collects the role choice and name(s), same fields the
+    ordinary signup form's would-be second identity needs.
+    """
+    __tablename__ = "google_pending_signups"
+    token = Column(String, primary_key=True)
+    google_sub = Column(String, nullable=False, index=True)
+    email = Column(String, nullable=False)
+    display_name = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
 
 
 class MarketingCampaignSend(Base):

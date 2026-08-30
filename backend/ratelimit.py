@@ -82,3 +82,7 @@ def limit_password_reset_submit(request: Request) -> None:
 
 def limit_support_ticket(request: Request) -> None:
     rate_limit(request, "support-ticket", limit=8, window_seconds=10 * 60)
+
+
+def limit_google_oauth(request: Request) -> None:
+    rate_limit(request, "google-oauth", limit=15, window_seconds=10 * 60)

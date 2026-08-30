@@ -26,6 +26,21 @@ class SignupIn(BaseModel):
     marketing_opt_in: bool = False
 
 
+class GoogleCompleteSignupIn(BaseModel):
+    """The role-selection step (task #21) a brand-new 'Continue with
+    Google' identity still has to go through — everything else (email,
+    verified status, display name suggestion) already came from Google
+    itself at /auth/google/callback. Deliberately the same shape as the
+    role/naming fields of SignupIn below, minus password/turnstile/email
+    (Google already proved the email; no password is ever set here)."""
+    token: str = Field(min_length=1)
+    display_name: Optional[str] = Field(default=None, max_length=120)
+    is_business: bool = False
+    is_platform_owner: bool = False
+    second_display_name: Optional[str] = Field(default=None, max_length=120)
+    marketing_opt_in: bool = False
+
+
 class LinkProfileIn(BaseModel):
     role: Literal["business", "platform_owner"]
     display_name: str = Field(min_length=1, max_length=120)

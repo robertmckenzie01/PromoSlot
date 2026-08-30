@@ -15,8 +15,8 @@ from .config import settings
 from .csrf import CSRFMiddleware
 from .routers import (
     admin, affiliate, affiliate_tracking, auth, businesses, campaigns, connect, deals, disputes,
-    health, marketing, messages, notifications, inbound, platforms, profiles, proofs, review,
-    reviews, support, verification, webhooks,
+    google_auth, health, marketing, messages, notifications, inbound, platforms, profiles, proofs,
+    review, reviews, support, verification, webhooks,
 )
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
@@ -126,6 +126,7 @@ app.include_router(health.router)
 app.include_router(webhooks.router)
 app.include_router(inbound.router)
 app.include_router(auth.router)
+app.include_router(google_auth.router)
 app.include_router(admin.router)
 app.include_router(connect.router)
 app.include_router(deals.router)
