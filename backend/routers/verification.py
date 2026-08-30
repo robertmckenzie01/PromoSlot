@@ -32,6 +32,7 @@ from ..db import get_db
 from ..deps import RequirePerm, get_current_user
 from ..models import AccountVerificationRequest, Business, ConnectedAccount, Platform, User
 from ..permissions import Perm
+from ..risk import account_risk_summary
 from ..services import (business_capability_status_of, business_requirements_outstanding,
                         decide_verification, platform_owner_verified, stripe_legal_name_of,
                         sync_business_account, transfers_status_of)
@@ -140,6 +141,14 @@ def _submitter_context(db: Session, r: AccountVerificationRequest) -> dict:
         ctx["stripe_connected"] = conn is not None
         ctx["stripe_transfers_active"] = conn.transfers_active if conn else False
         ctx["stripe_requirements_due"] = conn.requirements_due if conn else None
+    # Real, computed risk signals (task #32) — account age, dispute/
+    # chargeback history on both sides, absorbed-loss exposure, and prior
+    # rejected verification attempts, so the reviewer isn't judging this
+    # request in isolation from everything else PromoSlot already knows
+    # about this account. See backend/risk.py's module docstring for why
+    # dispute risk is split by role rather than one combined count.
+    if r.submitted_by:
+        ctx["risk"] = account_risk_summary(db, r.submitted_by)
     return ctx
 
 
