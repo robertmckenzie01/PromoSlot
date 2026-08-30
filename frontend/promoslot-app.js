@@ -6194,6 +6194,18 @@ function authModal(mode){
       <div class="m-pad">
         <h3 class="m-title">${isSignup?"Create your PromoSlot account":"Log in"}</h3>
         <p class="m-sub">${isSignup?"One account: choose one or both roles.":"Welcome back."}</p>
+        <button type="button" class="btn btn-o" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:2px" onclick="continueWithGoogle()">
+          <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style="flex-shrink:0">
+            <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-4z"/>
+            <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.1 18.9 12 24 12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.6 3 24 3 16.3 3 9.6 7.3 6.3 14.7z"/>
+            <path fill="#4CAF50" d="M24 45c5.4 0 10.3-2.1 14-5.5l-6.5-5.3C29.4 35.9 26.8 37 24 37c-5.3 0-9.7-3.3-11.3-8l-6.6 5C9.5 40.6 16.2 45 24 45z"/>
+            <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.5 5.3C39.8 36.8 43 31.1 43 24c0-1.4-.1-2.7-.4-3.5z"/>
+          </svg>
+          Continue with Google
+        </button>
+        <div style="display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--mut);font-size:12px">
+          <div style="flex:1;height:1px;background:var(--line)"></div>or<div style="flex:1;height:1px;background:var(--line)"></div>
+        </div>
         <div class="frm">
           ${isSignup?`<div id="au-name-wrap"><label id="au-name-lbl">Display name</label><input type="text" id="au-name" placeholder="Robert Media"></div>
           <div id="au-name2-wrap" class="hide"><label>Platform-owner name</label><input type="text" id="au-name2" placeholder="RobertLifts"></div>`:""}
@@ -6305,6 +6317,95 @@ async function doLogin(){
     }
   }
 }
+/* ---------- Continue with Google (backend/routers/google_auth.py) ---------- */
+// A full-page browser navigation, not an API call: Google's own consent
+// screen has to be the next thing the person sees, which only a real
+// redirect (not fetch/XHR) can do. Lands back on /?google_auth=... for an
+// existing/linked account, or /?google_signup=<token> for a brand-new one
+// — both handled in PSBoot below, same pattern as ?verify=/?reset=.
+function continueWithGoogle(){ window.location.href="/auth/google/login"; }
+
+function _grSyncNameFields(){
+  const biz=$("gr-r-biz"), plat=$("gr-r-plat"); if(!biz||!plat) return;
+  const both = biz.classList.contains("on") && plat.classList.contains("on");
+  $("gr-name2-wrap").classList.toggle("hide", !both);
+  $("gr-name-lbl").textContent = both ? "Business name"
+    : plat.classList.contains("on") ? "Platform-owner name" : "Display name";
+}
+function _grErr(msg){ const e=$("gr-err"); if(e){ e.textContent=msg; e.classList.remove("hide"); } }
+
+// The role-selection step (task #21) a brand-new Google identity still has
+// to go through — Google already proved the email and supplied a name
+// suggestion (used server-side as a fallback if this form is left blank),
+// but never tells us which role(s) someone actually wants. Mirrors
+// authModal's signup fields exactly, minus email/password/Turnstile, none
+// of which apply to an identity Google already vouched for.
+function googleRoleSelectModal(token){
+  openModal(`<div class="m-pad">
+    <h3 class="m-title">Almost done</h3>
+    <p class="m-sub">You're signed in with Google — just pick your role(s) to finish setting up your PromoSlot account.</p>
+    <div class="frm">
+      <div id="gr-name-wrap"><label id="gr-name-lbl">Display name</label><input type="text" id="gr-name" placeholder="Leave blank to use your Google name"></div>
+      <div id="gr-name2-wrap" class="hide"><label>Platform-owner name</label><input type="text" id="gr-name2" placeholder="RobertLifts"></div>
+      <div><label>I am a…</label><div class="chips-lg">
+        <button type="button" class="chip" id="gr-r-biz" onclick="this.classList.toggle('on');_grSyncNameFields()">Business</button>
+        <button type="button" class="chip" id="gr-r-plat" onclick="this.classList.toggle('on');_grSyncNameFields()">Platform owner</button>
+      </div></div>
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;font-weight:400;cursor:pointer;margin-top:4px">
+        <input type="checkbox" id="gr-marketing" style="margin-top:2px">
+        <span>Send me occasional product updates and tips. Optional, unsubscribe any time.</span>
+      </label>
+      <div class="hint-err hide" id="gr-err"></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-p" id="gr-submit" style="width:100%" onclick="submitGoogleRoleSelection('${esc(token)}')">Finish creating account</button>
+    </div>
+  </div>`,"narrow");
+}
+
+async function submitGoogleRoleSelection(token){
+  const display_name=($("gr-name").value||"").trim();
+  const is_business=$("gr-r-biz").classList.contains("on");
+  const is_platform_owner=$("gr-r-plat").classList.contains("on");
+  const both = is_business && is_platform_owner;
+  const second_display_name = both ? ($("gr-name2").value||"").trim() : null;
+  const marketing_opt_in = !!($("gr-marketing")||{}).checked;
+  if(!is_business && !is_platform_owner){ _grErr("Select at least one role."); return; }
+  if(both){
+    if(!display_name||!second_display_name){ _grErr("Enter a name for both profiles."); return; }
+    if(display_name.toLowerCase()===second_display_name.toLowerCase()){
+      _grErr("Your business and platform-owner profiles need different names."); return;
+    }
+  }
+  const btn=$("gr-submit"); btn.disabled=true; btn.textContent="Finishing…";
+  let acct;
+  try{
+    acct=await PSApi.post("/auth/google/complete-signup",
+      {token,display_name:display_name||null,is_business,is_platform_owner,second_display_name,marketing_opt_in});
+  }catch(err){
+    btn.disabled=false; btn.textContent="Finish creating account";
+    _grErr(err.message||"Could not finish creating your account — the sign-up link may have expired. Try Continue with Google again.");
+    return;
+  }
+  S.account=acct;
+  await loadPerms();
+  closeModal(); authReflect(); await loadMine(); authReflect();
+  toast("Account created ✓",true);
+  _resumeAfterAuth();
+}
+
+// A Google login that landed on an existing/linked account: restoreSession()
+// (see PSBoot) has already fetched /auth/me off the real session cookie the
+// backend set on redirect, so S.account is live by the time this runs —
+// this only needs to say what happened, never re-fetch anything itself.
+function _handleGoogleAuthStatus(status){
+  if(status==="success") toast("Signed in with Google ✓",true);
+  else if(status==="cancelled") { /* they backed out on Google's own screen — nothing to say */ }
+  else if(status==="blocked") toast("This account can't sign in right now. Contact support if you think that's a mistake.");
+  else if(status==="banned") toast("That email address is banned from PromoSlot.");
+  else toast("Something went wrong signing in with Google. Please try again.");
+}
+
 /* ---------- Password reset (real email via Resend) ---------- */
 // Cross-tab verification sync: BroadcastChannel only reaches other tabs in
 // the same browser on the same origin. It can't bridge a link opened on a
@@ -7520,11 +7621,23 @@ function PSBoot(){
   // login required, same anti-replay stripping as reset/verify above.
   const _ot=_q.get("optin");
   const _ut=_q.get("unsubscribe");
-  if(_rt||_vt||_dt||_ot||_ut) history.replaceState({}, "", location.pathname);
+  // Google OAuth's own browser-redirect landings (backend/routers/
+  // google_auth.py) — google_signup=<token> is a brand-new identity still
+  // needing role selection; google_auth=<status> is everything else
+  // (existing/linked-account login, or a cancelled/error/blocked/banned
+  // outcome). Same anti-replay stripping as every other token param here.
+  const _gsToken=_q.get("google_signup");
+  const _gaStatus=_q.get("google_auth");
+  if(_rt||_vt||_dt||_ot||_ut||_gsToken||_gaStatus) history.replaceState({}, "", location.pathname);
   if(_rt) setTimeout(()=>resetPasswordModal(_rt),300);
   if(_vt) setTimeout(()=>verifyEmailFromLink(_vt),300);
   if(_ot) setTimeout(()=>marketingTokenFromLink(_ot,"optin"),300);
   if(_ut) setTimeout(()=>marketingTokenFromLink(_ut,"unsubscribe"),300);
+  if(_gsToken) setTimeout(()=>googleRoleSelectModal(_gsToken),300);
+  // Waits on the real restoreSession() promise (whichever branch above set
+  // it) rather than firing early: S.account must already reflect the fresh
+  // session cookie the backend just set before the toast claims success.
+  if(_gaStatus) _bootAuth.then(()=>_handleGoogleAuthStatus(_gaStatus));
   // A deal-notification email (the proof grace-period reminder) links straight
   // to /?deal=<id>. Waits on the real restoreSession() promise above rather
   // than a fixed timeout, since whether to open the deal directly or gate on
@@ -8245,6 +8358,7 @@ function resRender(){ resRenderPlaybooks(); resRenderModels(); }
 const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,vfPick,vfContactSupport,vfStartBizStripe,vfSubmitBizFinal,vfConnectPayouts,vfSubmitPlatIdentity,vfSubmitPlatOwnership,vfPickBiz,openVerificationQueue,openVerificationDecision,decideVerification,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realOpenGracePeriod,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,closeVerifyWait,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
+continueWithGoogle,googleRoleSelectModal,submitGoogleRoleSelection,_grSyncNameFields,
 renderWhoWeAre,addLinkRow,saveWhoWeAre,uploadAsset,deleteAsset,
 openEditListing,saveListingEdits,openEditCampaign,saveCampaignEdits,addEditPriceRow,editPriceTypeChange,wAddCustomChip,eAddCustomChip,
 openPoolBuyModal,confirmPoolBuy,
