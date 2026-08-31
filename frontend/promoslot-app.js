@@ -700,6 +700,7 @@ function showView(id){
   window.scrollTo({top:0});
   document.querySelectorAll(".nav-link").forEach(b=>b.classList.remove("active"));
   if(id==="view-market") $("nl-market").classList.add("active");
+  if(id==="view-affiliate") $("nl-affiliate").classList.add("active");
   if(id==="view-messages") $("nl-msgs").classList.add("active");
   if(id==="view-bizdash"||id==="view-platdash") $("nl-dash").classList.add("active");
 }
@@ -4637,6 +4638,52 @@ function affOwnerPanelHtml(){
     </div></div>`;
 }
 
+/* ---- Dedicated top-level Affiliate Program page (own nav tab, right of
+   Marketplace) — not a modal, so it's a real, shareable, discoverable
+   destination rather than something buried a scroll down inside the
+   dashboard. Reuses the exact same backend calls + row markup as the
+   dashboard panel / browse modal below, just promoted to a first-class
+   page: businesses see their own programs (affProgramsPanelHtml(), already
+   live in the dashboard), everyone else sees the public browse list
+   (GET /affiliate/programs), same as openAffiliateBrowse() below but as
+   page content instead of a modal. Clicking into a program still opens the
+   existing detail/apply modal (openAffiliateProgramDetail) — that drill-down
+   pattern is already how every other list in the app works (deals,
+   campaigns), so keeping it here is consistent, not a shortcut. */
+async function openAffiliateMarket(){
+  setRoute("affiliate");
+  showView("view-affiliate");
+  const wrap=$("affiliateWrap");
+  wrap.innerHTML=`<div style="text-align:center;padding:60px 20px"><span class="spin"></span></div>`;
+  if(S.account) await loadMine();   // populates S.myAffiliatePrograms / S.myAffiliateApplications
+
+  const isBiz = S.account && S.activeRole==="biz";
+  if(isBiz){
+    wrap.innerHTML=`
+      <div style="margin-bottom:24px">
+        <h2 style="font-size:24px;margin:0 0 6px">Affiliate Program</h2>
+        <p class="mut" style="font-size:14px;margin:0">Run a pool-funded affiliate program: platform owners apply, you approve with a real discount code from your own store, and every tracked sale is reported and settled automatically.</p>
+      </div>
+      ${affProgramsPanelHtml()}`;
+    return;
+  }
+
+  let rows=[];
+  try{ rows=await PSApi.get("/affiliate/programs"); }catch(e){ rows=[]; }
+  const roleNote = !S.account
+    ? `<p class="mut" style="font-size:12.5px">Sign up as a platform owner to apply — or as a business to run your own program.</p>`
+    : (S.activeRole==="plat" ? "" : `<p class="mut" style="font-size:12.5px">Switch to your platform-owner profile to apply.</p>`);
+  wrap.innerHTML=`
+    <div style="margin-bottom:24px">
+      <h2 style="font-size:24px;margin:0 0 6px">Affiliate Program</h2>
+      <p class="mut" style="font-size:14px;margin:0 0 6px">Businesses fund a commission pool; platform owners apply, get a real discount code, and earn on every tracked sale — automatically reported and settled by PromoSlot.</p>
+      ${roleNote}
+    </div>
+    <div class="panel"><div class="panel-b">
+      ${rows.length?rows.map(affBrowseRowHtml).join(""):`<div class="empty-state"><h4>No live affiliate programs right now</h4><p>Check back soon — businesses are setting these up.</p></div>`}
+    </div></div>`;
+}
+
 /* ---- Browse + apply ---- */
 async function openAffiliateBrowse(){
   openModal(`<div class="m-pad" style="text-align:center;padding:48px 20px"><span class="spin"></span></div>`,"wide");
@@ -7375,7 +7422,7 @@ let _routeReady=false;                 // don't record routes during restore
    wall and stay exactly as they were, sessionStorage-only, no URL change.
    "market" always maps to /marketplace regardless of which tab is active;
    the tab itself isn't part of the URL, same as before. */
-const ROUTE_PATHS={home:"/",market:"/marketplace",how:"/how-it-works",
+const ROUTE_PATHS={home:"/",market:"/marketplace",affiliate:"/affiliate-program",how:"/how-it-works",
                    pricing:"/pricing",protect:"/payment-protection",
                    resources:"/resources",about:"/about",
                    terms:"/terms",privacy:"/privacy",refund:"/refund-policy"};
@@ -7405,6 +7452,7 @@ window.addEventListener("popstate", ()=>{
   try{
     if(name==="home") goHome();
     else if(name==="market") openMarket();
+    else if(name==="affiliate") openAffiliateMarket();
     else if(name==="how") goHow();
     else if(name==="pricing") goPricingPage();
     else if(name==="protect") goProtect();
@@ -7437,6 +7485,7 @@ async function applyRoute(r){
   const id = r.arg!=null ? parseInt(r.arg,10) : null;
   switch(r.name){
     case "market":      await openMarket(r.arg||undefined); return true;
+    case "affiliate":   await openAffiliateMarket(); return true;
     case "dash":        await openDash(); return true;
     case "messages":    await openMessages(); return true;
     case "account":     openAccount(); return true;
@@ -7491,6 +7540,7 @@ const NAV_ACTIONS={
   "login":()=>authModal("login"),
   "logout":()=>doLogout(),
   "market":()=>openMarket(),
+  "affiliate":()=>openAffiliateMarket(),
   "market-platforms":()=>openMarket("platforms"),
   "market-campaigns":()=>openMarket("campaigns"),
   "how":()=>goHow(),
@@ -7565,6 +7615,7 @@ function PSBoot(){
   const _initialRoute=PATH_ROUTES[location.pathname];
   if(_initialRoute && _initialRoute!=="home"){
     if(_initialRoute==="market") openMarket();
+    else if(_initialRoute==="affiliate") openAffiliateMarket();
     else if(_initialRoute==="how") goHow();
     else if(_initialRoute==="pricing") goPricingPage();
     else if(_initialRoute==="protect") goProtect();
@@ -8398,7 +8449,7 @@ openEditDisplayName,saveDisplayName,
 openEditPhone,savePhone,clearPhone,setMarketingPreference,
 openNewAffiliateProgram,affCTypeChange,affSubmitCreate,openAffiliateProgram,affPickHost,affConfirmTracking,affPay,
 affShowTopupForm,affTopup,affTopupPay,affApprove,affReject,affRemovePartner,
-openAffiliateBrowse,openAffiliateProgramDetail,affSubmitApply,openMyAffiliateEarnings,
+openAffiliateMarket,openAffiliateBrowse,openAffiliateProgramDetail,affSubmitApply,openMyAffiliateEarnings,
 openAffiliateAdminQueue,openAffiliateAdminDetail,affAdminSettle};
 Object.assign(window,EXPORTS);
 window.S=S;
