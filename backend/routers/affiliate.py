@@ -54,11 +54,17 @@ router = APIRouter(prefix="/affiliate", tags=["affiliate"])
 
 COMMISSION_TYPES = ("flat", "pct")
 HOSTS = ("shopify", "woo", "squarespace", "wix", "custom")
-# Hosts we can eventually verify with a real signed server-to-server order
-# webhook (Shopify/WooCommerce both support this natively). The rest fall
-# back to the weaker client-side tracking snippet — see the conversion
-# ingestion piece once it exists.
-WEBHOOK_CAPABLE_HOSTS = ("shopify", "woo")
+# Hosts we can verify with a real server-to-server order webhook rather than
+# the weaker client-side tracking snippet. Shopify/WooCommerce sign every
+# request (HMAC, verified in routers/affiliate_tracking.py); Wix has no
+# native signed-webhook product, but its built-in Automations feature (no
+# app/OAuth needed — configurable entirely in the business's own dashboard)
+# can send an HTTP request with a custom header on "Order Paid"/"Order
+# Refunded", which we authenticate with a shared secret instead of an HMAC.
+# Squarespace's only real order-webhook path requires registering PromoSlot
+# as an OAuth Developer Platform extension — out of scope for now — so it
+# stays on the snippet tier along with "custom".
+WEBHOOK_CAPABLE_HOSTS = ("shopify", "woo", "wix")
 
 MIN_CAMPAIGN_DAYS, MAX_CAMPAIGN_DAYS = 7, 180
 MIN_HOLDING_DAYS, MAX_HOLDING_DAYS = 3, 60
@@ -390,6 +396,75 @@ def confirm_tracking(program_id: int, body: TrackingIn,
     db.commit()
     db.refresh(p)
     return program_dict(db, p)
+
+
+@router.get("/programs/{program_id}/tracking-setup")
+def tracking_setup(program_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Everything a business needs to actually wire up their store, in one
+    place — callable any time after confirm-tracking, not just once, since
+    a business (or whoever they hand this to) will realistically need to
+    come back to it. Nothing here is invented at request time: the webhook
+    URL/secret are the exact values routers/affiliate_tracking.py checks
+    requests against, and the snippet POSTs to the exact endpoint it accepts."""
+    p = _my_program(db, program_id, user)
+    if not p.host:
+        raise HTTPException(status_code=409, detail="Pick where your checkout lives first")
+    base = settings.app_base_url.rstrip("/")
+
+    if p.host in WEBHOOK_CAPABLE_HOSTS:
+        webhook_url = f"{base}/affiliate/webhooks/{p.host}/{p.id}"
+        if p.host == "shopify":
+            steps = [
+                "In your Shopify admin: Settings → Notifications → scroll down to Webhooks → Create webhook.",
+                "Event: \"Order creation\". Format: JSON.",
+                f"URL: {webhook_url}",
+                "Save — Shopify signs every request automatically, so there's no secret to copy in for this one.",
+                "Repeat for \"Order cancellation\" and \"Refund create\" so refunds correctly reverse a tracked sale.",
+            ]
+        elif p.host == "woo":
+            steps = [
+                "In your WooCommerce admin: Settings → Advanced → Webhooks → Add webhook.",
+                "Topic: \"Order updated\" (covers processing, completed, refunded and cancelled).",
+                f"Delivery URL: {webhook_url}",
+                f"Secret: {p.webhook_secret}",
+                "Save — WooCommerce signs every request with that secret.",
+            ]
+        else:  # wix
+            steps = [
+                "In your Wix dashboard: Automations → Create New Automation.",
+                "Trigger: \"Order Paid\". Action: \"Send HTTP Request\".",
+                f"URL: {webhook_url}   ·   Method: POST",
+                f"Add a custom header — X-PromoSlot-Secret: {p.webhook_secret}",
+                "Body (JSON), using Wix's own dynamic-field picker for the values in {}: "
+                '{"event":"sale","code":"{Coupon Code}","amount":"{Order Total}","order_ref":"{Order Number}"}',
+                "Create a second automation the same way for refunds — Trigger: \"Order Refunded\" (or \"Order Cancelled\"), same URL and header, but with \"event\":\"reversal\" in the body instead of \"sale\".",
+            ]
+        return {"host": p.host, "tier": "webhook", "webhook_url": webhook_url,
+                "webhook_secret": p.webhook_secret, "steps": steps, "snippet": None}
+
+    snippet = (
+        "<script>\n"
+        "(function(){\n"
+        "  var o = window.PromoSlotOrder; // set this before this script runs\n"
+        "  if (!o || !o.code) return;\n"
+        f"  fetch(\"{base}/affiliate/track/snippet/{p.id}\", {{\n"
+        "    method: \"POST\",\n"
+        "    headers: {\"Content-Type\": \"application/json\"},\n"
+        "    body: JSON.stringify({code:o.code, amount:o.amount, order_ref:o.order_ref||null})\n"
+        "  });\n"
+        "})();\n"
+        "</script>"
+    )
+    steps = [
+        "This platform doesn't offer a signed server-to-server webhook, so tracking relies on a lighter snippet instead — weaker than the Shopify/WooCommerce/Wix path, but it's what makes tracking possible here at all.",
+        "Add the snippet below to your order confirmation / thank-you page — the page a buyer lands on right after they check out.",
+        "Before the snippet runs, set window.PromoSlotOrder with that specific order's real values: the discount code that was used, the order total in pence (e.g. 1999 for £19.99), and optionally your own order reference.",
+        "If you're not comfortable editing this yourself, hand this snippet and the three values it needs to whoever built your site — your checkout already has this order data somewhere, it just needs to reach this script.",
+    ]
+    if p.host == "squarespace":
+        steps.insert(1, "On Squarespace (Commerce plans): Settings → Advanced → Code Injection → Order Confirmation Page, and paste the snippet there.")
+    return {"host": p.host, "tier": "snippet", "webhook_url": None, "webhook_secret": None,
+            "steps": steps, "snippet": snippet}
 
 
 # ---------------------------------------------------------------------------

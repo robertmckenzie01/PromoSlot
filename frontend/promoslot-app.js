@@ -180,6 +180,11 @@ function toast(msg,grn){
   $("toasts").appendChild(t);
   setTimeout(()=>{t.classList.add("out");setTimeout(()=>t.remove(),380)},3400);
 }
+function copyText(str){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(str).then(()=>toast("Copied",true)).catch(()=>toast("Could not copy — select and copy manually"));
+  }else{ toast("Could not copy — select and copy manually"); }
+}
 /* ---------- Ambient signup nudge ----------
    A soft prompt for guests, quite separate from the gates: it fires on its own
    after 2 detail views or 25s of browsing, whichever comes first, and only once
@@ -4295,7 +4300,7 @@ const AFF_HOSTS=[
   {v:"shopify",l:"Shopify",d:"Real signed order webhook — sales tracked automatically."},
   {v:"woo",l:"WooCommerce",d:"Real signed order webhook — sales tracked automatically."},
   {v:"squarespace",l:"Squarespace",d:"Tracking snippet — weaker, sales reported from the page itself."},
-  {v:"wix",l:"Wix",d:"Tracking snippet — weaker, sales reported from the page itself."},
+  {v:"wix",l:"Wix",d:"Real webhook via Wix Automations — sales tracked automatically."},
   {v:"custom",l:"Custom / other",d:"Tracking snippet — weaker, sales reported from the page itself."},
 ];
 function affStatusPill(status){
@@ -4425,7 +4430,7 @@ async function affPay(){
 function affTrackingScreen(p){
   openModal(`<div class="m-pad"><h3 class="m-title">Connect your checkout</h3>
     <p class="m-sub">Pick where ${esc(p.name)} sells. Shopify and WooCommerce track sales automatically via a signed webhook; other platforms use a lighter tracking snippet. The campaign clock starts once you confirm this.</p>
-    <div id="aff-host-list">${AFF_HOSTS.map(h=>`<div class="proof-item" style="cursor:pointer" onclick="affPickHost('${h.v}')" id="aff-host-${h.v}"><span class="pi-ico">${h.v==="shopify"||h.v==="woo"?"🔒":"📎"}</span><div class="vf-body"><b>${h.l}</b><small>${h.d}</small></div></div>`).join("")}</div>
+    <div id="aff-host-list">${AFF_HOSTS.map(h=>`<div class="proof-item" style="cursor:pointer" onclick="affPickHost('${h.v}')" id="aff-host-${h.v}"><span class="pi-ico">${h.v==="shopify"||h.v==="woo"||h.v==="wix"?"🔒":"📎"}</span><div class="vf-body"><b>${h.l}</b><small>${h.d}</small></div></div>`).join("")}</div>
     <div class="hint-err hide" id="aff-host-err"></div>
     <div class="m-actions"><button class="btn btn-o" onclick="closeModal()">Do this later</button><button class="btn btn-p" onclick="affConfirmTracking(${p.id})">Go live →</button></div></div>`,"wide");
   window._affHostPick=null;
@@ -4442,8 +4447,37 @@ async function affConfirmTracking(programId){
     const idx=(S.myAffiliatePrograms||[]).findIndex(x=>x.id===programId);
     if(idx>-1) S.myAffiliatePrograms[idx]=p;
     toast("You're live! Platform owners can now apply.",true);
-    affRenderProgram(programId);
+    affShowTrackingSetup(programId);
   }catch(e){ toast(e.message||"Could not confirm tracking"); }
+}
+
+/* ---- Tracking setup: what we need the business to do on their own store ---- */
+async function affShowTrackingSetup(programId){
+  openModal(`<div class="m-pad" style="text-align:center;padding:48px 20px"><span class="spin"></span></div>`,"wide");
+  let ts; try{ ts=await PSApi.get(`/affiliate/programs/${programId}/tracking-setup`); }
+  catch(e){ toast(e.message||"Could not load tracking setup"); closeModal(); return; }
+  const stepsHtml=ts.steps.map((s,i)=>`<div class="ad-row" style="align-items:flex-start"><span class="k" style="flex:0 0 20px">${i+1}.</span><span class="v" style="text-align:left;font-weight:400">${esc(s)}</span></div>`).join("");
+  let copyBlock="";
+  if(ts.tier==="webhook"){
+    copyBlock=`<div class="agree-doc" style="margin:14px 0">
+      <div class="ad-row"><span class="k">Webhook URL</span></div>
+      <div class="ad-row"><code style="word-break:break-all;font-size:11.5px">${esc(ts.webhook_url)}</code></div>
+    </div>
+    <button class="btn btn-o btn-sm" onclick='copyText(${JSON.stringify(ts.webhook_url)})'>Copy URL</button>
+    ${ts.webhook_secret?`<div class="agree-doc" style="margin:10px 0">
+      <div class="ad-row"><span class="k">Secret</span></div>
+      <div class="ad-row"><code style="word-break:break-all;font-size:11.5px">${esc(ts.webhook_secret)}</code></div>
+    </div>
+    <button class="btn btn-o btn-sm" onclick='copyText(${JSON.stringify(ts.webhook_secret)})'>Copy secret</button>`:""}`;
+  }else{
+    copyBlock=`<div class="agree-doc" style="margin:14px 0"><pre style="white-space:pre-wrap;font-size:11px;text-align:left;margin:0;font-family:monospace">${esc(ts.snippet)}</pre></div>
+    <button class="btn btn-o btn-sm" onclick='copyText(${JSON.stringify(ts.snippet)})'>Copy snippet</button>`;
+  }
+  openModal(`<div class="m-pad"><h3 class="m-title">Tracking setup — ${esc(ts.host)}</h3>
+    <p class="m-sub">${ts.tier==="webhook"?"This is what we need you to add to your store so sales are tracked automatically. We can't do this part for you — it has to be set up on your own store/dashboard.":"We can't reach your checkout directly, so this snippet is what reports sales back to PromoSlot. Add it to your own order confirmation page (or hand it to whoever built your site)."}</p>
+    <div class="det-sec">${stepsHtml}</div>
+    ${copyBlock}
+    <div class="m-actions" style="margin-top:14px"><button class="btn btn-p" onclick="closeModal()">Done</button></div></div>`,"wide");
 }
 
 /* ---- Manage (live / ended / settled) ---- */
@@ -4525,6 +4559,7 @@ function affRenderManageModal(){
       <div><span>Remaining</span><b>${gbpP(p.pool_remaining)}</b></div>
     </div>
     ${settleMsg}
+    <div class="det-sec"><h5>Tracking setup</h5><p class="mut" style="font-size:12.5px">The webhook or snippet details for your ${esc(p.host||"—")} checkout.</p><button class="btn btn-o btn-sm" onclick="affShowTrackingSetup(${p.id})">View setup instructions</button></div>
     <div class="det-sec"><h5>Add budget</h5><button class="btn btn-o btn-sm" onclick="affShowTopupForm(${p.id})">＋ Top up pool</button><div id="aff-topup-area"></div></div>
     <div class="det-sec"><h5>Pending applications (${pending.length})</h5>
       ${pending.length?pending.map(affPendingRowHtml).join(""):`<p class="mut" style="font-size:12.5px">No pending applications.</p>`}</div>
@@ -8448,6 +8483,7 @@ openDisputesQueue,openDispute,claimDispute,addDisputeNote,requestDisputeInfo,
 openEditDisplayName,saveDisplayName,
 openEditPhone,savePhone,clearPhone,setMarketingPreference,
 openNewAffiliateProgram,affCTypeChange,affSubmitCreate,openAffiliateProgram,affPickHost,affConfirmTracking,affPay,
+affShowTrackingSetup,copyText,
 affShowTopupForm,affTopup,affTopupPay,affApprove,affReject,affRemovePartner,
 openAffiliateMarket,openAffiliateBrowse,openAffiliateProgramDetail,affSubmitApply,openMyAffiliateEarnings,
 openAffiliateAdminQueue,openAffiliateAdminDetail,affAdminSettle};
