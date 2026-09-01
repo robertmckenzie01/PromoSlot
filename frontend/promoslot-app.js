@@ -112,28 +112,41 @@ function lockedStep(icon,label,desc){
 
 const LISTINGS = [
  {id:"px-ex",example:true,ownerId:"example-owner",owner:"Example Creator",brand:"Example Media",name:"Example Creator",handle:"@example_creator",platform:"TikTok",niches:["Fitness","Food"],
-  bio:"This is an example listing showing how a complete, well-built platform-owner profile looks on PromoSlot. Replace this with your own audience, services and pricing when you list.",
+  bio:"This is an example listing showing how a complete, well-built platform-owner profile looks on PromoSlot — replace every field with your own when you list. A strong bio is specific, not generic: what you post, who's actually watching, and why a brand should book you over the next name in their inbox. \"Fitness and quick-meal content for people training before or after a 9-to-5 — three posts a week, 6%+ engagement every month for the last year, every partnership disclosed and delivered on time.\"",
   audience:120000,avgViews:54000,impressions:230000,er:6.8,countries:["UK","US"],ages:["18-24","25-34"],interests:["Gym & training","Quick recipes","Nutrition"],
   rating:5.0,reviewCount:"Example",verified:false,
   services:["Short-form promo video","Sponsored social post","Instagram Story","Affiliate promotion"],
   pricing:[
    {type:"fixed",label:"1 promotional video",detail:"1 × 30–60s video, 1 revision, live ≥ 30 days",amount:150},
    {type:"per-view",label:"Performance video deal",detail:"£40 min guaranteed + £8 per 1,000 verified views · measured 14 days after posting · capped at £300",amount:40},
-   {type:"hybrid",label:"Hybrid: guaranteed + commission",detail:"£50 guaranteed + 10% commission on tracked sales · 30-day cookie",amount:50},
-   {type:"affiliate",label:"Affiliate promotion",detail:"15% of each verified sale · 30-day cookie · £20 min payout",amount:0}
+   {type:"per-imp",label:"Story impressions deal",detail:"£3 per 1,000 verified impressions · up to £150 over 14 days",amount:0},
+   {type:"time",label:"Link-in-bio placement",detail:"£25 per week · 2-week minimum · renewable",amount:25},
+   {type:"custom",label:"Custom quote",detail:"Bundles, exclusivity or usage-rights requests outside the standard terms",amount:0}
   ],
-  past:[]}
+  // Illustrative "My Work" entries — see the work tab's l.example branch,
+  // which renders these as plain description cards rather than pretending a
+  // real uploaded video or external link exists.
+  work:[
+   {title:"30-second gym-bag product review",note:"Product-in-hand demo, hook in the first 2 seconds, native TikTok pacing and captions"},
+   {title:"\"What I eat before a 6am session\" series",note:"Recurring 4-part format, sponsor product woven naturally into 2 of the 4 posts"},
+   {title:"Instagram Story takeover",note:"12-frame story arc with a swipe-up link, saved permanently to a highlight afterwards"}
+  ],
+  past:[
+   {brand:"MyProtein",what:"3-video creatine series",stat:"1.2M views · 4.1% CTR"},
+   {brand:"Gymshark",what:"Product launch UGC + affiliate link",stat:"£3,400 in tracked sales · 30-day window"},
+   {brand:"HelloFresh",what:"Sponsored recipe post + Story",stat:"212K views · 8.9% engagement"}
+  ]}
 ];
 
 const CAMPAIGNS = [
  {id:"cx-ex",example:true,company:"Example Brand",industry:"Beauty & skincare",title:"Example Campaign: Product Launch",verified:false,rating:5.0,reviewCount:"Example",posted:"example",applicants:0,budget:2500,
-  desc:"This is an example campaign showing how a complete, well-built business listing looks on PromoSlot. Replace this with your own brief, budget and payment structure when you post a campaign.",
+  desc:"This is an example campaign showing how a complete, well-built business listing looks on PromoSlot — replace every field with your own when you post one. A strong brief is specific, not generic: what you're launching, who should apply, and exactly what you'll pay for. \"We're launching a vitamin-C serum into the UK/Ireland market and want 8–12 creators in the 10K–250K range to post one honest first-impressions video plus a Story in the first two weeks, paid on a fixed rate with a per-view top-up for anything that overperforms.\"",
   platforms:["TikTok","Instagram","Newsletter"],niches:["Beauty"],countries:["UK","Ireland"],
-  services:["Short-form promo video","Product review","Instagram Story","Affiliate promotion"],
-  creatorSizes:["Nano (1K–10K)","Micro (10K–50K)","Mid (50K–250K)"],goals:["Product launch","UGC library","Affiliate sales"],
-  payment:[{type:"fixed",detail:"£100 fixed per approved video"},{type:"per-view",detail:"£5 per 1,000 views (14-day measurement)"},{type:"affiliate",detail:"12% commission per referred sale · 30-day cookie"},{type:"product",detail:"Free product supplied to accepted creators"}],
+  services:["Short-form promo video","Product review","Instagram Story"],
+  creatorSizes:["Nano (1K–10K)","Micro (10K–50K)","Mid (50K–250K)"],goals:["Product launch","UGC library"],
+  payment:[{type:"fixed",detail:"£100 fixed per approved video"},{type:"per-view",detail:"£5 per 1,000 verified views (14-day measurement)"},{type:"addon",detail:"Also included: free product supplied (£35 value) · full-size serum sent to every accepted creator to feature in the video"}],
   deliverables:"1 product demonstration or unboxing video + 1 Instagram Story. Content live ≥ 30 days.",duration:"6 weeks",samples:true,
-  profile:{product:"Example product range",target:"Your target market description goes here",payMethods:["Fixed","Per view","Commission","Free product"],collabs:"New to PromoSlot"}}
+  profile:{product:"Example product range",target:"UK/Ireland-based skincare audiences, 18–34, ingredient-conscious buyers researching before they purchase",payMethods:["Fixed","Per view","Free product"],collabs:"3 completed campaigns on PromoSlot · 11 creators booked · every deal paid out on time via Payment Protection"}}
 ];
 
 const REVIEW_POOL = [
@@ -1931,7 +1944,7 @@ function renderListingModal(l,tab){
   const realRevCount=(l._reviews&&l._reviews.count)||0;
   const realRevAvg=l._reviews?l._reviews.average:null;
   const meOwner = S.account && String(l.ownerId)===String(S.account.id);
-  const workCount = l._media?l._media.work.length:0;
+  const workCount = l.example ? (l.work?l.work.length:0) : (l._media?l._media.work.length:0);
   const pastCount = l.example ? (l.past?l.past.length:0) : (l._media?l._media.past.length:0);
   const tabs=[["offers","Services & pricing"],["about","Audience & analytics"],
     ["work",`My Work${workCount?" ("+workCount+")":""}`],
@@ -1961,12 +1974,15 @@ function renderListingModal(l,tab){
     <div class="det-sec"><h5>Audience interests</h5><div class="tagrow">${l.interests.map(a=>`<span class="tag amb">${esc(a)}</span>`).join("")}</div></div>
     <div class="det-sec"><h5>Availability</h5><p class="det-p">Currently accepting new deals · typical response time under 4 hours · next open slot within 7 days.</p></div>`;
   } else if(tab==="work"){
-    const work=(l._media&&l._media.work)||[];
+    const work = l.example ? (l.work||[]) : ((l._media&&l._media.work)||[]);
     body = `<div class="det-sec"><h5>My Work: content samples</h5>
+      ${l.example?`<div class="note blue" style="margin-bottom:12px">Illustrative examples of what to upload here — a real video, or a link to content hosted elsewhere with its own cover image.</div>`:""}
       ${work.length
-        ? `<div class="work-grid">${work.map(m=>workCardHtml(l,m,meOwner)).join("")}</div>`
+        ? (l.example
+            ? `<div class="work-grid">${work.map(w=>`<div class="pc"><b>${esc(w.title)}</b>${w.note?`<small>${esc(w.note)}</small>`:""}</div>`).join("")}</div>`
+            : `<div class="work-grid">${work.map(m=>workCardHtml(l,m,meOwner)).join("")}</div>`)
         : `<p class="det-p">${meOwner?"Showcase your content style, upload a video, or add a link to content hosted elsewhere with its own cover image.":"No work samples yet."}</p>`}
-      ${meOwner?mediaUploadForm(l,"work"):""}</div>`;
+      ${meOwner&&!l.example?mediaUploadForm(l,"work"):""}</div>`;
   } else if(tab==="past"){
     const past = l.example
       ? (l.past||[]).map(p=>({brand:p.brand,title:p.what,stat:p.stat,video_url:null,id:null}))
@@ -5100,24 +5116,14 @@ async function toggleInstantPayout(cb){
 // — clearer at a glance which state is active, and which one a click will
 // switch to. Both call this with the value THEY represent, not a toggle.
 async function setMarketingPreference(enabled){
-  const off=$("mktOff"), on=$("mktOn");
-  if(off) off.disabled=true;
-  if(on) on.disabled=true;
   try{
     const r=await PSApi.post("/me/marketing-preference", {enabled});
     if(S.account) S.account.marketing_opt_in=r.opted_in;
     toast(enabled?"You're opted in to occasional PromoSlot updates.":"Marketing emails turned off",true);
+    openAccount();
   }catch(err){
     toast(err.message||"Could not update preference");
-    // Roll the radios back to whatever the account actually has, not just
-    // the opposite of what was clicked — the request may have failed for a
-    // reason unrelated to which direction was chosen.
-    const actual=!!(S.account&&S.account.marketing_opt_in);
-    if(off) off.checked=!actual;
-    if(on) on.checked=actual;
   }
-  if(off) off.disabled=false;
-  if(on) on.disabled=false;
 }
 async function openAddDebitCard(){
   const btn=$("addCardBtn");
@@ -6807,7 +6813,7 @@ function acctCompletenessSteps(a){
   // Rob, 2026-08-29 (verbatim): "please do not make it impossible for
   // either business or platform owners to use the site even if they
   // havent completed this checklist... the checklist is a guide not
-  // strict rules." This is display-only — acctTrackHtml just counts done
+  // strict rules." This is display-only — acctProgressHtml just counts done
   // steps for a headline, nothing here gates any action. A dual-role
   // account gets one row per role, same as My Account's own panel.
   const vStateLabel = {approved:"Verified ✔",pending:"Pending review",rejected:"Action needed"};
@@ -6817,27 +6823,97 @@ function acctCompletenessSteps(a){
     state:vStateLabel[vfPlatStatus()]||"Not started — optional, but builds trust"});
   return steps;
 }
-function acctTrackHtml(a){
+// Rob, 2026-09-01 (verbatim): the old dotted checklist was "too much going
+// on for too little". Replaced with treatment (i) from the account
+// redesign: one sentence naming only the single next thing, plus a 2px
+// hairline meter. Vanishes into a plain "complete" state at 100% — never a
+// second widget once there's nothing left to do. Still driven entirely by
+// acctCompletenessSteps(), so nothing here is fabricated or re-scored.
+const ACCT_STEP_HINTS={
+  "PromoSlot tour":{action:"take the 2-minute tour",why:"the fastest way to see how PromoSlot works."},
+  "Profile photo":{action:"add a profile photo",why:"profiles without one get far fewer replies."},
+  "Bio written":{action:"write your bio",why:"businesses read it before they message you."},
+  "First listing live":{action:"register your first listing",why:"you can't appear in the marketplace without one."},
+  "First campaign posted":{action:"post your first campaign",why:"platform owners can't apply until you do."},
+  "Get verified (business)":{action:"start business verification",why:"creators sort their inbox by verification."},
+  "Get verified (platform)":{action:"start platform verification",why:"the Verified ✔ badge wins more replies."}
+};
+function acctProgressHtml(a){
   const steps=acctCompletenessSteps(a);
-  const done=steps.filter(s=>s.done).length;
-  const headline=done>=steps.length?"Your profile is complete.":`${done} of ${steps.length} things done.`;
-  return `<div>
-      <div class="acct2-track-label">Your profile, so far</div>
-      <p class="acct2-track-headline">${esc(headline)}</p>
-    </div>
-    <div class="acct2-steps">
-      ${steps.map(s=>`<div class="acct2-step${s.done?" done":""}">
-          <div class="acct2-step-track"><span class="acct2-step-dot">${s.done?"✓":""}</span><span class="acct2-step-line"></span></div>
-          <div class="acct2-step-body"><div class="acct2-step-label">${esc(s.label)}</div><div class="acct2-step-state">${esc(s.state)}</div></div>
-        </div>`).join("")}
+  const total=steps.length||1, done=steps.filter(s=>s.done).length;
+  const next=steps.find(s=>!s.done);
+  if(!next){
+    return `<div class="acct3-progress">
+      <h4>Your profile is complete.</h4>
+      <p>Nothing left to add — you're showing up as well as you can.</p>
+      <div class="acct3-meter"><span style="width:100%"></span></div>
+      <div class="acct3-meter-lbl">${steps.length} of ${steps.length}</div>
     </div>`;
+  }
+  const remaining=total-done;
+  const hint=ACCT_STEP_HINTS[next.label]||{action:(next.label||"finish this").toLowerCase(),why:"it helps people trust your profile."};
+  const headline=done===0?"Let's get your profile started."
+    :remaining===1?"Your profile is nearly there."
+    :"A few things would help you get noticed.";
+  const pct=Math.max(6,Math.round(done/total*100));
+  return `<div class="acct3-progress">
+    <h4>${esc(headline)}</h4>
+    <p>${remaining===1?"One thing left":`${remaining} things left`} — <b>${esc(hint.action)}</b>. ${esc(hint.why)}</p>
+    <div class="acct3-meter"><span style="width:${pct}%"></span></div>
+    <div class="acct3-meter-lbl">${done} of ${total}</div>
+  </div>`;
 }
-// Repaints just the identity-header track — called after anything that
-// changes what it's measuring (bio saved, asset added) without re-rendering
-// the whole account page. No-ops if the account view isn't open.
+// Repaints just the identity-header progress card — called after anything
+// that changes what it's measuring (bio saved, asset added) without
+// re-rendering the whole account page. No-ops if the account view isn't open.
 function updateAcctTrack(){
   const host=$("acct2Track"); if(!host||!S.account) return;
-  host.innerHTML=acctTrackHtml(S.account);
+  host.innerHTML=acctProgressHtml(S.account);
+}
+// Read-only campaign summary for a business account's My Account page —
+// same real numbers as the business dashboard's KPIs (S.myCampaigns,
+// S.realDeals), just surfaced here for parity with a platform owner's
+// listings panel. Every action deep-links to the real campaign manager
+// (openDash/openCampaign) rather than duplicating it.
+function acctCampaignLedgerHtml(){
+  const myId=String(S.account&&S.account.id);
+  const cams=S.myCampaigns||[];
+  const applicants=cams.reduce((x,c)=>x+(c.applicants||0),0);
+  const escrowPence=(S.realDeals||[]).filter(d=>String(d.business_id)===myId&&d.funded&&!d.paid&&d.status!=="refunded").reduce((x,d)=>x+(d.total_charged||0),0);
+  const rows=cams.length
+    ? cams.slice(0,6).map(c=>`<div class="acct3-camrow" onclick="openCampaign('${c.id}','applicants')">
+        <div><div class="t">${esc(c.title)}</div><div class="m">${c.applicants||0} applicant${(c.applicants||0)===1?"":"s"} · Posted ${esc(c.posted)}</div></div>
+        <span class="m">${c.budget?gbp(c.budget):"Commission only"}</span>
+        <span class="go">Open →</span>
+      </div>`).join("")
+    : `<div class="acct3-camrow" style="cursor:default"><div><div class="t" style="color:var(--mut);font-weight:600">No campaigns yet</div><div class="m">Post one describing what you want promoted and what you'll pay.</div></div><span></span><span class="go" style="cursor:pointer" onclick="openNewCampaign()">Post one →</span></div>`;
+  return `<div class="acct3-stats">
+      <div class="acct3-stat"><b>${cams.length}</b><div class="l">Live campaigns</div><div class="s">${cams.length?"published to the marketplace":"none posted yet"}</div></div>
+      <div class="acct3-stat${applicants?" warn":""}"><b>${applicants}</b><div class="l">Applicants</div><div class="s">${applicants?"across all your campaigns":"none yet"}</div></div>
+      <div class="acct3-stat"><b>${escrowPence?gbpP(escrowPence):"—"}</b><div class="l">Payment Protection</div><div class="s">${escrowPence?"held, released on verified delivery":"fund a deal to protect it"}</div></div>
+    </div>
+    <div class="acct3-camlist">${rows}</div>`;
+}
+function acctRailHtml(primaryIsPlat){
+  return `<div class="acct3-rail">
+      <div class="acct3-rail-kicker">On this page</div>
+      <a href="#acct-primary" class="on">${primaryIsPlat?"Your platforms":"Your campaigns"}</a>
+      ${primaryIsPlat?"":`<a href="#acct-trust">Trust &amp; verification</a>`}
+      <a href="#acct-appear">How you appear</a>
+      <a href="#acct-access">Account &amp; access</a>
+      <div class="acct3-rail-div"></div>
+      <div class="acct3-rail-foot"><a href="#acct-footer">Support</a><a href="#acct-footer">Close account</a></div>
+    </div>`;
+}
+// Dual-role accounts only: a quiet tab switch above the shared identity
+// header. Re-renders openAccount() with the other side as primary — cheap,
+// since S.myPlatforms/S.myCampaigns/verification state are already loaded.
+function acctRoleTabsHtml(primaryRole){
+  const applicants=(S.myCampaigns||[]).reduce((x,c)=>x+(c.applicants||0),0);
+  return `<div class="acct3-roletabs">
+    <button type="button" class="acct3-roletab${primaryRole==="plat"?" on":""}" onclick="openAccount('plat')">Platform side <span class="n">${S.myPlatforms.length} listing${S.myPlatforms.length===1?"":"s"}</span></button>
+    <button type="button" class="acct3-roletab${primaryRole==="biz"?" on":""}" onclick="openAccount('biz')">Business side <span class="n${applicants?" warn":""}">${applicants?applicants+" applicant"+(applicants===1?"":"s"):(S.myCampaigns||[]).length+" campaign"+((S.myCampaigns||[]).length===1?"":"s")}</span></button>
+  </div>`;
 }
 // Same status + onclick pattern already live on the business/platform
 // dashboards (see the "Verification" mini-row in each) — this just puts the
@@ -6885,7 +6961,13 @@ function verifyPanelHtml(a){
 function updateVerifyPanel(){
   const host=$("verifyPanel"); if(host && S.account) host.innerHTML=verifyPanelHtml(S.account);
 }
-function openAccount(){
+// primaryRole: "plat"|"biz"|undefined. Only meaningful for a dual-role
+// account (picks which side opens first, via the quiet tab switch); for a
+// single-role account it's derived and ignored. Persisted on S.acctViewRole
+// so every fire-and-forget save (avatar, phone, password, bio...) that
+// re-calls openAccount() with no argument reopens on the same side instead
+// of silently resetting to the platform side.
+function openAccount(primaryRole){
   const a=S.account;
   if(!a){ authModal("login"); return; }
   setRoute("account");
@@ -6898,6 +6980,14 @@ function openAccount(){
   }
   const isPlat=!!a.is_platform_owner, isBiz=!!a.is_business, isSuper=S.myRole==="SUPER_ADMIN", isAdmin=S.myRole==="ADMIN";
   const roles=roleLabels(a);
+  if(primaryRole==="plat"||primaryRole==="biz") S.acctViewRole=primaryRole;
+  else if(!S.acctViewRole || (S.acctViewRole==="plat"&&!isPlat) || (S.acctViewRole==="biz"&&!isBiz))
+    S.acctViewRole = isPlat ? "plat" : (isBiz ? "biz" : null);
+  const primaryIsPlat = isPlat && (S.acctViewRole==="plat" || !isBiz);
+  const vBadge = primaryIsPlat ? vfPlatStatus() : (isBiz?vfBizStatus():null);
+  const vBadgeHtml = vBadge==="approved"
+    ? `<span class="acct2-tag" style="background:var(--card);border-color:var(--line2);color:var(--mut)">Verified ✔</span>`
+    : vBadge==="pending" ? `<span class="acct2-tag" style="background:var(--amber-soft);border-color:var(--amber-border);color:var(--amber)">Verification pending</span>` : "";
   $("accountWrap").innerHTML=`
     <div class="deal-top">
       <button class="btn btn-ghost" onclick="goHome()">← Home</button>
@@ -6918,29 +7008,16 @@ function openAccount(){
               <div style="min-width:220px;flex:1">
                 <div class="acct2-name-row">
                   <h1 class="acct2-name">${esc(a.display_name||"—")}</h1>
-                  <button type="button" class="acct2-name-edit" onclick="openEditDisplayName()">Edit name</button>
+                  <button type="button" class="acct2-name-edit" onclick="openEditDisplayName()">Edit</button>
                 </div>
-                <p class="acct2-email">${esc(a.email)}<span class="acct2-email-tag">Sign-in email</span></p>
-                <div class="acct2-name-row" style="margin-top:2px">
-                  <p class="acct2-email" style="margin:0">${a.phone?esc(a.phone):"No phone on file"}<span class="acct2-email-tag">This number will not be shown publicly</span></p>
-                  <button type="button" class="acct2-name-edit" onclick="openEditPhone()">${a.phone?"Edit":"Add"}</button>
-                </div>
-                <div class="acct2-name-row" style="margin-top:2px">
-                  <p class="acct2-email" style="margin:0">Marketing emails<span class="acct2-email-tag">Occasional updates and tips, optional. Opt in only, off by default.</span></p>
-                  <div style="display:flex;align-items:center;gap:14px">
-                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                      <input type="radio" name="mktPref" id="mktOff" ${!a.marketing_opt_in?"checked":""} onchange="if(this.checked)setMarketingPreference(false)">
-                      <b class="mut" style="font-size:12px">Off</b>
-                    </label>
-                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                      <input type="radio" name="mktPref" id="mktOn" ${a.marketing_opt_in?"checked":""} onchange="if(this.checked)setMarketingPreference(true)">
-                      <b class="mut" style="font-size:12px">On</b>
-                    </label>
-                  </div>
+                <div class="acct3-idgrid">
+                  <span class="k">Sign-in email</span><span class="v">${esc(a.email)}<span class="mut" style="font-size:12px"> · can't be changed here</span></span>
+                  <span class="k">Phone, private</span><span class="v">${a.phone?esc(a.phone):`<span class="mut">No number on file</span>`}<a onclick="openEditPhone()">${a.phone?"Edit":"Add"}</a></span>
+                  <span class="k">Marketing email</span><span class="v">${a.marketing_opt_in?"On":"Off"} <a onclick="setMarketingPreference(${a.marketing_opt_in?"false":"true"})">${a.marketing_opt_in?"Turn off":"Turn on"}</a></span>
                 </div>
                 <div class="acct2-tags">
-                  ${isPlat?`<span class="acct2-tag">Platform owner</span>`:""}
-                  ${isBiz?`<span class="acct2-tag">Business</span>`:""}
+                  ${primaryIsPlat?`<span class="acct2-tag">Platform owner</span>`:isBiz?`<span class="acct2-tag">Business</span>`:""}
+                  ${vBadgeHtml}
                   ${isSuper?`<span class="acct2-tag super">Super-Admin</span>`:(isAdmin?`<span class="acct2-tag super">Admin</span>`:"")}
                   ${!isPlat&&!isBiz?`<span class="acct2-tag neutral">No role set</span>`:""}
                   <button type="button" class="acct2-tour" onclick="tourRestart()">${a.product_tour_completed_at?"Replay product tour":"Take the product tour"}</button>
@@ -6948,164 +7025,165 @@ function openAccount(){
               </div>
             </div>
           </div>
-          <div class="acct2-track" id="acct2Track">${acctTrackHtml(a)}</div>
+          <div class="acct2-track" id="acct2Track">${acctProgressHtml(a)}</div>
         </div>
       </header>
 
-      <section class="acct2-zone">
-        <div class="acct2-zone-head">
-          <div>
-            <div class="acct2-zone-kicker">01: Your public presence</div>
-            <h2 class="acct2-zone-title">What businesses see <em>before</em> they message you.</h2>
-          </div>
-          <p class="acct2-zone-sub">Your listings, your intro video and your bio all appear on your public profile. This is the part of the account worth spending time on.</p>
-        </div>
+      ${isPlat&&isBiz?acctRoleTabsHtml(S.acctViewRole):""}
 
-        ${isPlat?`
-        <div class="acct2-listings-panel">
-          <div class="acct2-listings-head">
-            <div><h3>Your listings</h3><p>Services, pricing and analytics for each platform you run. Open a listing to change what people see.</p></div>
-            <button class="btn btn-p" onclick="openRegisterPlatform()">Register a new platform</button>
-          </div>
-          <div class="acct2-listings-grid">
-            ${(S.myPlatforms||[]).length?(S.myPlatforms||[]).map(l=>`
-              <div class="acct2-lcard">
-                <div class="acct2-lcard-top">${pfp(l.name,l.platform,"",l.ownerAvatar)}
-                  <div style="min-width:0"><div class="acct2-lcard-name">${esc(l.name)}</div><div class="acct2-lcard-kind">${esc(l.platform)}</div></div>
-                </div>
-                <div class="acct2-lcard-tags">
-                  <span class="acct2-lcard-tag">${(l.services||[]).length} service${(l.services||[]).length===1?"":"s"}</span>
-                  <span class="acct2-lcard-tag acc">${(l.pricing||[]).length} price${(l.pricing||[]).length===1?"":"s"}</span>
-                </div>
-                <div class="acct2-lcard-foot">
-                  <span class="acct2-lcard-status">${l.suspended?"Suspended":"Visible in marketplace"}</span>
-                  <button class="btn btn-o btn-sm" onclick="openListing('${l.id}')">Open</button>
-                </div>
-              </div>`).join(""):""}
-            <button type="button" class="acct2-add-listing" onclick="openRegisterPlatform()">
-              <span><span class="t">Add a listing</span><span class="s">Another newsletter, channel, community or stream under this account.</span></span>
-              <span class="go">Register →</span>
-            </button>
-          </div>
-        </div>`:""}
+      <div class="acct3-shell">
+        ${acctRailHtml(primaryIsPlat)}
+        <div class="acct3-content">
 
-        <div class="acct2-cards2">
-          <div class="acct2-card" id="whoPanel"></div>
-          <div class="acct2-card" id="verifyPanel">${verifyPanelHtml(a)}</div>
-          <div class="acct2-card">
-            <h3>Intro video</h3>
-            <p>A short hello on your public profile, separate from your My Work portfolio.</p>
-            <div class="acct2-video-slot">
-              ${a.intro_video_url
-                ? `<video controls preload="metadata" src="${a.intro_video_url}"></video>`
-                : `<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;color:var(--faint);text-align:center;line-height:1.5">no intro video yet<br>portrait 9:16 · up to 60s</span>`}
+          <div id="acct-primary">
+          ${primaryIsPlat?`
+            <div class="acct3-sechead">
+              <div><div class="acct3-kicker">What you sell</div><h2 class="acct3-title">Your platforms</h2>
+                <p class="acct3-sub">Services, pricing and analytics for each platform you run. Open a listing to change what people see.</p></div>
+              <button class="btn btn-p" onclick="openRegisterPlatform()">Register a new platform</button>
             </div>
-            <div style="margin-top:14px">
-              <label class="btn btn-o btn-sm" for="acct-intro">${a.intro_video_url?"Replace intro video":"Add intro video"}</label>
-              <input type="file" id="acct-intro" accept="video/*" class="pf-file-input" onchange="uploadIntroVideo()">
-            </div>
-            <div class="hint-err hide" id="intro-err"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="acct2-zone">
-        <div class="acct2-zone-kicker muted">02: Access &amp; security</div>
-        <h2 class="acct2-zone-title" style="margin-top:14px">Who can get into this account, and under which profile.</h2>
-        <div class="acct2-secondary" style="margin-top:22px">
-          <div class="acct2-mini">
-            <h4>Change password</h4>
-            <p>You'll stay signed in on this device.</p>
-            <div class="frm">
-              <label>Current password<input type="password" id="pw-cur" autocomplete="current-password"></label>
-              <label>New password<input type="password" id="pw-new" placeholder="At least 8 characters" autocomplete="new-password"></label>
-              <label>Confirm new password<input type="password" id="pw-conf" autocomplete="new-password" onkeydown="if(event.key==='Enter')doChangePassword()"></label>
-              <div class="hint-err hide" id="pw-err"></div>
-            </div>
-            <div style="margin-top:14px"><button class="btn btn-o btn-sm" style="width:100%" onclick="doChangePassword()">Update password</button></div>
-          </div>
-
-          <div class="acct2-mini">
-            <h4>Profiles on this login</h4>
-            <p>Run a business and a platform-owner identity from the same sign-in, each with its own name.</p>
-            ${a.linked_account?`
-            <div class="acct2-mini-row">
-              <div class="acct2-profile-opt on">
-                <span class="acct2-profile-opt-av">${esc((a.display_name||a.email||"?").slice(0,1).toUpperCase())}</span>
-                <span><b>${esc(a.display_name||"—")}</b><small>${isBiz?"Business":"Platform owner"} · current</small></span>
-                <span class="act">Active</span>
-              </div>
-              <button type="button" class="acct2-profile-opt" onclick="switchToLinkedAccount('${a.linked_account.is_business?"biz":"plat"}')">
-                <span class="acct2-profile-opt-av" style="background:#0f766e">${esc((a.linked_account.display_name||"?").slice(0,1).toUpperCase())}</span>
-                <span><b>${esc(a.linked_account.display_name||"—")}</b><small>${a.linked_account.is_business?"Business":"Platform owner"}</small></span>
-                <span class="act">Switch</span>
+            <div class="acct2-listings-grid" style="padding:0;margin-top:22px">
+              ${(S.myPlatforms||[]).length?(S.myPlatforms||[]).map(l=>`
+                <div class="acct2-lcard">
+                  <div class="acct2-lcard-top">${pfp(l.name,l.platform,"",l.ownerAvatar)}
+                    <div style="min-width:0"><div class="acct2-lcard-name">${esc(l.name)}</div><div class="acct2-lcard-kind">${esc(l.platform)}</div></div>
+                  </div>
+                  <div class="acct2-lcard-tags">
+                    <span class="acct2-lcard-tag">${(l.services||[]).length} service${(l.services||[]).length===1?"":"s"}</span>
+                    <span class="acct2-lcard-tag acc">${(l.pricing||[]).length} price${(l.pricing||[]).length===1?"":"s"}</span>
+                  </div>
+                  <div class="acct2-lcard-foot">
+                    <span class="acct2-lcard-status">${l.suspended?"Suspended":"Visible in marketplace"}</span>
+                    <button class="btn btn-o btn-sm" onclick="openListing('${l.id}')">Open</button>
+                  </div>
+                </div>`).join(""):""}
+              <button type="button" class="acct2-add-listing" onclick="openRegisterPlatform()">
+                <span><span class="t">Add a listing</span><span class="s">Another newsletter, channel, community or stream under this account.</span></span>
+                <span class="go">Register →</span>
               </button>
-            </div>`:`
-            <div class="acct2-mini-row">
-              ${!isBiz?`<button type="button" class="acct2-add-profile" onclick="switchRole('biz')">＋ Set up a business profile</button>`:""}
-              ${!isPlat?`<button type="button" class="acct2-add-profile" onclick="switchRole('plat')">＋ Set up a platform-owner profile</button>`:""}
-              ${isBiz&&isPlat?`<p class="mut" style="font-size:12.5px">Both roles are already on this one account (set up before this feature shipped), nothing to add.</p>`:""}
-            </div>`}
-          </div>
-
-          <div class="acct2-mini">
-            <h4>Sign-in details</h4>
-            <p>Your email is how you sign in and can't be changed here.</p>
-            <div class="acct2-signin-rows">
-              <div class="acct2-signin-row"><span class="k">Display name</span><span class="v">${esc(a.display_name||"—")}</span></div>
-              <div class="acct2-signin-row"><span class="k">Email</span><span class="v" style="word-break:break-all">${esc(a.email)}</span></div>
-              <div class="acct2-signin-row"><span class="k">Account role${roles.length>1?"s":""}</span><span class="v" style="color:var(--acc-ink)">${esc(roles.join(" · "))}</span></div>
+            </div>`
+          :`
+            <div class="acct3-sechead">
+              <div><div class="acct3-kicker">What you're running</div><h2 class="acct3-title">Your campaigns</h2>
+                <p class="acct3-sub">A summary only — campaigns are built and managed in the campaign manager.</p></div>
+              <div style="display:flex;gap:16px;align-items:center">
+                <span style="font-weight:700;font-size:13px;color:var(--acc-ink);cursor:pointer" onclick="openDash()">Campaign manager →</span>
+                <button class="btn btn-p" onclick="openNewCampaign()">Post a campaign</button>
+              </div>
             </div>
-            <p class="acct2-signin-note">Editing your name in the header above changes it everywhere on PromoSlot.</p>
+            ${acctCampaignLedgerHtml()}`}
           </div>
-        </div>
-      </section>
 
-      <section class="acct2-zone acct2-utility">
-        <div class="acct2-zone-kicker muted">03: Help &amp; internal</div>
-        <div class="acct2-utility-body">
-          <div>
-            <h3 class="acct2-utility-title">Something not right? Talk to a person.</h3>
-            <p class="acct2-utility-sub">Messages land in the PromoSlot support inbox. We reply to the email on your account unless you tell us otherwise.</p>
-            ${isSuper?`<div class="acct2-actioncode" id="actionCodePanel"></div>`:`<div id="actionCodePanel"></div>`}
+          ${primaryIsPlat?"":`
+          <div class="acct3-hr"></div>
+          <div id="acct-trust">
+            <div class="acct3-kicker">Why a creator replies</div>
+            <h2 class="acct3-title">Trust &amp; verification</h2>
+            <p class="acct3-sub">Creators sort their inbox by verification. Each role is reviewed separately.</p>
+            <div class="acct2-card" id="verifyPanel" style="margin-top:22px">${verifyPanelHtml(a)}</div>
+          </div>`}
+
+          <div class="acct3-hr"></div>
+          <div id="acct-appear">
+            <div class="acct3-kicker">Your public profile</div>
+            <h2 class="acct3-title">How you appear <em>to ${primaryIsPlat?"a business":"a creator"}</em></h2>
+            <p class="acct3-sub">${primaryIsPlat?"One place for everything a business sees before they message you: bio, links, assets and your verification badge.":"Creators open this from every campaign you post."}</p>
           </div>
-          <div id="supportPanel">${supportFormHtml()}</div>
-        </div>
-      </section>
+          <div class="acct2-cards2" style="margin-top:22px">
+            <div class="acct2-card" id="whoPanel"></div>
+            ${primaryIsPlat?`<div class="acct2-card" id="verifyPanel">${verifyPanelHtml(a)}</div>`:""}
+            <div class="acct2-card">
+              <h3>Intro video</h3>
+              <p>A short hello on your public profile, separate from your My Work portfolio.${primaryIsPlat?"":" Optional for businesses."}</p>
+              <div class="acct2-video-slot">
+                ${a.intro_video_url
+                  ? `<video controls preload="metadata" src="${a.intro_video_url}"></video>`
+                  : `<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;color:var(--faint);text-align:center;line-height:1.5">no intro video yet<br>portrait 9:16 · up to 60s</span>`}
+              </div>
+              <div style="margin-top:14px">
+                <label class="btn btn-o btn-sm" for="acct-intro">${a.intro_video_url?"Replace intro video":"Add intro video"}</label>
+                <input type="file" id="acct-intro" accept="video/*" class="pf-file-input" onchange="uploadIntroVideo()">
+              </div>
+              <div class="hint-err hide" id="intro-err"></div>
+            </div>
+          </div>
 
-      <section class="acct2-zone">
-        <div class="acct2-zone-kicker muted">04: Danger zone</div>
-        <h2 class="acct2-zone-title" style="margin-top:14px">Deactivate or delete your account.</h2>
+          <div class="acct3-hr"></div>
+          <div id="acct-access">
+            <div class="acct3-kicker muted" style="color:var(--faint)">Only you see this</div>
+            <h2 class="acct3-title">Account &amp; access</h2>
+          </div>
+          <div class="acct3-access">
+            <div class="acct3-arow" style="align-items:start">
+              <div class="k">Password</div>
+              <div class="frm" style="max-width:520px">
+                <div class="row2">
+                  <label>Current password<input type="password" id="pw-cur" autocomplete="current-password"></label>
+                  <label>New password<input type="password" id="pw-new" placeholder="At least 8 characters" autocomplete="new-password"></label>
+                </div>
+                <label>Confirm new password<input type="password" id="pw-conf" autocomplete="new-password" onkeydown="if(event.key==='Enter')doChangePassword()"></label>
+                <div class="hint-err hide" id="pw-err"></div>
+              </div>
+              <button class="btn btn-o btn-sm" onclick="doChangePassword()">Update →</button>
+            </div>
+            <div class="acct3-arow">
+              <div class="k">Profiles on this login</div>
+              <div class="v">
+                ${a.linked_account?`
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <span class="acct2-tag">${esc((a.display_name||a.email||"?"))} · ${isBiz?"business":"platform"}</span>
+                  <span class="acct2-tag neutral" style="cursor:pointer" onclick="switchToLinkedAccount('${a.linked_account.is_business?"biz":"plat"}')">${esc(a.linked_account.display_name||"—")} · ${a.linked_account.is_business?"business":"platform"} — Switch</span>
+                </div>`:`
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  ${!isBiz?`<span class="acct2-tag neutral" style="cursor:pointer" onclick="switchRole('biz')">＋ Set up a business profile</span>`:""}
+                  ${!isPlat?`<span class="acct2-tag neutral" style="cursor:pointer" onclick="switchRole('plat')">＋ Set up a platform-owner profile</span>`:""}
+                  ${isBiz&&isPlat?`<span class="mut" style="font-size:12.5px">Both roles are already on this account.</span>`:""}
+                </div>`}
+              </div>
+              <span></span>
+            </div>
+            <div class="acct3-arow">
+              <div class="k">Sign-in summary</div>
+              <div class="v">${esc(a.display_name||"—")} · ${esc(a.email)} · ${esc(roles.join(" · "))}<br><span class="mut" style="font-size:12px">Email is how you sign in and can't be changed here. Editing your name above changes it everywhere.</span></div>
+              <span class="mut" style="font-size:12.5px;font-weight:600">Read-only</span>
+            </div>
+          </div>
 
-        <div class="acct2-mini" style="max-width:520px;margin-top:22px">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px">Deactivate my account</div>
-          <p style="font-size:13px;color:var(--mut);margin-bottom:14px">
-            Hides your profile and pauses your listings or campaigns. Nobody can find or contact you on
-            PromoSlot while deactivated. Signs you out everywhere, but nothing is deleted: log back in with
-            your usual email and password any time to pick up exactly where you left off.${a.linked_account?`
-            Since your business and platform-owner profiles share this one login, <b>both are paused
-            together</b>.`:""} Deals that are funded or in progress aren't cancelled by this, but you
-            won't be able to act on them (approve, message, or submit delivery proof) until you log
-            back in. Worth wrapping up or checking in on anything active first.
-          </p>
-          <button class="btn btn-ghost btn-sm" onclick="deactivateAccountModal()">Deactivate my account</button>
-        </div>
+          <div class="acct3-footer" id="acct-footer">
+            <div class="acct3-footer-note">
+              <h3 style="font-family:var(--font-d);font-size:19px;font-weight:500;letter-spacing:-.02em;color:var(--ink);margin:0">Something not right? Talk to a person.</h3>
+              <p>Messages land in the PromoSlot support inbox. We reply to the email on your account unless you tell us otherwise.</p>
+              ${isSuper?`<div class="acct2-actioncode" id="actionCodePanel"></div>`:`<div id="actionCodePanel"></div>`}
+              <div id="supportPanel" style="margin-top:14px">${supportFormHtml()}</div>
+            </div>
+            <div style="min-width:260px;max-width:340px">
+              <b style="display:block;margin-bottom:10px;font-size:13px;color:var(--ink)">Close account</b>
+              <div style="margin-bottom:14px">
+                <p class="mut" style="font-size:12px;line-height:1.6">
+                  <b style="color:var(--ink2);font-weight:700">Deactivate</b> — hides your profile and pauses your
+                  listings or campaigns. Nobody can find or contact you while deactivated. Nothing is deleted: log
+                  back in any time to pick up exactly where you left off.${a.linked_account?" Since your business and platform-owner profiles share this one login, both are paused together.":""}
+                  Deals that are funded or in progress aren't cancelled by this, but you won't be able to act on
+                  them (approve, message, submit delivery proof) until you log back in.
+                </p>
+                <span style="font:600 12.5px var(--font-b);color:var(--faint);border-bottom:1px solid var(--line);cursor:pointer" onclick="deactivateAccountModal()">Deactivate my account</span>
+              </div>
+              <div>
+                <p class="mut" style="font-size:12px;line-height:1.6">
+                  <b style="color:var(--ink2);font-weight:700">Delete</b> — permanently removes your profile (name,
+                  bio, photo, intro video) and signs you out everywhere. It cannot be undone.${a.linked_account?" Since your business and platform-owner profiles share this one login, both are deleted together.":""}
+                  Deals, reviews and messages you're already part of stay on record for the other party and for
+                  accounting/dispute purposes, just no longer linked to your name — a deal that's currently funded
+                  isn't cancelled by this; payment still completes normally, including your payout if you're the one
+                  receiving it. Once deleted, this email address is free again if you ever want to sign up fresh.
+                </p>
+                <span style="font:600 12.5px var(--font-b);color:var(--faint);border-bottom:1px solid var(--line);cursor:pointer" onclick="deleteAccountModal()">Delete my account</span>
+              </div>
+            </div>
+          </div>
 
-        <div class="acct2-mini" style="max-width:520px;margin-top:16px;border-color:var(--red-border)">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px">Delete my account</div>
-          <p style="font-size:13px;color:var(--mut);margin-bottom:14px">
-            This permanently removes your profile (name, bio, photo, intro video) and signs you out
-            everywhere. It cannot be undone.${a.linked_account?` Since your business and platform-owner
-            profiles share this one login, <b>both are deleted together</b>.`:""}
-            Deals, reviews and messages you're already part of stay on record for the other party and for
-            accounting/dispute purposes, just no longer linked to your name, and a deal that's currently
-            funded isn't cancelled by this; payment still completes normally, including your payout if
-            you're the one receiving it. Once deleted, this email address is free again if you ever want
-            to sign up fresh.
-          </p>
-          <button class="btn btn-danger btn-sm" onclick="deleteAccountModal()">Delete my account</button>
         </div>
-      </section>
+      </div>
     </div>`;
   renderWhoWeAre();
   renderActionCodePanel();
