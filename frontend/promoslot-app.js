@@ -2674,6 +2674,10 @@ function ensureStripeJs(){
   });
   return window._stripeJsPromise;
 }
+// One shared link, not a repeated explanation, at every place a fee amount
+// is actually shown in a live checkout — the full breakdown, examples and
+// FAQ all live once on the Pricing page (view-pricing) instead.
+const PRICING_LINK_HTML=`<button type="button" data-act="pricing" style="background:none;border:none;padding:0;margin:2px 0 10px;cursor:pointer;font:600 12.5px var(--font-b);color:var(--acc-ink)">See how fees work →</button>`;
 async function realFund(dealId){
   let r;
   try{ r=await PSApi.post(`/deals/${dealId}/fund`); }catch(err){ toast(err.message||"Could not start funding"); return; }
@@ -2681,6 +2685,7 @@ async function realFund(dealId){
   const li=r.line_items.map(x=>`<div class="ad-row"><span class="k">${esc(x.label)}</span><span class="v">${gbpP(x.amount)}</span></div>`).join("");
   $("fundArea").innerHTML=`
     <div class="agree-doc" style="margin:14px 0">${li}<div class="ad-row"><span class="k"><b>Total to pay</b></span><span class="v"><b>${gbpP(r.total_charged)}</b></span></div></div>
+    ${PRICING_LINK_HTML}
     <div id="express-wrap" style="display:none"><div id="express-checkout-element" style="margin-bottom:6px"></div><p class="mut" style="font-size:12px;text-align:center;margin:2px 0 10px">or pay by card</p></div>
     <div id="payment-element" style="margin:12px 0"></div>
     <div class="hint-err hide" id="pay-err"></div>
@@ -4446,6 +4451,7 @@ async function affFund(programId){
   const li=r.line_items.map(x=>`<div class="ad-row"><span class="k">${esc(x.label)}</span><span class="v">${gbpP(x.amount)}</span></div>`).join("");
   const area=$("affFundArea"); if(!area) return;
   area.innerHTML=`<div class="agree-doc" style="margin:14px 0">${li}<div class="ad-row"><span class="k"><b>Total to pay</b></span><span class="v"><b>${gbpP(r.total_charged)}</b></span></div></div>
+    ${PRICING_LINK_HTML}
     <div id="aff-express-wrap" style="display:none"><div id="aff-express-checkout-element" style="margin-bottom:6px"></div><p class="mut" style="font-size:12px;text-align:center;margin:2px 0 10px">or pay by card</p></div>
     <div id="aff-payment-element" style="margin:12px 0"></div>
     <div class="hint-err hide" id="aff-pay-err"></div>
@@ -4673,6 +4679,7 @@ async function affTopup(programId){
   const li=r.line_items.map(x=>`<div class="ad-row"><span class="k">${esc(x.label)}</span><span class="v">${gbpP(x.amount)}</span></div>`).join("");
   const payArea=$("aff-topup-pay-area"); if(!payArea) return;
   payArea.innerHTML=`<div class="agree-doc" style="margin:10px 0">${li}<div class="ad-row"><span class="k"><b>Total to pay</b></span><span class="v"><b>${gbpP(r.total_charged)}</b></span></div></div>
+    ${PRICING_LINK_HTML}
     <div id="aff-topup-express-wrap" style="display:none"><div id="aff-topup-express-checkout-element" style="margin-bottom:6px"></div><p class="mut" style="font-size:12px;text-align:center;margin:2px 0 10px">or pay by card</p></div>
     <div id="aff-topup-payment-element"></div>
     <button class="btn btn-g btn-sm" id="aff-topup-pay-btn" style="margin-top:8px" onclick="affTopupPay()">Pay ${gbpP(r.total_charged)}</button>`;
@@ -7647,7 +7654,6 @@ const NAV_ACTIONS={
   "terms":()=>goTerms(),
   "privacy":()=>goPrivacy(),
   "refund-policy":()=>goRefundPolicy(),
-  "toast-fees":()=>toast("Fees: 10% seller fee + 5% buyer protection fee, on the agreed price. No listing fees.")
 };
 function PSBoot(){
   renderMarketRail();
@@ -8092,7 +8098,7 @@ function psRender(syncInputValue){
     <div class="ps-terms">
       <span class="ps-terms-t">Want the finer details?</span>
       <span class="ps-terms-b">See how fees, protected payments, refunds and payouts work.</span>
-      <a href="#" class="ps-terms-link" data-act="toast-fees">Read the full terms →</a>
+      <a href="#" class="ps-terms-link" data-act="protect">Read the full terms →</a>
     </div>`;
 
   psSyncPanelHeight();
