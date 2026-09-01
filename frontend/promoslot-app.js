@@ -55,7 +55,7 @@ const PLATFORM_META = {
 };
 const ALL_PLATFORMS = Object.keys(PLATFORM_META);
 const ALL_NICHES = ["Fitness","Beauty","Gaming","Finance","Food","Tech","Parenting","Fashion","Education","Travel"];
-const ALL_SERVICES = ["Sponsored social post","Short-form promo video","Instagram Story","TikTok Live promotion","YouTube integration","Community announcement","Pinned community post","Newsletter advertisement","Sponsored blog post","Product review","UGC content","Affiliate promotion","Giveaway","Product feedback","Brand AMA","Link-in-bio placement","Custom service"];
+const ALL_SERVICES = ["Sponsored social post","Short-form promo video","Instagram Story","TikTok Live promotion","YouTube integration","Community announcement","Pinned community post","Newsletter advertisement","Sponsored blog post","Product review","UGC content","Affiliate promotion","Product feedback","Brand AMA","Link-in-bio placement","Custom service"];
 const ALL_COUNTRIES = ["UK","US","Canada","Australia","Germany","France","Spain","Netherlands","Ireland","India","Brazil"];
 const ALL_AGES = ["13-17","18-24","25-34","35-44","45-54","55+"];
 const ALL_PAY_MODELS = ["Fixed price","Per view","Per impression","Time-based","Affiliate","Hybrid","Custom quote"];
@@ -115,7 +115,7 @@ const LISTINGS = [
   bio:"This is an example listing showing how a complete, well-built platform-owner profile looks on PromoSlot. Replace this with your own audience, services and pricing when you list.",
   audience:120000,avgViews:54000,impressions:230000,er:6.8,countries:["UK","US"],ages:["18-24","25-34"],interests:["Gym & training","Quick recipes","Nutrition"],
   rating:5.0,reviewCount:"Example",verified:false,
-  services:["Short-form promo video","Sponsored social post","Instagram Story","Affiliate promotion","Giveaway"],
+  services:["Short-form promo video","Sponsored social post","Instagram Story","Affiliate promotion"],
   pricing:[
    {type:"fixed",label:"1 promotional video",detail:"1 × 30–60s video, 1 revision, live ≥ 30 days",amount:150},
    {type:"per-view",label:"Performance video deal",detail:"£40 min guaranteed + £8 per 1,000 verified views · measured 14 days after posting · capped at £300",amount:40},
@@ -1359,8 +1359,11 @@ function buildFilters(){
 }
 function payTypesOf(l){ return [...new Set(l.pricing.map(p=>PM_LABEL[p.type]))]; }
 function campPayTypes(c){
-  const map={fixed:"Fixed price","per-view":"Per view","per-imp":"Per impression",time:"Time-based",affiliate:"Affiliate",hybrid:"Hybrid",product:"Free product",giveaway:"Giveaway prize"};
-  return [...new Set(c.payment.map(p=>map[p.type]||p.type))];
+  const map={fixed:"Fixed price","per-view":"Per view","per-imp":"Per impression",time:"Time-based",affiliate:"Affiliate",hybrid:"Hybrid"};
+  // "addon" (the in-kind free-product extra — see PRODUCT_ADDON/#148) is
+  // deliberately excluded: it's never a real payment type, so it must never
+  // appear as one in the payment-type filter.
+  return [...new Set(c.payment.filter(p=>p.type!=="addon").map(p=>map[p.type]||p.type))];
 }
 function matchPlat(l){
   const f=S.filters, q=f.q.trim().toLowerCase();
@@ -1382,7 +1385,7 @@ function matchCamp(c){
   if(f.niches.size && !c.niches.some(n=>f.niches.has(n))) return false;
   if(f.services.size && !c.services.some(sv=>f.services.has(sv))) return false;
   if(f.countries.size && !c.countries.some(cc=>f.countries.has(cc))) return false;
-  if(f.pay.size && !campPayTypes(c).some(p=>f.pay.has(p)||(p==="Free product"&&f.pay.has("Custom quote")))) return false;
+  if(f.pay.size && !campPayTypes(c).some(p=>f.pay.has(p))) return false;
   if(f.min!=="" && c.budget<Number(f.min)) return false;
   if(f.max!=="" && c.budget>Number(f.max)) return false;
   return true;
@@ -3252,7 +3255,6 @@ function leaveReview(id){
 
 /* ==================== ONBOARDING WIZARDS ==================== */
 let W=null, lastPct=0;
-// Payment method offered only on the giveaway path (see the b-budget step).
 // Campaign payment methods, each unlocked only by the step-1 goals that imply
 // it. A method the business never unlocked must not appear at all: it used to
 // render with no editable value, and a stale default could still reach the
@@ -3270,17 +3272,44 @@ const BIZ_PAY_METHODS=[
   // for the full reasoning. Affiliate partnerships now go through the real
   // Affiliate Program marketplace instead (see payMethodsHtml() below,
   // which shows a redirect note when this goal is picked).
-  {key:"product",  label:"Free product",         field:"Retail value of the product supplied (£)",
-   unlocks:["Looking to market a product","Wanting UGC content"],
-   detail:v=>v?`Free product supplied (${gbp(v)} value)`:"Free product supplied"},
-  {key:"giveaway", label:"Giveaway prize",       field:"Giveaway prize value (£)",
-   unlocks:["Wanting to run a giveaway"],
-   detail:v=>`${gbp(v)} giveaway prize supplied by the brand`},
+  //
+  // "product"/"giveaway" removed 2026-09-01 (task #148): neither was ever a
+  // real payment method — no money moves for an in-kind product or a prize,
+  // so there was nothing for a Deal to escrow and no fee for PromoSlot to
+  // take. Worse, they were selectable here while the platform owner's real
+  // apply flow (PM_MODELS/PM_ORDER above) never accepted them, so a
+  // giveaway-only campaign was a dead end no one could actually apply to.
+  // Per Rob, 2026-09-01: giveaways aren't a PromoSlot concept at all — only
+  // a plain "free product" note remains, as an optional add-on on top of a
+  // required real payment method (see PRODUCT_ADDON/payMethodsHtml below),
+  // purely to flag that a product will also be supplied to promote.
 ];
 function unlockedPayMethods(intents){
   return BIZ_PAY_METHODS.filter(m=>m.unlocks.some(i=>intents.has(i)));
 }
 function payMethodByKey(k){ return BIZ_PAY_METHODS.find(m=>m.key===k); }
+
+// The one in-kind extra PromoSlot supports: never a standalone payment
+// method (nothing for PromoSlot to escrow or take a fee on), only ever an
+// optional note riding along with a real payment method the business has
+// already selected above. Tagged type:"addon" in the payment array so
+// campPayTypes/filters never treat it as a real payment type.
+const PRODUCT_ADDON={label:"Free product", field:"Retail value of the product supplied (£, optional)",
+  detail:v=>`Also included: free product supplied${v?` (${gbp(v)} value)`:""}`};
+function inKindSel(){ const d=W.d; d.inKind=d.inKind||{on:false,amount:"",note:""}; return d.inKind; }
+function collectInKind(){
+  const el=$("ik-on"); if(el) inKindSel().on=el.checked;
+  const a=$("ik-amt"); if(a) inKindSel().amount=a.value;
+  const n=$("ik-note"); if(n) inKindSel().note=n.value;
+}
+// -> {type:"addon",amount,note,detail} or null if not toggled on / no real
+// payment method is selected (an add-on can't stand alone).
+function collectInKindAddOn(){
+  const sel=inKindSel();
+  if(!sel.on || !collectCampaignPayments().length) return null;
+  const amount=Number(sel.amount)||0, note=(sel.note||"").trim();
+  return {type:"addon", amount, note, detail:PRODUCT_ADDON.detail(amount)+(note?` · ${note}`:"")};
+}
 
 // Selection + per-method value/note live in W.d.paySel: {key:{on,amount,note}}
 function paySel(k){
@@ -3309,6 +3338,19 @@ function payMethodsHtml(){
   const affNote = W.d.intentsB.has("Looking to offer affiliate partnerships")
     ? `<p class="mut" style="font-size:12.5px;margin-bottom:8px">Affiliate commission is handled by a dedicated Affiliate Program, not a payment method here — set one up separately from your dashboard once this campaign is created (real discount codes, tracked sales, one-time settlement).</p>` : "";
   if(!list.length) return affNote || `<p class="mut" style="font-size:12.5px">Go back to step 1 and pick a goal. The payment methods you can offer follow from it.</p>`;
+  const realMethodsOn=list.some(m=>paySel(m.key).on);
+  const ik=inKindSel();
+  const addonHtml = realMethodsOn ? `<div class="pm-slot" style="margin-top:14px;border-top:1px dashed var(--bd);padding-top:12px">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer">
+        <input type="checkbox" id="ik-on" ${ik.on?"checked":""} onchange="collectInKind();renderWiz()"> We'll also supply a free product to promote (optional)
+      </label>
+      ${ik.on?`<div class="row2" style="margin-top:8px">
+        <div><label>${esc(PRODUCT_ADDON.field)}</label>
+          <input type="number" min="0" step="any" id="ik-amt" value="${esc(ik.amount)}"></div>
+        <div><label>Clarification (optional)</label>
+          <input type="text" id="ik-note" value="${esc(ik.note)}" placeholder="e.g. One unit per approved creator"></div>
+      </div>`:""}
+    </div>` : "";
   return affNote + `<div class="chips-lg">${list.map(m=>
       `<button type="button" class="chip ${paySel(m.key).on?"on":""}" onclick="togglePayMethod('${m.key}')">${esc(m.label)}</button>`).join("")}</div>`
     + list.filter(m=>paySel(m.key).on).map(m=>{
@@ -3321,7 +3363,7 @@ function payMethodsHtml(){
             <input type="text" id="pm-note-${m.key}" value="${esc(c.note)}"
               placeholder="e.g. Message for a more detailed quote"></div>
         </div></div>`;
-    }).join("");
+    }).join("") + addonHtml;
 }
 // -> [{type,key,amount,note,detail}] for every SELECTED and still-unlocked method.
 function collectCampaignPayments(){
@@ -3334,7 +3376,6 @@ function collectCampaignPayments(){
     });
 }
 
-const GIVEAWAY_PM="Giveaway prize";
 // "Looking to offer affiliate partnerships"/"I want to offer affiliate
 // promotions" stay as selectable goals (still real signal about what the
 // person wants) but their copy now points at the real Affiliate Program
@@ -3342,7 +3383,12 @@ const GIVEAWAY_PM="Giveaway prize";
 // itself — see payMethodsHtml()'s redirect note for the business side; the
 // platform-owner one was already inert (never unlocked anything, per #147's
 // audit), so only its wording needed to change.
-const BIZ_INTENTS=[["📦","Looking to market a product","Get your product in front of the right audiences"],["🤝","Looking to offer affiliate partnerships","Set up via the dedicated Affiliate Program, after creating this campaign"],["🎁","Wanting to run a giveaway","Grow awareness with hosted giveaways"],["🌟","Looking for long-term brand ambassadors","Monthly retainers with creators you trust"],["🎬","Wanting UGC content","Videos for your own ads, not posted to creator pages"],["🧪","Testing a new market","Small campaigns to validate a niche or country"]];
+//
+// "Wanting to run a giveaway" removed 2026-09-01 (task #148, per Rob):
+// giveaways aren't a PromoSlot concept at all now — a business that's
+// giving away a product still just picks a real goal below (e.g. "Looking
+// to market a product") and can flag the free product as an add-on.
+const BIZ_INTENTS=[["📦","Looking to market a product","Get your product in front of the right audiences"],["🤝","Looking to offer affiliate partnerships","Set up via the dedicated Affiliate Program, after creating this campaign"],["🌟","Looking for long-term brand ambassadors","Monthly retainers with creators you trust"],["🎬","Wanting UGC content","Videos for your own ads, not posted to creator pages"],["🧪","Testing a new market","Small campaigns to validate a niche or country"]];
 // First card was hardcoded to "TikTok" regardless of which of the 18
 // platform types the person actually has — generalized so it reads
 // correctly for a newsletter, podcast, Discord server, etc. too.
@@ -3353,11 +3399,11 @@ function defW(){
     intentsB:new Set(), intentsP:new Set(), order:null,
     company:"Meadow & Moss", product:"Cold-process natural soap range", industry:"Beauty & skincare", target:"Eco-conscious women aged 22–40 who prefer plastic-free skincare",
     countries:new Set(["UK","Ireland"]), platforms:new Set(["TikTok","Instagram","Newsletter"]), services:new Set(["Product review","Short-form promo video","Instagram Story","Affiliate promotion"]),
-    sizes:new Set(["Micro (10K–50K)","Mid (50K–250K)"]), budget:"2000", payMethods:new Set(["Fixed payment","Price per view","Free product"]), duration:"6 weeks", commission:"12", prize:"250", ugcCount:"10", ambTerm:"3 months",
+    sizes:new Set(["Micro (10K–50K)","Mid (50K–250K)"]), budget:"2000", payMethods:new Set(["Fixed payment","Price per view","Free product"]), duration:"6 weeks", commission:"12", ugcCount:"10", ambTerm:"3 months",
     pType:"TikTok", pBrand:"Robert Media", pName:"RobertLifts", pDesc:"Daily hypertrophy training clips and honest supplement breakdowns for UK lifters.",
     pNiches:new Set(["Fitness"]), aud:"218400", views:"96200", imps:"412000", er:"7.4",
     pCountries:new Set(["UK","US","Australia"]), ages:new Set(["18-24","25-34"]), interests:new Set(["Gym & training","Nutrition","Supplements"]),
-    pServices:new Set(["Short-form promo video","Sponsored social post","Affiliate promotion","Giveaway"]),
+    pServices:new Set(["Short-form promo video","Sponsored social post","Affiliate promotion"]),
     pricing:[]
   };
 }
@@ -3452,12 +3498,6 @@ function wizStepHtml(step){
     case "b-budget": {
       // Only methods unlocked by a step-1 goal are shown, and each selected one
       // carries its own editable amount plus an optional clarification note.
-      const unlocked=unlockedPayMethods(d.intentsB);
-      // A giveaway campaign's only unlocked method is the prize, so pre-select
-      // it once rather than dead-ending that path.
-      if(unlocked.length===1 && unlocked[0].key==="giveaway" && !d.giveawayPmSeeded){
-        paySel("giveaway").on=true; d.giveawayPmSeeded=true;
-      }
       const extras=[];
       if(d.intentsB.has("Wanting UGC content")) extras.push(pmIn("w-ugc","UGC videos needed",d.ugcCount));
       if(d.intentsB.has("Looking for long-term brand ambassadors")) extras.push(`<div><label>Ambassador term</label><select id="w-amb">${["1 month","3 months","6 months","12 months"].map(x=>`<option ${x===d.ambTerm?"selected":""}>${x}</option>`).join("")}</select></div>`);
@@ -3473,7 +3513,7 @@ function wizStepHtml(step){
       valid:()=>{
         const sel=collectCampaignPayments();
         if(!sel.length) return "Select at least one payment method.";
-        const blank=sel.find(x=>x.type!=="product" && !x.amount);
+        const blank=sel.find(x=>!x.amount);
         if(blank) return `Enter an amount for ${payMethodByKey(blank.type).label}.`;
         return null;
       }};}
@@ -3507,7 +3547,7 @@ function wizStepHtml(step){
         <div class="rv-row"><span class="k">Services wanted</span><span class="v">${[...d.services].join(" · ")}</span></div>
         <div class="rv-row"><span class="k">Creator sizes</span><span class="v">${[...d.sizes].join(", ")||"Any"}</span></div>
         <div class="rv-row"><span class="k">Budget & duration</span><span class="v">${gbp(d.budget||0)} · ${esc(d.duration)}</span></div>
-        <div class="rv-row"><span class="k">Payment methods</span><span class="v">${collectCampaignPayments().map(p=>esc(p.detail)).join("<br>")||"—"}</span></div>
+        <div class="rv-row"><span class="k">Payment methods</span><span class="v">${[...collectCampaignPayments(),...(collectInKindAddOn()?[collectInKindAddOn()]:[])].map(p=>esc(p.detail)).join("<br>")||"—"}</span></div>
        </div></div>`,
       nextLabel:"Create my business profile"};
     case "p-intent": return {t:"What brings you to PromoSlot?",s:"Select everything that applies.",h:selCardsHtml("intentsP",PLAT_INTENTS),
@@ -3666,18 +3706,22 @@ async function finishBiz(){
   const d=W.d;
   // Local business profile for the dashboard view.
   S.biz={company:d.company,product:d.product,industry:d.industry,target:d.target,intents:[...d.intentsB],countries:[...d.countries],platforms:[...d.platforms],services:[...d.services],sizes:[...d.sizes],budget:Number(d.budget)||0,payMethods:collectCampaignPayments().map(p=>payMethodByKey(p.type).label),duration:d.duration};
-  // Every selected, still-unlocked method with the amount the business typed.
-  // Nothing is inferred and no default amount is ever invented.
+  // Every selected, still-unlocked method with the amount the business typed,
+  // plus the optional in-kind add-on (never a standalone method — see
+  // collectInKindAddOn's comment) riding along in the same payment array,
+  // tagged type:"addon" so nothing downstream mistakes it for real money.
   const pays=collectCampaignPayments();
+  const addon=collectInKindAddOn();
+  const paysWithAddon=addon?[...pays,addon]:pays;
   const niche=d.industry.includes("Beauty")?"Beauty":d.industry.includes("Fitness")?"Fitness":d.industry.includes("Food")?"Food":d.industry.includes("Fin")?"Finance":d.industry.includes("Gam")?"Gaming":d.industry.includes("parent")||d.industry.includes("Kids")?"Parenting":"Tech";
   const title=`${d.product.split(" ").slice(0,3).join(" ")}: Launch Campaign`;
   const payload={title,industry:d.industry,description:`${d.company} is looking for creators to promote: ${d.product}. ${d.target}.`,
     budget:Number(d.budget)||0,platforms:[...d.platforms],niches:[niche],countries:[...d.countries],services:[...d.services],
-    creator_sizes:[...d.sizes],goals:[...d.intentsB],payment:pays,
+    creator_sizes:[...d.sizes],goals:[...d.intentsB],payment:paysWithAddon,
     deliverables:`${[...d.services].slice(0,2).join(" or ")} featuring the product. Content live ≥ 30 days. Draft approval required.`,
-    duration:d.duration,samples:pays.some(p=>p.type==="product"),
+    duration:d.duration,samples:!!addon&&addon.kind==="product",
     profile:{product:d.product,target:d.target,
-             payMethods:pays.map(p=>payMethodByKey(p.type).label),collabs:"New to PromoSlot"}};
+             payMethods:paysWithAddon.map(p=>p.type==="addon"?p.detail:payMethodByKey(p.type).label),collabs:"New to PromoSlot"}};
   try{ await PSApi.post("/campaigns",payload); }
   catch(err){ toast(err.message||"Could not publish campaign"); wizPublishFailed("Create my business profile"); return; }
   // Real backing row for this business identity — see backend/models.py's
@@ -5119,9 +5163,6 @@ function openNewCampaign(){
   const b=S.biz; const d=W.d;
   d.company=b.company; d.product=b.product; d.industry=b.industry; d.target=b.target;
   d.intentsB=new Set(b.intents); d.countries=new Set(b.countries); d.platforms=new Set(b.platforms); d.services=new Set(b.services); d.sizes=new Set(b.sizes); d.budget=String(b.budget); d.payMethods=new Set(b.payMethods); d.duration=b.duration;
-  // Their saved payment methods are their real answer — don't re-seed the
-  // giveaway default over a choice they already made.
-  d.giveawayPmSeeded=true;
   W.i=0; renderWiz("fwd"); toast("Campaign builder, prefilled from your profile");
 }
 
@@ -8101,7 +8142,7 @@ const RES_PLAYBOOKS={
     ask:["Collab post or single-author: the reach is very different","How many story frames, and whether they are saved to a highlight","Whether the link sticker is included","Whether the feed post stays up permanently or is removed after the window","Who supplies the images, and at what crop"],
     ex:["A coffee roaster buys three story frames with a link sticker plus one collab Reel.","A gymwear brand buys a carousel where the first slide is theirs and the rest is the creator's own styling."]},
   Discord:{
-    formats:["Announcement post in the server's announcements channel","Pinned message in a topical channel","A dedicated channel or category for your product","Role or emoji giveaway","AMA or voice event","Sponsorship of a recurring server event"],
+    formats:["Announcement post in the server's announcements channel","Pinned message in a topical channel","A dedicated channel or category for your product","AMA or voice event","Sponsorship of a recurring server event"],
     ask:["Which channels, and how many members can actually see them","Whether an @everyone or @here ping is included, it changes reach more than anything else here","How long a pin stays before it is rotated out","Whether the mod team answers questions on your behalf or routes them to you","A screenshot of the pin plus the ping timestamp as evidence"],
     ex:["An indie studio buys an announcement with @here plus a pinned playtest signup held for 14 days.","A developer-tools company sponsors a 45-minute voice AMA with a pinned written recap afterwards."]},
   Newsletter:{
@@ -8114,7 +8155,7 @@ const RES_PLAYBOOKS={
     ex:["A keyboard brand buys a 60-second mid-roll in a productivity channel plus a pinned comment.","A language app buys a dedicated tutorial where the product is the subject rather than a mention."]},
   Livestream:{
     sub:"Twitch, Kick & more",
-    formats:["A sponsored segment inside a stream","A full sponsored session, start to finish","Overlay or panel placement for a fixed period","A live, on-air product demo or unboxing","A chat command, bot integration or on-stream giveaway","Clip and VOD retention rights after the stream ends"],
+    formats:["A sponsored segment inside a stream","A full sponsored session, start to finish","Overlay or panel placement for a fixed period","A live, on-air product demo or unboxing","A chat command or bot integration","Clip and VOD retention rights after the stream ends"],
     ask:["Whether the audience actually lives on Twitch, Kick, YouTube Live or elsewhere: each platform pulls a genuinely different crowd","Whether the stream is simulcast across platforms at once, which can multiply your reach from a single session","Which stream slots, by day and hour: the audience at 15:00 is not the audience at 21:00","How long the overlay, panel or chat command stays live","Whether VODs or clips stay available afterwards, and for how long","Average concurrent and peak viewers for that specific slot, not lifetime follower count"],
     ex:["A drinks brand sponsors four streams in a month across Twitch and Kick, with an overlay logo, a chat command and one on-stream taste test the chat reacts to live.","A gaming peripheral brand supplies a keyboard for a two-hour first-playthrough stream and watches chat light up the moment it's unboxed, with the VOD kept live for 60 days.","A software company sponsors a coding stream's entire session, live-demoing the product and fielding viewer questions on air in real time."]},
   Reddit:{
@@ -8201,7 +8242,6 @@ const RES_VIS_MEDIA={
   "Discord|Announcement post in the server's announcements channel":"img/playbooks/discord-announcement-post.jpg",
   "Discord|Pinned message in a topical channel":"img/playbooks/discord-pinned-message.jpg",
   "Discord|A dedicated channel or category for your product":"img/playbooks/discord-dedicated-category.jpg",
-  "Discord|Role or emoji giveaway":"img/playbooks/discord-role-emoji-unlock.jpg",
   "Discord|AMA or voice event":"img/playbooks/discord-live-ama.jpg",
   "Discord|Sponsorship of a recurring server event":"img/playbooks/discord-recurring-event.jpg",
   "Newsletter|Dedicated send, your message only":"img/playbooks/newsletter-dedicated-send.jpg",
@@ -8224,7 +8264,7 @@ const RES_VIS_MEDIA={
   "Livestream|A full sponsored session, start to finish":"img/playbooks/livestream-full-session.jpg",
   "Livestream|Overlay or panel placement for a fixed period":"img/playbooks/livestream-overlay-panel.jpg",
   "Livestream|A live, on-air product demo or unboxing":"img/playbooks/livestream-product-demo.jpg",
-  "Livestream|A chat command, bot integration or on-stream giveaway":"img/playbooks/livestream-chat-command.jpg",
+  "Livestream|A chat command or bot integration":"img/playbooks/livestream-chat-command.jpg",
   "Livestream|Clip and VOD retention rights after the stream ends":"img/playbooks/livestream-clip-vod-rights.jpg",
   "Quora|A sponsored answer from a writer with standing in the topic":"img/playbooks/quora-sponsored-answer.jpg",
   "Quora|A post inside a Space":"img/playbooks/quora-space-post.jpg",
@@ -8455,7 +8495,7 @@ function resScenario(i){
 }
 function resRender(){ resRenderPlaybooks(); resRenderModels(); }
 
-const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,vfPick,vfContactSupport,vfStartBizStripe,vfSubmitBizFinal,vfConnectPayouts,vfSubmitPlatIdentity,vfSubmitPlatOwnership,vfPickBiz,openVerificationQueue,openVerificationDecision,decideVerification,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realOpenGracePeriod,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,
+const EXPORTS={PSBoot,overlayClick,renderMarket,setMarketTab,toggleFilters,toggleFilter,resetFilters,buildFilters,openMarket,marketCtaClick,openListing,openCampaign,openChat,sendChat,requestQuote,sendQuoteReq,buyOffer,applyCampaign,submitApplication,renderDeal,showView,dealNext,approveMine,counterOffer,sendCounter,cancelDeal,fundDeal,submitProof,openDispute,leaveReview,startWizard,openRegisterPlatform,renderWiz,wizBack,wizNext,openNewCampaign,openDash,switchRole,confirmLinkProfile,switchToLinkedAccount,requireRole,_roleGateSwitch,_roleGateCreate,goHome,goHow,closeModal,toast,syncNav,openMessages,openConv,renderMessages,sendInboxMsg,toggleNotifs,pushNotif,openNotif,openVerify,vfPick,vfContactSupport,vfStartBizStripe,vfSubmitBizFinal,vfConnectPayouts,vfSubmitPlatIdentity,vfSubmitPlatOwnership,vfPickBiz,openVerificationQueue,openVerificationDecision,decideVerification,animateKpis,authModal,_authSyncNameFields,doSignup,doLogin,doLogout,renderRealDeal,realApprove,realDecline,realFund,realPay,realSubmitProof,realVerify,realRelease,realRefund,realOpenGracePeriod,realReviewModal,setReviewStars,realSubmitReview,openReviewQueue,openPayouts,openAccount,doChangePassword,openProfile,addProofSlot,pfDrop,pfFileName,addWorkSlot,wkDrop,wkFileName,uploadWork,uploadMedia,deleteMedia,uploadAvatar,uploadIntroVideo,submitSupport,uploadListingImage,uploadCampaignImage,addPmSlot,pmSlotChange,submitApplication,confirmRemoveListing,confirmRemoveCampaign,collectInKind,
 forgotPasswordModal,sendReset,resetPasswordModal,doResetPassword,
 checkYourEmailModal,closeVerifyWait,resendVerification,verifyEmailFromLink,scrollToPanel,openCompleted,
 continueWithGoogle,googleRoleSelectModal,submitGoogleRoleSelection,_grSyncNameFields,
