@@ -48,6 +48,12 @@ app.add_middleware(CSRFMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
+_STATIC_CACHE_EXTS = (
+    ".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".ico",
+    ".woff", ".woff2", ".ttf",
+)
+
+
 @app.middleware("http")
 async def cache_versioned_assets(request: Request, call_next):
     """Let the browser skip the request entirely for unchanged assets.
@@ -61,10 +67,57 @@ async def cache_versioned_assets(request: Request, call_next):
     re-checking with the server on every load, unlike index.html itself,
     which correctly keeps its own no-cache header (see render_index) since
     it's what carries the current hash and must always be revalidated.
+
+    Images, icons and fonts (frontend/img/*, favicons, etc.) aren't part of
+    that hashing scheme — nothing rewrites their src to carry a ?v= — so
+    they fell through this middleware with no cache header at all and were
+    being re-fetched on every single page load (Lighthouse flagged this as
+    real, avoidable network weight). They still get a real cache lifetime
+    below, just a shorter one (30 days, not a year, and not "immutable")
+    since there's no content hash here to invalidate it if a file changes —
+    a browser that cached an old image would keep serving it from disk for
+    up to 30 days rather than immediately picking up a replacement.
     """
     response = await call_next(request)
     if "v" in request.query_params:
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif (request.method in ("GET", "HEAD")
+            and request.url.path.lower().endswith(_STATIC_CACHE_EXTS)):
+        response.headers["Cache-Control"] = "public, max-age=2592000"
+    return response
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Low-risk security headers that don't require re-architecting anything.
+
+    Deliberately NOT adding a Content-Security-Policy here: doing that
+    safely means enumerating every external script/style/frame origin this
+    app actually depends on (Stripe.js, Google Fonts, Cloudflare Turnstile,
+    Google Sign-In's popup flow) and is easy to get subtly wrong in a way
+    that silently breaks checkout or login — that deserves its own careful,
+    separately-tested change rather than being bundled into this pass.
+    """
+    response = await call_next(request)
+    if settings.app_base_url.startswith("https"):
+        # Only meaningful over HTTPS, and only ever sent once a browser has
+        # already reached this app over HTTPS (a plain-HTTP response can't
+        # set it) — safe alongside force_https below since Render already
+        # serves this app under a certificate for the real domain.
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    # SAMEORIGIN rather than DENY: nothing on PromoSlot currently needs to be
+    # framed by another site, but this is a smaller, safer claim than "never,
+    # not even by ourselves" — leaves room for e.g. an internal preview tool
+    # later without another deploy.
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    # same-origin-allow-popups, not the stricter same-origin: Google
+    # Sign-In's popup flow relies on the popup writing back to
+    # window.opener on this origin, which the stricter value silently
+    # breaks. This still blocks the class of attack COOP exists for
+    # (a malicious opener reaching into this tab), just not via a popup
+    # PromoSlot itself opens for login.
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
     return response
 
 

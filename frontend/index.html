@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,13 +9,15 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#4f46e5">
-<script src="./support.js"></script>
-</head>
-<body>
-<x-dc>
-<helmet>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PromoSlot: Brands buy traction. Platform owners monetise their reach.</title>
+<!-- No static page title element here on purpose: backend/assets.py's
+     render_index() injects the correct per-route title/description/OG/
+     canonical tags right before the head closes on every request
+     (PAGE_META), including on "/". A hardcoded fallback here would win
+     the document.title race instead, since it would appear earlier in
+     document order than the injected one. Deliberately not spelling out
+     the literal tag names in this comment: assets.py finds its insertion
+     point with a plain text search, and a literal match inside this
+     comment would swallow the injected tags into the comment itself. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1716,16 +1718,8 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   .toast{width:100%;justify-content:flex-start}
 }
 </style>
-<!-- Cloudflare Turnstile (bot protection on signup) — external, so it's
-     exempt from the local ?v= hashing below; loaded async so it never blocks
-     first paint. See promoslot-app.js's _authRenderTurnstile(). -->
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-<!-- The ?v= cache-busting hash is injected from each file's contents when
-     this page is served (backend/assets.py). Leave these srcs plain. -->
-<script src="api.js"></script>
-<script src="promoslot-app.js"></script>
-</helmet>
-
+</head>
+<body>
 <div class="util-bar">
   <div class="util-bar-in">
     <span>For businesses and platform owners seeking clearer promotional partnerships.</span>
@@ -1777,6 +1771,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     </div>
   </div>
 </nav>
+<main id="main">
 <!-- Mobile-only sticky signup CTA. Hidden by default (desktop/tablet);
      shown under 620px, and only for guests — mirrors nav-cta's own
      visibility exactly, toggled in the same place (syncNav()) so the two
@@ -2835,7 +2830,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 
       <div data-rise="24" style="display:flex;flex-direction:column;gap:10px">
         <div data-parallax="0.04" style="border-radius:14px;overflow:hidden;aspect-ratio:4/5">
-          <img src="/img/about-people.jpg" alt="A platform owner and business team working together in person and over a video call, sketching out a promotion partnership on a whiteboard." style="width:100%;height:100%;object-fit:cover;display:block">
+          <img src="/img/about-people.jpg" alt="A platform owner and business team working together in person and over a video call, sketching out a promotion partnership on a whiteboard." style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
         </div>
       </div>
     </div>
@@ -3637,28 +3632,31 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 
 <div class="overlay" id="overlay"><div class="modal" id="modalBox"></div></div>
 <div id="toasts"></div>
-</x-dc>
-<script type="text/x-dc" data-dc-script>
-class Component extends DCLogic {
-  componentDidMount() {
-    const wire = () => {
-      window.PSBoot();
-      const g = window;
-      document.getElementById("overlay").addEventListener("click", e => g.overlayClick(e));
-      document.getElementById("sortSel").addEventListener("change", () => g.renderMarket());
-      document.getElementById("tab-platforms").addEventListener("click", () => g.setMarketTab("platforms"));
-      document.getElementById("tab-campaigns").addEventListener("click", () => g.setMarketTab("campaigns"));
-      document.getElementById("fToggle").addEventListener("click", () => g.toggleFilters());
-    };
-    if (window.PSBoot) wire();
-    else {
-      const t = setInterval(() => { if (window.PSBoot) { clearInterval(t); wire(); } }, 40);
-      this._t = t;
-    }
+</main>
+<!-- Cloudflare Turnstile (bot protection on signup) — external, so it's
+     exempt from the local ?v= hashing below; loaded async so it never blocks
+     first paint. See promoslot-app.js's _authRenderTurnstile(). -->
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<!-- The ?v= cache-busting hash is injected from each file's contents when
+     this page is served (backend/assets.py). Leave these srcs plain. -->
+<script src="api.js" defer></script>
+<script src="promoslot-app.js" defer></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  function wire() {
+    window.PSBoot();
+    var g = window;
+    document.getElementById("overlay").addEventListener("click", function (e) { g.overlayClick(e); });
+    document.getElementById("sortSel").addEventListener("change", function () { g.renderMarket(); });
+    document.getElementById("tab-platforms").addEventListener("click", function () { g.setMarketTab("platforms"); });
+    document.getElementById("tab-campaigns").addEventListener("click", function () { g.setMarketTab("campaigns"); });
+    document.getElementById("fToggle").addEventListener("click", function () { g.toggleFilters(); });
   }
-  componentWillUnmount() { if (this._t) clearInterval(this._t); }
-  renderVals() { return {}; }
-}
+  if (window.PSBoot) wire();
+  else {
+    var t = setInterval(function () { if (window.PSBoot) { clearInterval(t); wire(); } }, 40);
+  }
+});
 </script>
 </body>
 </html>
