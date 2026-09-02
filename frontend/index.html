@@ -1361,8 +1361,8 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 .nav-dd>summary::-webkit-details-marker{display:none}
 .nav-dd-car{font-size:9px;color:var(--faint)}
 .nav-dd-panel{position:absolute;left:0;top:calc(100% + 4px);background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);min-width:230px;padding:6px 0;display:flex;flex-direction:column;z-index:60}
-.nav-dd-panel button{text-align:left;background:none;border:none;cursor:pointer;padding:11px 16px;font:600 13.5px var(--font-b);color:var(--ink2)}
-.nav-dd-panel button:hover{color:var(--acc-ink);background:var(--acc-soft)}
+.nav-dd-panel button,.nav-dd-panel a{text-align:left;background:none;border:none;cursor:pointer;padding:11px 16px;font:600 13.5px var(--font-b);color:var(--ink2);text-decoration:none;display:block}
+.nav-dd-panel button:hover,.nav-dd-panel a:hover{color:var(--acc-ink);background:var(--acc-soft)}
 
 .page-head{background:var(--navy);color:var(--navy-sub);padding:52px 20px 42px}
 .page-head-in{max-width:900px;margin:0 auto}
@@ -1584,7 +1584,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 .trust-strip-in{max-width:1220px;margin:0 auto;padding:36px 20px;display:flex;gap:22px;align-items:center;flex-wrap:wrap}
 .trust-strip-mark{width:44px;height:44px;border:1px solid var(--line);border-radius:6px;display:grid;place-items:center;font-family:var(--font-d);font-weight:600;font-size:19px;color:var(--acc-ink);flex-shrink:0}
 .trust-strip p{margin:0;font-size:13.5px;line-height:1.7;color:var(--mut);max-width:720px}
-.trust-strip button{background:none;border:none;padding:0;cursor:pointer;font:600 13.5px var(--font-b);color:var(--acc-ink)}
+.trust-strip button,.trust-strip a{background:none;border:none;padding:0;cursor:pointer;font:600 13.5px var(--font-b);color:var(--acc-ink);text-decoration:none}
 
 /* ---------- Responsive ---------- */
 @media (max-width:1020px){
@@ -1725,27 +1725,27 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     <span>For businesses and platform owners seeking clearer promotional partnerships.</span>
     <div class="util-links">
       <a href="mailto:support@usepromoslot.com">Support</a>
-      <a href="#" data-act="pricing">Fees and protection</a>
+      <a href="/pricing" data-act="pricing">Fees and protection</a>
     </div>
   </div>
 </div>
 <nav class="nav">
   <div class="nav-in">
-    <button class="logo" data-act="home"><span class="logo-mark">P</span><span class="logo-txt">PromoSlot</span></button>
+    <a href="/" class="logo" data-act="home"><span class="logo-mark">P</span><span class="logo-txt">PromoSlot</span></a>
     <button class="nav-menu-toggle" id="navMenuToggle" data-act="nav-menu" aria-label="Menu" aria-expanded="false" aria-controls="navLinks">☰</button>
     <div class="nav-links" id="navLinks">
-      <button class="nav-link" id="nl-market" data-act="market">Marketplace</button>
-      <button class="nav-link" id="nl-affiliate" data-act="affiliate">Affiliate Program<span style="font-size:9.5px;font-weight:700;letter-spacing:.6px;background:#eef2ff;color:#4f46e5;padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:1px">NEW</span></button>
+      <a href="/marketplace" class="nav-link" id="nl-market" data-act="market">Marketplace</a>
+      <a href="/affiliate-program" class="nav-link" id="nl-affiliate" data-act="affiliate">Affiliate Program<span style="font-size:9.5px;font-weight:700;letter-spacing:.6px;background:#eef2ff;color:#4f46e5;padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:1px">NEW</span></a>
       <details class="nav-dd">
         <summary>How it works<span class="nav-dd-car">▼</span></summary>
         <div class="nav-dd-panel">
-          <button type="button" id="nl-how" data-act="how">How PromoSlot works</button>
-          <button type="button" id="nl-protect" data-act="protect">Payment Protection</button>
-          <button type="button" id="nl-pricing" data-act="pricing">Pricing</button>
-          <button type="button" id="nl-resources" data-act="resources">Resources</button>
+          <a href="/how-it-works" id="nl-how" data-act="how">How PromoSlot works</a>
+          <a href="/payment-protection" id="nl-protect" data-act="protect">Payment Protection</a>
+          <a href="/pricing" id="nl-pricing" data-act="pricing">Pricing</a>
+          <a href="/resources" id="nl-resources" data-act="resources">Resources</a>
         </div>
       </details>
-      <button class="nav-link" id="nl-about" data-act="about">About</button>
+      <a href="/about" class="nav-link" id="nl-about" data-act="about">About</a>
       <button class="nav-link" id="nl-msgs" data-act="messages">Messages<span class="attn-dot hide" id="dot-msgs"></span></button>
       <button class="nav-link hide" id="nl-dash" data-act="dash">Dashboard<span class="attn-dot hide" id="dashDot"></span></button>
       <button class="nav-link hide" id="nl-review" data-act="review-queue">Review queue<span class="attn-dot hide" id="dot-review"></span></button>
@@ -1814,8 +1814,8 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <button class="btn btn-p btn-sm" onclick="heroSearchGo()">Search</button>
       </div>
       <div class="hero-ctas">
-        <button class="btn btn-p btn-lg" data-act="market">Explore the Marketplace</button>
-        <button class="btn hero-v3-ghost btn-lg" data-act="how">See how PromoSlot works</button>
+        <a href="/marketplace" class="btn btn-p btn-lg" data-act="market">Explore the Marketplace</a>
+        <a href="/how-it-works" class="btn hero-v3-ghost btn-lg" data-act="how">See how PromoSlot works</a>
       </div>
       <p class="hero-v3-sub-link"><button type="button" data-act="wiz-plat">Own an audience? Learn how to list on PromoSlot →</button></p>
     </div>
@@ -1840,7 +1840,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <button class="btn btn-p btn-lg" data-act="wiz-biz">Create my first campaign</button>
         <button class="btn btn-o btn-lg" onclick="tourBegin()">Take the 2-minute tour</button>
       </div>
-      <p class="mut" style="font-size:13px;margin-top:16px"><a href="#" data-act="market-platforms" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Browse platform owners →</a></p>
+      <p class="mut" style="font-size:13px;margin-top:16px"><a href="/marketplace" data-act="market-platforms" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Browse platform owners →</a></p>
     </div>
     <div class="setup-card role-plat-only">
       <div class="sec-kicker setup-progress-label">Getting started · 1 of 3 complete</div>
@@ -1852,7 +1852,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <button class="btn btn-p btn-lg" data-act="wiz-plat">List my first platform</button>
         <button class="btn btn-o btn-lg" onclick="tourBegin()">Take the 2-minute tour</button>
       </div>
-      <p class="mut" style="font-size:13px;margin-top:16px"><a href="#" data-act="market-campaigns" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Browse campaigns →</a></p>
+      <p class="mut" style="font-size:13px;margin-top:16px"><a href="/marketplace" data-act="market-campaigns" style="color:var(--acc-ink);font-weight:700;text-decoration:none">Browse campaigns →</a></p>
     </div>
   </section>
   </div>
@@ -1879,10 +1879,10 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     <p class="sub" id="returningSub"></p>
     <div class="hero-ctas role-biz-only">
       <button class="btn btn-p btn-lg" data-act="wiz-biz">Post a campaign</button>
-      <button class="btn btn-o btn-lg" data-act="market-platforms">Find platform owners</button>
+      <a href="/marketplace" class="btn btn-o btn-lg" data-act="market-platforms">Find platform owners</a>
     </div>
     <div class="hero-ctas role-plat-only">
-      <button class="btn btn-p btn-lg" data-act="market-campaigns">Find campaigns</button>
+      <a href="/marketplace" class="btn btn-p btn-lg" data-act="market-campaigns">Find campaigns</a>
       <button class="btn btn-o btn-lg" data-act="dash">Manage my platforms</button>
     </div>
   </section>
@@ -1897,8 +1897,8 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   <section class="section" style="padding-top:0">
     <div class="sec-head-row">
       <div><div class="sec-kicker">New on the marketplace</div><h2 class="sec-title" id="returningOppTitle">Recently published</h2></div>
-      <button class="btn btn-ghost see-all role-biz-only" data-act="market-platforms">Browse all →</button>
-      <button class="btn btn-ghost see-all role-plat-only" data-act="market-campaigns">Browse all →</button>
+      <a href="/marketplace" class="btn btn-ghost see-all role-biz-only" data-act="market-platforms">Browse all →</a>
+      <a href="/marketplace" class="btn btn-ghost see-all role-plat-only" data-act="market-campaigns">Browse all →</a>
     </div>
     <div class="mini-market hscroll" id="returningOppList"></div>
   </section>
@@ -1922,7 +1922,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   <section class="section" id="marketplace-preview" style="padding-top:36px">
     <div class="sec-head-row">
       <div><div class="sec-kicker">Marketplace</div><h2 class="sec-title" id="railHeading">See how listings appear</h2></div>
-      <button class="btn btn-ghost see-all" data-act="market">Open the Marketplace →</button>
+      <a href="/marketplace" class="btn btn-ghost see-all" data-act="market">Open the Marketplace →</a>
     </div>
     <p class="sec-sub" style="margin-bottom:20px">Real, live listings and campaigns from PromoSlot's marketplace. Full search, filtering and every listing stay in the Marketplace itself.</p>
     <div class="rail-tabs" role="tablist" aria-label="Marketplace side">
@@ -1937,13 +1937,13 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 
   <section class="section" style="padding-top:12px;padding-bottom:20px">
     <div class="tile-row">
-      <button type="button" class="tile-dark" data-act="how">
+      <a href="/how-it-works" class="tile-dark" data-act="how">
         <span class="tile-kicker">How PromoSlot works</span>
         <span class="tile-title">Clear agreements, funded deals and documented delivery</span>
         <span class="tile-body">Follow a promotional partnership from accepted terms through evidence, approval and payout.</span>
         <span class="tile-cta">See the deal journey →</span>
-      </button>
-      <a href="#" class="tile-light" data-act="protect">
+      </a>
+      <a href="/payment-protection" class="tile-light" data-act="protect">
         <span class="tile-kicker">Payment Protection</span>
         <span class="tile-title">What counts as evidence when a promotion goes live</span>
         <span class="tile-body">Screenshots, links and analytics windows agreed before funding are the difference between a fast approval and a dispute.</span>
@@ -1955,7 +1955,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   <section class="trust-strip">
     <div class="trust-strip-in">
       <div class="trust-strip-mark">P</div>
-      <p>PromoSlot provides marketplace discovery, documented agreements, payment coordination, delivery evidence and dispute support. PromoSlot is not the employer, agency or campaign decision-maker. <button type="button" data-act="protect">Read about Payment Protection →</button></p>
+      <p>PromoSlot provides marketplace discovery, documented agreements, payment coordination, delivery evidence and dispute support. PromoSlot is not the employer, agency or campaign decision-maker. <a href="/payment-protection" data-act="protect">Read about Payment Protection →</a></p>
     </div>
   </section>
 
@@ -1973,7 +1973,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
           <li>Buy a listed offer or request a custom proposal</li>
           <li>Message the owner and fund the agreement through PromoSlot</li>
         </ul>
-        <button class="btn btn-p" data-act="market-platforms">Browse platform listings</button>
+        <a href="/marketplace" class="btn btn-p" data-act="market-platforms">Browse platform listings</a>
       </div>
       <div class="dir-card">
         <span class="tag grn">For platform owners</span>
@@ -1984,7 +1984,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
           <li>Apply and accept the listed conditions, or send a counter-offer</li>
           <li>Begin work once funding is held pending verification</li>
         </ul>
-        <button class="btn btn-o" data-act="market-campaigns">Browse business campaigns</button>
+        <a href="/marketplace" class="btn btn-o" data-act="market-campaigns">Browse business campaigns</a>
       </div>
     </div>
   </section>
@@ -1999,7 +1999,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     <h2>Ready to start?</h2>
     <p>Find promotion for your brand, or monetise the audience you've already built.</p>
     <div class="split-cta">
-      <button class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</button>
+      <a href="/marketplace" class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</a>
       <button class="btn btn-o btn-lg final-cta-o" data-act="wiz-plat">Monetise your audience</button>
     </div>
   </div>
@@ -2014,23 +2014,23 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <div>
           <h4>Explore</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="market-platforms">Browse platform listings</button>
-            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
-            <button type="button" data-act="how">How it works</button>
-            <button type="button" data-act="protect">Payment Protection</button>
-            <button type="button" data-act="pricing">Pricing</button>
-            <button type="button" data-act="resources">Resources</button>
+            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+            <a href="/how-it-works" data-act="how">How it works</a>
+            <a href="/payment-protection" data-act="protect">Payment Protection</a>
+            <a href="/pricing" data-act="pricing">Pricing</a>
+            <a href="/resources" data-act="resources">Resources</a>
           </div>
         </div>
         <div>
           <h4>Company</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="about">About</button>
+            <a href="/about" data-act="about">About</a>
             <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="#" data-act="pricing">Fees</a>
-            <button type="button" data-act="terms">Terms</button>
-            <button type="button" data-act="privacy">Privacy</button>
-            <button type="button" data-act="refund-policy">Refund policy</button>
+            <a href="/pricing" data-act="pricing">Fees</a>
+            <a href="/terms" data-act="terms">Terms</a>
+            <a href="/privacy" data-act="privacy">Privacy</a>
+            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -2047,7 +2047,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-how" data-screen-label="How it works">
   <div class="page-head">
     <div class="page-head-in">
-      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> How it works</div>
+      <div class="page-crumb"><a href="/" data-act="home">Home</a> <span>/</span> How it works</div>
       <div class="eyebrow">How it works</div>
       <h1>From agreement to payout, every step stays clear.</h1>
       <p>Set the terms, fund the deal and follow delivery, evidence and payment in one place. PromoSlot verifies deliverables and evidence. It doesn't guarantee sales, virality or revenue unless that's explicitly written into the funded terms.</p>
@@ -2092,7 +2092,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     </div>
 
     <div class="dj-legal">
-      <p>PromoSlot reviews and approves submitted evidence against the agreed deliverables before payment is released. Commercial results such as sales, virality or revenue are only covered when explicitly included in the funded agreement. <a href="#" data-act="protect">Read the Payment Protection terms →</a></p>
+      <p>PromoSlot reviews and approves submitted evidence against the agreed deliverables before payment is released. Commercial results such as sales, virality or revenue are only covered when explicitly included in the funded agreement. <a href="/payment-protection" data-act="protect">Read the Payment Protection terms →</a></p>
     </div>
   </section>
 
@@ -2132,7 +2132,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     <h2>Ready to start?</h2>
     <p>Find promotion for your brand, or monetise the audience you've already built.</p>
     <div class="split-cta">
-      <button class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</button>
+      <a href="/marketplace" class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</a>
       <button class="btn btn-o btn-lg final-cta-o" data-act="wiz-plat">Monetise your audience</button>
     </div>
   </div>
@@ -2147,23 +2147,23 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <div>
           <h4>Explore</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="market-platforms">Browse platform listings</button>
-            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
-            <button type="button" data-act="how">How it works</button>
-            <button type="button" data-act="protect">Payment Protection</button>
-            <button type="button" data-act="pricing">Pricing</button>
-            <button type="button" data-act="resources">Resources</button>
+            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+            <a href="/how-it-works" data-act="how">How it works</a>
+            <a href="/payment-protection" data-act="protect">Payment Protection</a>
+            <a href="/pricing" data-act="pricing">Pricing</a>
+            <a href="/resources" data-act="resources">Resources</a>
           </div>
         </div>
         <div>
           <h4>Company</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="about">About</button>
+            <a href="/about" data-act="about">About</a>
             <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="#" data-act="pricing">Fees</a>
-            <button type="button" data-act="terms">Terms</button>
-            <button type="button" data-act="privacy">Privacy</button>
-            <button type="button" data-act="refund-policy">Refund policy</button>
+            <a href="/pricing" data-act="pricing">Fees</a>
+            <a href="/terms" data-act="terms">Terms</a>
+            <a href="/privacy" data-act="privacy">Privacy</a>
+            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -2180,7 +2180,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-pricing" data-screen-label="Pricing">
   <div class="page-head">
     <div class="page-head-in">
-      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Pricing</div>
+      <div class="page-crumb"><a href="/" data-act="home">Home</a> <span>/</span> Pricing</div>
       <div class="eyebrow">Pricing</div>
       <h1>Pricing example</h1>
       <p>No subscription. No listing fee. See exactly what you'll fund or receive before a deal begins.</p>
@@ -2245,7 +2245,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
       <div class="tile-light" style="cursor:default">
         <span class="tile-kicker" style="margin-bottom:0">When is a fee charged?</span>
         <span class="tile-body">Fees are only ever taken once a deal is completed, never before. Browsing, listing, messaging and negotiating stay free on both sides.</span>
-        <button type="button" data-act="protect" style="background:none;border:none;padding:0;cursor:pointer;font:600 14px var(--font-b);color:var(--acc-ink);text-align:left">Read the full terms →</button>
+        <a href="/payment-protection"  style="background:none;border:none;padding:0;cursor:pointer;font:600 14px var(--font-b);color:var(--acc-ink);text-align:left"data-act="protect">Read the full terms →</a>
       </div>
     </div>
     </div>
@@ -2263,7 +2263,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     <h2>Ready to start?</h2>
     <p>Find promotion for your brand, or monetise the audience you've already built.</p>
     <div class="split-cta">
-      <button class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</button>
+      <a href="/marketplace" class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</a>
       <button class="btn btn-o btn-lg final-cta-o" data-act="wiz-plat">Monetise your audience</button>
     </div>
   </div>
@@ -2278,23 +2278,23 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <div>
           <h4>Explore</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="market-platforms">Browse platform listings</button>
-            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
-            <button type="button" data-act="how">How it works</button>
-            <button type="button" data-act="protect">Payment Protection</button>
-            <button type="button" data-act="pricing">Pricing</button>
-            <button type="button" data-act="resources">Resources</button>
+            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+            <a href="/how-it-works" data-act="how">How it works</a>
+            <a href="/payment-protection" data-act="protect">Payment Protection</a>
+            <a href="/pricing" data-act="pricing">Pricing</a>
+            <a href="/resources" data-act="resources">Resources</a>
           </div>
         </div>
         <div>
           <h4>Company</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="about">About</button>
+            <a href="/about" data-act="about">About</a>
             <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="#" data-act="pricing">Fees</a>
-            <button type="button" data-act="terms">Terms</button>
-            <button type="button" data-act="privacy">Privacy</button>
-            <button type="button" data-act="refund-policy">Refund policy</button>
+            <a href="/pricing" data-act="pricing">Fees</a>
+            <a href="/terms" data-act="terms">Terms</a>
+            <a href="/privacy" data-act="privacy">Privacy</a>
+            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -2311,7 +2311,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-protect" data-screen-label="Payment Protection">
   <div class="page-head">
     <div class="page-head-in">
-      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Payment Protection</div>
+      <div class="page-crumb"><a href="/" data-act="home">Home</a> <span>/</span> Payment Protection</div>
       <div class="eyebrow">Payment Protection</div>
       <h1>Funds are held until delivery is verified.</h1>
       <p>PromoSlot holds the funded amount from the moment a deal is agreed, and only releases it once a reviewer has checked the submitted evidence against the accepted terms.</p>
@@ -2377,7 +2377,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     <h2>Ready to start?</h2>
     <p>Find promotion for your brand, or monetise the audience you've already built.</p>
     <div class="split-cta">
-      <button class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</button>
+      <a href="/marketplace" class="btn btn-p btn-lg" data-act="market-platforms">Find promotion</a>
       <button class="btn btn-o btn-lg final-cta-o" data-act="wiz-plat">Monetise your audience</button>
     </div>
   </div>
@@ -2392,23 +2392,23 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <div>
           <h4>Explore</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="market-platforms">Browse platform listings</button>
-            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
-            <button type="button" data-act="how">How it works</button>
-            <button type="button" data-act="protect">Payment Protection</button>
-            <button type="button" data-act="pricing">Pricing</button>
-            <button type="button" data-act="resources">Resources</button>
+            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+            <a href="/how-it-works" data-act="how">How it works</a>
+            <a href="/payment-protection" data-act="protect">Payment Protection</a>
+            <a href="/pricing" data-act="pricing">Pricing</a>
+            <a href="/resources" data-act="resources">Resources</a>
           </div>
         </div>
         <div>
           <h4>Company</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="about">About</button>
+            <a href="/about" data-act="about">About</a>
             <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="#" data-act="pricing">Fees</a>
-            <button type="button" data-act="terms">Terms</button>
-            <button type="button" data-act="privacy">Privacy</button>
-            <button type="button" data-act="refund-policy">Refund policy</button>
+            <a href="/pricing" data-act="pricing">Fees</a>
+            <a href="/terms" data-act="terms">Terms</a>
+            <a href="/privacy" data-act="privacy">Privacy</a>
+            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -2425,7 +2425,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-resources" data-screen-label="Resources">
   <div class="page-head">
     <div class="page-head-in">
-      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Resources</div>
+      <div class="page-crumb"><a href="/" data-act="home">Home</a> <span>/</span> Resources</div>
       <div class="eyebrow">Resources</div>
       <h1>Guides on audience-led promotion.</h1>
       <p>A growing library of practical guidance on choosing platforms, agreeing deliverables, payment models and evidence.</p>
@@ -2613,13 +2613,13 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   <section class="section" style="padding-top:10px;padding-bottom:56px">
     <div class="res-lib">
       <div class="tile-row">
-        <button type="button" class="tile-dark" data-act="how">
+        <a href="/how-it-works" class="tile-dark" data-act="how">
           <span class="tile-kicker">How PromoSlot works</span>
           <span class="tile-title">See a deal run end to end</span>
           <span class="tile-body">Follow one partnership from accepted terms through evidence, review and payout.</span>
           <span class="tile-cta">Open the deal journey →</span>
-        </button>
-        <a href="#" class="tile-light" data-act="market">
+        </a>
+        <a href="/marketplace" class="tile-light" data-act="market">
           <span class="tile-kicker">Marketplace</span>
           <span class="tile-title">Read a few real listings</span>
           <span class="tile-body">The fastest way to calibrate the guidance above is to open three listings in the same niche and compare what each one will actually evidence.</span>
@@ -2639,23 +2639,23 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <div>
           <h4>Explore</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="market-platforms">Browse platform listings</button>
-            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
-            <button type="button" data-act="how">How it works</button>
-            <button type="button" data-act="protect">Payment Protection</button>
-            <button type="button" data-act="pricing">Pricing</button>
-            <button type="button" data-act="resources">Resources</button>
+            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+            <a href="/how-it-works" data-act="how">How it works</a>
+            <a href="/payment-protection" data-act="protect">Payment Protection</a>
+            <a href="/pricing" data-act="pricing">Pricing</a>
+            <a href="/resources" data-act="resources">Resources</a>
           </div>
         </div>
         <div>
           <h4>Company</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="about">About</button>
+            <a href="/about" data-act="about">About</a>
             <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="#" data-act="pricing">Fees</a>
-            <button type="button" data-act="terms">Terms</button>
-            <button type="button" data-act="privacy">Privacy</button>
-            <button type="button" data-act="refund-policy">Refund policy</button>
+            <a href="/pricing" data-act="pricing">Fees</a>
+            <a href="/terms" data-act="terms">Terms</a>
+            <a href="/privacy" data-act="privacy">Privacy</a>
+            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -2697,7 +2697,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     <p data-rise="18" style="margin:0;max-width:52ch;font-size:clamp(15px,1.15vw,17.5px);line-height:1.65;color:var(--navy-sub)">The direct line between businesses and the people who move audiences: no agency in between, no cold DMs, no guessing what a partnership is actually worth.</p>
     <div data-rise="18" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start">
       <button class="btn btn-p btn-lg" data-magnetic="1" data-act="get-started" type="button">Start your profile</button>
-      <button class="btn btn-o btn-lg final-cta-o" data-magnetic="1" data-act="how" type="button">See how it works</button>
+      <a href="/how-it-works" class="btn btn-o btn-lg final-cta-o" data-magnetic="1"data-act="how">See how it works</a>
     </div>
   </div>
 </header>
@@ -3140,7 +3140,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(28px,4vw,64px);align-items:end;margin-top:clamp(40px,6vh,76px);border-top:1px solid rgba(255,255,255,.09);padding-top:clamp(24px,3vh,40px)">
       <p data-rise="16" style="margin:0;max-width:44ch;font-size:15.5px;line-height:1.7;color:var(--navy-sub)">Create a profile, list what you offer, or post the first campaign in your category.</p>
       <div data-rise="16" style="display:flex;flex-wrap:wrap;gap:12px">
-        <button class="btn btn-p btn-lg" data-magnetic="1" data-act="market-platforms" type="button">Find promotion</button>
+        <a href="/marketplace" class="btn btn-p btn-lg" data-magnetic="1"data-act="market-platforms">Find promotion</a>
         <button class="btn btn-o btn-lg final-cta-o" data-magnetic="1" data-act="wiz-plat" type="button">Monetise your audience</button>
       </div>
     </div>
@@ -3157,23 +3157,23 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <div>
           <h4>Explore</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="market-platforms">Browse platform listings</button>
-            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
-            <button type="button" data-act="how">How it works</button>
-            <button type="button" data-act="protect">Payment Protection</button>
-            <button type="button" data-act="pricing">Pricing</button>
-            <button type="button" data-act="resources">Resources</button>
+            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+            <a href="/how-it-works" data-act="how">How it works</a>
+            <a href="/payment-protection" data-act="protect">Payment Protection</a>
+            <a href="/pricing" data-act="pricing">Pricing</a>
+            <a href="/resources" data-act="resources">Resources</a>
           </div>
         </div>
         <div>
           <h4>Company</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="about">About</button>
+            <a href="/about" data-act="about">About</a>
             <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="#" data-act="pricing">Fees</a>
-            <button type="button" data-act="terms">Terms</button>
-            <button type="button" data-act="privacy">Privacy</button>
-            <button type="button" data-act="refund-policy">Refund policy</button>
+            <a href="/pricing" data-act="pricing">Fees</a>
+            <a href="/terms" data-act="terms">Terms</a>
+            <a href="/privacy" data-act="privacy">Privacy</a>
+            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -3190,7 +3190,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-terms" data-screen-label="Terms of Service">
   <div class="page-head">
     <div class="page-head-in">
-      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Terms of Service</div>
+      <div class="page-crumb"><a href="/" data-act="home">Home</a> <span>/</span> Terms of Service</div>
       <div class="eyebrow">Terms of Service</div>
       <h1>The terms that govern using PromoSlot.</h1>
       <p>Last updated 24 August 2026. By creating an account or using PromoSlot, you agree to these terms, our Privacy Policy and our Refund Policy.</p>
@@ -3315,23 +3315,23 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <div>
           <h4>Explore</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="market-platforms">Browse platform listings</button>
-            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
-            <button type="button" data-act="how">How it works</button>
-            <button type="button" data-act="protect">Payment Protection</button>
-            <button type="button" data-act="pricing">Pricing</button>
-            <button type="button" data-act="resources">Resources</button>
+            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+            <a href="/how-it-works" data-act="how">How it works</a>
+            <a href="/payment-protection" data-act="protect">Payment Protection</a>
+            <a href="/pricing" data-act="pricing">Pricing</a>
+            <a href="/resources" data-act="resources">Resources</a>
           </div>
         </div>
         <div>
           <h4>Company</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="about">About</button>
+            <a href="/about" data-act="about">About</a>
             <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="#" data-act="pricing">Fees</a>
-            <button type="button" data-act="terms">Terms</button>
-            <button type="button" data-act="privacy">Privacy</button>
-            <button type="button" data-act="refund-policy">Refund policy</button>
+            <a href="/pricing" data-act="pricing">Fees</a>
+            <a href="/terms" data-act="terms">Terms</a>
+            <a href="/privacy" data-act="privacy">Privacy</a>
+            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -3348,7 +3348,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-privacy" data-screen-label="Privacy Policy">
   <div class="page-head">
     <div class="page-head-in">
-      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Privacy Policy</div>
+      <div class="page-crumb"><a href="/" data-act="home">Home</a> <span>/</span> Privacy Policy</div>
       <div class="eyebrow">Privacy Policy</div>
       <h1>How we handle your data.</h1>
       <p>Last updated 27 August 2026. This explains how PromoSlot collects, uses and protects your personal data.</p>
@@ -3455,23 +3455,23 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <div>
           <h4>Explore</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="market-platforms">Browse platform listings</button>
-            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
-            <button type="button" data-act="how">How it works</button>
-            <button type="button" data-act="protect">Payment Protection</button>
-            <button type="button" data-act="pricing">Pricing</button>
-            <button type="button" data-act="resources">Resources</button>
+            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+            <a href="/how-it-works" data-act="how">How it works</a>
+            <a href="/payment-protection" data-act="protect">Payment Protection</a>
+            <a href="/pricing" data-act="pricing">Pricing</a>
+            <a href="/resources" data-act="resources">Resources</a>
           </div>
         </div>
         <div>
           <h4>Company</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="about">About</button>
+            <a href="/about" data-act="about">About</a>
             <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="#" data-act="pricing">Fees</a>
-            <button type="button" data-act="terms">Terms</button>
-            <button type="button" data-act="privacy">Privacy</button>
-            <button type="button" data-act="refund-policy">Refund policy</button>
+            <a href="/pricing" data-act="pricing">Fees</a>
+            <a href="/terms" data-act="terms">Terms</a>
+            <a href="/privacy" data-act="privacy">Privacy</a>
+            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
           </div>
           <div class="footer-support"></div>
         </div>
@@ -3488,7 +3488,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 <div class="view" id="view-refund-policy" data-screen-label="Refund Policy">
   <div class="page-head">
     <div class="page-head-in">
-      <div class="page-crumb"><button type="button" data-act="home">Home</button> <span>/</span> Refund Policy</div>
+      <div class="page-crumb"><a href="/" data-act="home">Home</a> <span>/</span> Refund Policy</div>
       <div class="eyebrow">Refund Policy</div>
       <h1>What happens to funds when a deal doesn't complete.</h1>
       <p>Last updated 24 August 2026. Operated by PromoSlot Ltd (company number SC899931); see the Terms of Service, Section 1.</p>
@@ -3549,23 +3549,23 @@ body[data-role="plat"] .role-biz-only{display:none!important}
         <div>
           <h4>Explore</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="market-platforms">Browse platform listings</button>
-            <button type="button" data-act="market-campaigns">Browse business campaigns</button>
-            <button type="button" data-act="how">How it works</button>
-            <button type="button" data-act="protect">Payment Protection</button>
-            <button type="button" data-act="pricing">Pricing</button>
-            <button type="button" data-act="resources">Resources</button>
+            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+            <a href="/how-it-works" data-act="how">How it works</a>
+            <a href="/payment-protection" data-act="protect">Payment Protection</a>
+            <a href="/pricing" data-act="pricing">Pricing</a>
+            <a href="/resources" data-act="resources">Resources</a>
           </div>
         </div>
         <div>
           <h4>Company</h4>
           <div class="footer-v3-links">
-            <button type="button" data-act="about">About</button>
+            <a href="/about" data-act="about">About</a>
             <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="#" data-act="pricing">Fees</a>
-            <button type="button" data-act="terms">Terms</button>
-            <button type="button" data-act="privacy">Privacy</button>
-            <button type="button" data-act="refund-policy">Refund policy</button>
+            <a href="/pricing" data-act="pricing">Fees</a>
+            <a href="/terms" data-act="terms">Terms</a>
+            <a href="/privacy" data-act="privacy">Privacy</a>
+            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
           </div>
           <div class="footer-support"></div>
         </div>
