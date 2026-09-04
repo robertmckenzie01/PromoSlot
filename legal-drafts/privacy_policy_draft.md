@@ -2,7 +2,7 @@
 
 **⚠️ This is a starting draft, not a finished legal document.** Get this reviewed before publishing — data protection law (UK GDPR / EU GDPR depending on your users) has specific requirements a draft can't fully satisfy on its own, and getting it wrong carries real regulatory risk once you have real users' data.
 
-*Last updated: 22 August 2026*
+*Last updated: 4 September 2026*
 
 ## 1. Who this applies to
 
@@ -62,6 +62,10 @@ PromoSlot's infrastructure is hosted in the EU (Ireland for the application, Fra
 - **You can also deactivate your account instead** — a reversible pause, not a deletion. Your data isn't touched at all; your profile and listings are just hidden until you log back in, which un-hides everything automatically.
 - If your account is banned, we keep a minimal record (your email address, the date, and the reason) even if the account is later deleted, so the same email can't simply be used to sign up again. This record is removed if the ban is lifted.
 
+## 7A. Security
+
+We use reasonable technical and organisational measures to protect your data, including encrypting data in transit, hashing passwords (never stored in plain text), and restricting access to user data internally to what someone's role actually requires. No method of storing or transmitting data online is completely secure, and we can't guarantee absolute security — but we take this seriously, and this section will be reviewed as the platform grows.
+
 ## 8. Your rights
 
 Depending on your location, you may have the right to:
@@ -71,6 +75,8 @@ Depending on your location, you may have the right to:
 - Object to or restrict certain processing.
 - Request a copy of your data in a portable format.
 - Withdraw consent where processing is based on consent.
+
+We won't treat you differently, or make the service worse for you, because you've exercised any of these rights.
 
 To exercise these rights, contact support@usepromoslot.com. If you're not satisfied with our response, you can complain to the UK's Information Commissioner's Office (ICO) at ico.org.uk.
 
@@ -84,7 +90,7 @@ Because both are strictly necessary, UK/EU cookie law doesn't require a consent 
 
 ## 10. Children
 
-PromoSlot is not intended for anyone under 18. We don't knowingly collect data from minors.
+PromoSlot is not intended for anyone under 18, and we do not knowingly allow anyone under 18 to create an account, including with a parent or guardian's permission. If we learn that an account belongs to someone under 18, we terminate it and delete their data, in the same way described in Section 7.
 
 ## 11. Changes to this policy
 
