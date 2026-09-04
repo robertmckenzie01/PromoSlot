@@ -18,6 +18,8 @@ By creating an account or using PromoSlot, you agree to these Terms of Service, 
 
 You must be at least 18 years old and able to form a binding contract to use PromoSlot. If you're using PromoSlot on behalf of a company, you confirm you have authority to bind that company to these terms.
 
+You also confirm that you're not subject to UK financial sanctions and aren't located in, or acting on behalf of someone in, a country subject to comprehensive UK or UN sanctions. Our payment processor (Stripe) independently screens accounts as part of its own compliance obligations, and PromoSlot may suspend or terminate an account where required by law.
+
 ## 4. Accounts
 
 - You're responsible for keeping your login credentials secure and for all activity under your account.
@@ -39,6 +41,7 @@ PromoSlot is a marketplace that holds funds pending verification on behalf of bo
 - **Buyer protection fee:** PromoSlot adds a **5%** fee on top of the agreed price, charged to the Business Owner at the time of funding.
 - Fees are only charged when a deal completes and funds move. Creating an account, publishing a listing, or publishing a campaign is free.
 - `[Confirm: are fees ever charged on a partially-completed or disputed deal? Needs a decision.]`
+- Businesses and Platform Owners are responsible for their own tax obligations arising from amounts paid or received through PromoSlot. PromoSlot doesn't withhold tax or provide tax advice.
 
 ## 7. Payments and funds held pending verification
 
@@ -77,6 +80,8 @@ You agree not to:
 
 Content that appears to show the sexual abuse or exploitation of a child is treated as a standing exception to every process elsewhere in these terms: it is removed on sight, the responsible account is banned immediately without the review steps described in Section 14, and PromoSlot reports it to the Internet Watch Foundation and/or the National Crime Agency as appropriate, regardless of anything else in this document.
 
+Sharing, or threatening to share, an intimate image of someone without their consent — including an AI-generated or "deepfake" image that appears to show a real person — is a criminal offence under the Sexual Offences Act 2003 and is never permitted on PromoSlot, regardless of context. This is treated the same way as the CSAM exception above: the content is removed on sight and the responsible account is banned immediately. PromoSlot aims to act on a valid report of this kind within 48 hours, and will point the person affected to [StopNCII.org](https://stopncii.org) and the Revenge Porn Helpline (0345 6000 459, [revengepornhelpline.org.uk](https://revengepornhelpline.org.uk)), independent of anything else in this document. This is a serious criminal matter and you should also consider reporting it to the police.
+
 Submitting delivery evidence that later turns out to be genuinely mistaken or incomplete is not, by itself, a breach of this section — see Section 8 on the review process. Deliberately fabricating, altering, or submitting misleading evidence is a breach of this section and may lead to account suspension or termination under Section 14.
 
 ## 11A. Reporting content or a user
@@ -84,6 +89,14 @@ Submitting delivery evidence that later turns out to be genuinely mistaken or in
 If you believe a listing, campaign, message, or piece of delivered content breaches these terms or is illegal, email support@usepromoslot.com describing what you saw and where. A person reviews every report and we aim to respond within 2 business days. Depending on what we find, PromoSlot may remove the content, warn the account responsible, or suspend or terminate it under Section 14.
 
 PromoSlot's Director, Robert McKenzie, is the person accountable for handling illegal-content reports and complaints under this section.
+
+## 11B. Advertising disclosure
+
+Content posted under a PromoSlot deal is paid promotion. UK advertising law (the CAP Code, enforced by the Advertising Standards Authority, alongside the Competition and Markets Authority's rules on unfair commercial practices) requires it to be disclosed clearly and immediately — for example with "#ad", "Advert", or "Paid partnership with [Business]" at the very start of the post or overlaid on video content, not buried in a list of hashtags or hidden text.
+
+The Platform Owner posting the content is responsible for disclosing it correctly. Under current UK guidance, the Business Owner paying for it shares that responsibility even where the content was created entirely by the Platform Owner, and must not ask a Platform Owner to hide, minimise, or omit a required disclosure — doing so is itself a breach of Section 11.
+
+PromoSlot does not pre-approve or monitor individual posts for advertising-disclosure compliance, and is not liable for a user's failure to disclose. A pattern of non-disclosure reported to PromoSlot may result in account action under Section 14.
 
 ## 12. Content, messaging and intellectual property
 
