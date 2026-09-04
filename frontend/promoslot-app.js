@@ -1960,7 +1960,7 @@ function renderListingModal(l,tab){
         <span class="op">${priceTagHtml(p)}</span>
         <button class="btn btn-p btn-sm" onclick="event.stopPropagation();buyOffer('${l.id}',${i})">${p.type==="custom"?"Request quote":"Buy offer"}</button>
       </div>`).join("")}
-      <div class="note blue">🔒 Payment is held pending verification before work starts and released only when the agreed delivery conditions are verified. PromoSlot's fee is 10% seller fee + 5% buyer protection fee, both on the agreed price.</div></div>`;
+      ${PRICING_LINK_HTML}</div>`;
   } else if(tab==="about"){
     body = `<div class="det-sec"><h5>Audience analytics <span class="tag grn" style="margin-left:6px">${l.verified?"Analytics evidence verified ✔":"Self-reported"}</span></h5>
       <div class="statrow big" style="margin-bottom:12px">
