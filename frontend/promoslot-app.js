@@ -2,28 +2,6 @@
 if(window.PSBoot) return;
 /* PromoSlot app logic — visual/interaction upgrade layer. Flows, fields and IA are final (per brief). */
 
-/* ============================================================
-   SUPPORT CONTACT DETAILS — PLACEHOLDERS.
-   Swap these three values for the real details a few days before launch.
-   This is the ONLY place to change them (rendered into the footer).
-   ============================================================ */
-const SUPPORT_INFO = {
-  email:   "[Business Email: placeholder]",
-  mobile:  "[Mobile Number: placeholder]",
-  address: "[Business Address: placeholder]",
-};
-function renderFooterSupport(){
-  // Public pages each carry their own footer (same pattern as the original
-  // single-footer landing page), so this now targets every copy by class
-  // rather than one id — querySelectorAll, not getElementById.
-  document.querySelectorAll(".footer-support").forEach(el=>{
-    el.innerHTML=`
-      <div class="fs-row"><span>Business Email:</span> ${esc(SUPPORT_INFO.email)}</div>
-      <div class="fs-row"><span>Mobile Number:</span> ${esc(SUPPORT_INFO.mobile)}</div>
-      <div class="fs-row"><span>Business Address:</span> ${esc(SUPPORT_INFO.address)}</div>`;
-  });
-}
-
 /* ==================== SEEDED DATA ==================== */
 /* Brand marks sourced from Simple Icons (simpleicons.org, MIT-licensed) — official
    logo shapes, rendered with fill="currentColor" so each inherits its badge color.
@@ -7738,7 +7716,6 @@ function PSBoot(){
   renderHeroChips();
   renderHeroPreview();
   renderPlatBrowseChips();
-  renderFooterSupport();
   wireNavDropdowns();
   djRender();
   djBindControls();
