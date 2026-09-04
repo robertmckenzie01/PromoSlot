@@ -81,7 +81,9 @@ Submitting delivery evidence that later turns out to be genuinely mistaken or in
 
 ## 11A. Reporting content or a user
 
-If you believe a listing, campaign, message, or piece of delivered content breaches these terms or is illegal, email support@usepromoslot.com describing what you saw and where. A person reviews every report. Depending on what we find, PromoSlot may remove the content, warn the account responsible, or suspend or terminate it under Section 14. `[Set a real response-time commitment here once you have one you can actually hold to — a working, responsive reporting channel is expected, not just an inbox that goes quiet.]`
+If you believe a listing, campaign, message, or piece of delivered content breaches these terms or is illegal, email support@usepromoslot.com describing what you saw and where. A person reviews every report and we aim to respond within 2 business days. Depending on what we find, PromoSlot may remove the content, warn the account responsible, or suspend or terminate it under Section 14.
+
+PromoSlot's Director, Robert McKenzie, is the person accountable for handling illegal-content reports and complaints under this section.
 
 ## 12. Content, messaging and intellectual property
 
