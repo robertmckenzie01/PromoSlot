@@ -1717,6 +1717,57 @@ body[data-role="plat"] .role-biz-only{display:none!important}
   #toasts{bottom:12px;width:calc(100vw - 24px)}
   .toast{width:100%;justify-content:flex-start}
 }
+
+/* About page: illustrative-journey constellation trail, thread explorer
+   reveal, generic scroll-reveal utility. Added for the About page rebuild;
+   see about-page.js for the logic that drives these classes. */
+@keyframes lineUp{from{transform:translateY(105%)}to{transform:translateY(0)}}
+@keyframes riseIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes djInA{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@keyframes djInB{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+[data-rv]{opacity:0;transform:translateY(26px);transition:opacity .78s cubic-bezier(.22,1,.36,1),transform .78s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
+[data-rv].rv-in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){[data-rv]{opacity:1;transform:none;transition:none}}
+.aj-const{position:relative;display:flex;flex-direction:column;gap:clamp(18px,3vh,42px);padding:12px 4px 8px}
+.aj-trail-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:0}
+.aj-cnode{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-start;min-width:0;transition:opacity .55s cubic-bezier(.22,1,.36,1),filter .55s cubic-bezier(.22,1,.36,1)}
+.aj-cnode{width:var(--w,320px);max-width:100%;flex:none;margin-left:min(var(--off,0px),max(0px,100% - var(--w,320px)))}
+.aj-cnode > article,.aj-cnode > div{width:100%!important;box-sizing:border-box}
+.aj-cnode .stepper{overflow:hidden}
+.aj-cnode .step{min-width:72px;font-size:10.5px}
+.aj-cnode .step .dot{width:26px;height:26px;font-size:11.5px}
+.aj-cnode .stepper-track{top:25px;left:44px;right:44px}
+.aj-cnode .pfp-wrap{flex:none;min-width:62px;display:flex;justify-content:center}
+.aj-cnode > :not(.aj-dot):not(.aj-label){transform-origin:0 0;transition:opacity .62s cubic-bezier(.22,1,.36,1),transform .62s cubic-bezier(.22,1,.36,1)}
+.aj-cnode.cn-locked{opacity:.42;filter:saturate(.12)}
+.aj-cnode.cn-locked > :not(.aj-dot):not(.aj-label){opacity:0;transform:scale(.93) translateY(10px);pointer-events:none}
+.aj-cnode.cn-locked .aj-label{color:#a9b4c4}
+.aj-cnode.cn-locked .aj-dot{background:#c2cbd8;box-shadow:0 0 0 4px rgba(160,174,192,.14)}
+.aj-cnode.cn-arriving .aj-dot,.aj-cnode.cn-done .aj-dot{background:#4f46e5;box-shadow:0 0 0 6px rgba(79,70,229,.16)}
+.aj-cnode.cn-arriving .aj-label,.aj-cnode.cn-done .aj-label{color:#5f6e85}
+.aj-mobile{position:relative;display:none}
+.aj-mtrail{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:0}
+.aj-mrow{position:relative;z-index:1;transition:opacity .5s cubic-bezier(.22,1,.36,1),filter .5s cubic-bezier(.22,1,.36,1)}
+.aj-mrow:nth-child(3n+2){margin-left:20px}
+.aj-mrow:nth-child(3n){margin-left:9px}
+.aj-mrow > :not(.aj-mlabel){transform-origin:0 0;transition:opacity .6s cubic-bezier(.22,1,.36,1),transform .6s cubic-bezier(.22,1,.36,1)}
+.aj-mrow.cn-locked{opacity:.42;filter:saturate(.12)}
+.aj-mrow.cn-locked > :not(.aj-mlabel){opacity:0;transform:scale(.94) translateY(10px)}
+.aj-mrow.cn-locked::before{background:#c2cbd8;box-shadow:0 0 0 4px rgba(160,174,192,.14)}
+.aj-mrow.cn-arriving::before,.aj-mrow.cn-done::before{background:#4f46e5;box-shadow:0 0 0 6px rgba(79,70,229,.16)}
+@media (max-width:900px){.aj-const,.aj-rail-caption{display:none}.aj-mobile{display:flex;flex-direction:column;gap:22px}}
+@media (prefers-reduced-motion:reduce){
+  .aj-cnode,.aj-mrow{opacity:1!important;filter:none!important}
+  .aj-cnode > :not(.aj-dot):not(.aj-label),.aj-mrow > :not(.aj-mlabel){opacity:1!important;transform:none!important;transition:none}
+}
+.about-journey{background:#f4f7fb;border:1px solid #e2e8f0;border-radius:18px;padding:clamp(20px,3vw,32px)}
+.aj-tag{color:#4338ca;background:#eef2ff;border:1px solid #c7d2fe;position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:6px 14px 6px 11px;border-radius:99px;margin-bottom:clamp(22px,4vw,34px)}
+.aj-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:#4f46e5}
+.aj-label{color:#6b7c94;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px;display:block}
+.aj-mlabel{color:#6b7c94;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px;display:block;padding-left:26px}
+.aj-rail-caption{color:#8291a6;font-size:12.5px;margin-top:18px;display:block}
+.aj-dot{background:#4f46e5;width:10px;height:10px;border-radius:50%;display:block;position:absolute;left:-3px;top:2px}
+.aj-frag{background:#fff;border:1px solid #d9dfe8;border-radius:12px}
 </style>
 </head>
 <body>
@@ -2671,236 +2722,129 @@ body[data-role="plat"] .role-biz-only{display:none!important}
 
 <div class="view" id="view-about" data-screen-label="About">
 
-<!-- ============ HERO: full-bleed navy, oversized kinetic Newsreader ============ -->
-<header id="about-hero" style="position:relative;min-height:min(92vh,940px);display:flex;flex-direction:column;justify-content:space-between;gap:clamp(56px,9vh,120px);padding:clamp(56px,9vh,108px) clamp(20px,5vw,72px) clamp(40px,6vh,72px);overflow:hidden;background:var(--navy)">
-  <div data-parallax="0.05" style="position:absolute;inset:-10% 0;display:grid;grid-template-columns:repeat(6,1fr);pointer-events:none">
-    <span style="border-left:1px solid rgba(255,255,255,.045)"></span>
-    <span style="border-left:1px solid rgba(255,255,255,.045)"></span>
-    <span style="border-left:1px solid rgba(165,180,252,.10)"></span>
-    <span style="border-left:1px solid rgba(255,255,255,.045)"></span>
-    <span style="border-left:1px solid rgba(255,255,255,.045)"></span>
-    <span style="border-left:1px solid rgba(255,255,255,.045);border-right:1px solid rgba(255,255,255,.045)"></span>
+<header id="about-hero" style="position:relative;overflow:hidden;background:var(--bg);padding:clamp(56px,9vh,104px) clamp(20px,5vw,72px) clamp(40px,6vh,68px);min-height:min(96vh,1000px);display:flex;flex-direction:column;justify-content:space-between;gap:clamp(48px,9vh,110px)">
+  <div style="position:absolute;inset:-10% 0;display:grid;grid-template-columns:repeat(6,1fr);pointer-events:none">
+    <span style="border-left:1px solid rgba(20,39,63,.055)"></span>
+    <span style="border-left:1px solid rgba(20,39,63,.055)"></span>
+    <span style="border-left:1px solid rgba(79,70,229,.16)"></span>
+    <span style="border-left:1px solid rgba(20,39,63,.055)"></span>
+    <span style="border-left:1px solid rgba(20,39,63,.055)"></span>
+    <span style="border-left:1px solid rgba(20,39,63,.055);border-right:1px solid rgba(20,39,63,.055)"></span>
   </div>
 
-  <div style="position:relative;max-width:1320px;width:100%;margin:0 auto">
-    <div data-rise="10" style="display:flex;align-items:center;gap:14px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--navy-acc)">
-      <span style="width:clamp(28px,6vw,72px);height:1px;background:var(--navy-acc);opacity:.6"></span>About PromoSlot
+  <div id="ajBgField" style="position:absolute;inset:0;overflow:hidden;pointer-events:none"></div>
+  <div style="position:absolute;inset:0;z-index:4;pointer-events:none;background:rgba(242,244,247,.74)"></div>
+
+  <div style="position:relative;z-index:5;pointer-events:none;max-width:1320px;width:100%;margin:0 auto">
+    <div data-rise="6" style="display:flex;align-items:center;gap:14px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#4338ca">
+      <span style="width:clamp(28px,6vw,72px);height:1px;background:#c7d2fe;opacity:.6"></span>About PromoSlot
     </div>
-    <h1 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(40px,7.5vw,114px);line-height:.98;letter-spacing:-.035em;color:#fff;margin:clamp(24px,4vh,46px) 0 0;max-width:19ch">
-      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">Promotion is becoming</span></span>
-      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block"><em style="font-style:italic;font-weight:400;color:var(--navy-acc)">a marketplace</em>, not a</span></span>
-      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="2" style="display:block">favor economy.</span></span>
+    <h1 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(40px,7.4vw,112px);line-height:.98;letter-spacing:-.035em;color:#14273f;margin:clamp(24px,4vh,46px) 0 0;max-width:19ch">
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span style="display:block;animation:lineUp .9s cubic-bezier(.22,1,.36,1) both">Marketing has changed.</span></span>
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span style="display:block;animation:lineUp .9s .09s cubic-bezier(.22,1,.36,1) both">Most of the industry</span></span>
+      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span style="display:block;animation:lineUp .9s .18s cubic-bezier(.22,1,.36,1) both"><em style="font-style:italic;font-weight:400;color:#4338ca">hasn't.</em></span></span>
     </h1>
   </div>
 
-  <div style="position:relative;max-width:1320px;width:100%;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(28px,4vw,64px);align-items:end;border-top:1px solid rgba(255,255,255,.09);padding-top:clamp(24px,3vh,40px)">
-    <p data-rise="18" style="margin:0;max-width:52ch;font-size:clamp(15px,1.15vw,17.5px);line-height:1.65;color:var(--navy-sub)">The direct line between businesses and the people who move audiences: no agency in between, no cold DMs, no guessing what a partnership is actually worth.</p>
-    <div data-rise="18" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start">
-      <button class="btn btn-p btn-lg" data-magnetic="1" data-act="get-started" type="button">Start your profile</button>
-      <a href="/how-it-works" class="btn btn-o btn-lg final-cta-o" data-magnetic="1"data-act="how">See how it works</a>
+  <div style="position:relative;z-index:5;pointer-events:none;max-width:1320px;width:100%;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(28px,4vw,64px);align-items:end;border-top:1px solid #d9dfe8;padding-top:clamp(24px,3vh,40px);animation:riseIn .8s .35s cubic-bezier(.22,1,.36,1) both">
+    <p style="margin:0;max-width:54ch;font-size:clamp(15px,1.15vw,17.5px);line-height:1.65;color:#5f6e85;text-wrap:pretty">Promotion used to run on favours. It runs on published listings and written terms now. Pick a thread below: each one shows the old way and what replaces it here.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:12px">
+      <button type="button" id="ajGoThreads" style="pointer-events:auto;display:inline-flex;align-items:center;gap:9px;border-radius:13px;border:1px solid transparent;background:#4f46e5;color:#fff;font-weight:700;font-size:16px;padding:14px 26px;transition:all .18s cubic-bezier(.22,1,.36,1)">See how <span style="font-size:15px">↓</span></button>
+      <a href="/how-it-works" data-act="how" style="pointer-events:auto;display:inline-flex;align-items:center;gap:7px;border-radius:13px;border:1px solid #d9dfe8;background:none;color:#14273f;font-weight:700;font-size:16px;padding:14px 26px;transition:all .18s cubic-bezier(.22,1,.36,1)">How it works</a>
     </div>
   </div>
 </header>
 
-<!-- ============ WHAT'S CHANGING: sticky headline column + a paired ledger (old struck / new stated) ============ -->
-<section style="background:var(--bg);color:var(--ink);padding:clamp(72px,13vh,168px) clamp(20px,5vw,72px)">
-  <div style="max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:clamp(40px,5vw,88px);align-items:start">
-    <div style="position:sticky;top:88px">
-      <div data-rise="10" style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--acc2)">
-        <span style="width:34px;height:1px;background:var(--acc-border)"></span>What's changing
-      </div>
-      <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(32px,4.6vw,64px);line-height:1.02;letter-spacing:-.03em;margin:20px 0 0;max-width:16ch">
-        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">The old system</span></span>
-        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block"><em style="font-style:italic;font-weight:400;color:var(--mut)">vs.</em> the open</span></span>
-        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="2" style="display:block">marketplace</span></span>
-      </h2>
-      <p data-rise="16" style="margin:26px 0 0;max-width:44ch;font-size:15.5px;line-height:1.7;color:var(--mut)">Promotion used to happen in the gaps between a DM inbox, a rate card nobody actually charges, and a memory of who said what. None of that scales, and none of it is checkable.</p>
-    </div>
-
-    <div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);font-size:10.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);padding-bottom:14px">
-        <span>The old system</span><span style="color:var(--acc2)">The open marketplace</span>
-      </div>
-      <ol style="list-style:none;margin:0;padding:0">
-        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
-          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">Outreach that disappears into a DM inbox</span>
-          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">A public listing with real numbers, priced and readable</span>
-        </li>
-        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
-          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">An agency fee before either side has agreed anything</span>
-          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">Direct terms, agreed in writing by both sides</span>
-        </li>
-        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
-          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">A "rate card" that isn't the actual rate</span>
-          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">Funds held the moment a deal is funded</span>
-        </li>
-        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
-          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">No record of what was promised, so nothing to point back to</span>
-          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">Evidence: a link, a screenshot, an analytics screen, not a memory</span>
-        </li>
-        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line)">
-          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">Payment on trust, or long after delivery</span>
-          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">Money held before work starts, released only once delivery is verified — so nobody pays on a promise, and nobody works on one either</span>
-        </li>
-        <li data-pair="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(20px,3vw,44px);align-items:start;padding:clamp(20px,2.4vh,28px) 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
-          <span data-old="1" style="display:block;font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(130,145,166,.55)">A reputation that lives in someone's memory, not anywhere visible</span>
-          <span data-new="1" style="display:block;font-size:clamp(15px,1.2vw,17.5px);font-weight:500;line-height:1.5;color:var(--ink);border-left:2px solid var(--acc);padding-left:16px">One place both sides can point to when something is in question</span>
-        </li>
-      </ol>
-    </div>
-  </div>
-</section>
-
-<!-- ============ WHAT YOU BUILD HERE: six beats as an escalating type scale, no dots ============ -->
-<section style="background:var(--navy);padding:clamp(72px,13vh,168px) clamp(20px,5vw,72px);border-top:1px solid var(--navy-line)">
+<section id="ps-threads" style="background:var(--bg);padding:clamp(64px,11vh,140px) clamp(20px,5vw,72px)">
   <div style="max-width:1320px;margin:0 auto">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:clamp(32px,5vw,80px);align-items:end;padding-bottom:clamp(56px,8vh,104px)">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:clamp(28px,5vw,72px);align-items:end;padding-bottom:clamp(32px,5vh,56px)">
       <div>
-        <div data-rise="10" style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--navy-acc)">
-          <span style="width:34px;height:1px;background:var(--navy-acc);opacity:.6"></span>What you build here
+        <div style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#4338ca">
+          <span style="width:34px;height:1px;background:#c7d2fe"></span>Five things that changed
         </div>
-        <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(32px,5vw,72px);line-height:1;letter-spacing:-.032em;color:#fff;margin:20px 0 0;max-width:14ch">
-          <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">Reputation</span></span>
-          <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block">becomes <em style="font-style:italic;font-weight:400;color:var(--navy-acc)">opportunity</em></span></span>
-        </h2>
+        <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(32px,4.8vw,66px);line-height:1.02;letter-spacing:-.03em;margin:20px 0 0;max-width:15ch">Pick a thread, <em style="font-style:italic;font-weight:400;color:#5f6e85">pull it</em></h2>
       </div>
-      <p data-rise="16" style="margin:0;max-width:50ch;font-size:15.5px;line-height:1.72;color:var(--navy-sub)">A follower count resets the moment you stop posting. A reputation doesn't. Every deal completed on PromoSlot stays attached to the profile that did it. Not a number to inflate, but a record: delivered, on time, as agreed.</p>
+      <p style="margin:0;max-width:48ch;font-size:15.5px;line-height:1.7;color:#5f6e85;text-wrap:pretty">Each one has two sides. The left is how promotion worked before, and mostly still does. The right is what PromoSlot replaces it with.</p>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:clamp(26px,4vh,52px)">
-      <div data-beat="0" style="margin-left:0">
-        <div style="display:flex;align-items:center;gap:14px">
-          <span data-beatrule="1" style="display:block;width:24px;height:1px;background:var(--navy-acc);opacity:.45;transform-origin:left center"></span>
-          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(19px,2.1vw,25px);line-height:1.1;letter-spacing:-.02em;color:var(--navy-mut);margin:0;transition:color .5s ease">Profile created</h3>
+    <div style="background:#fff;border:1px solid #d9dfe8;border-radius:20px;box-shadow:0 1px 2px rgba(20,39,63,.05),0 6px 22px rgba(20,39,63,.06);overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border-bottom:1px solid #d9dfe8;background:#fcfcfe;flex-wrap:wrap">
+        <span style="display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid #d9dfe8;border-radius:99px;background:#fff;font-size:11.5px;font-weight:700;letter-spacing:.05em;color:#5f6e85">
+          <span style="width:6px;height:6px;border-radius:99px;background:#4f46e5;display:inline-block"></span>Thread <span id="ajThreadN">01</span> of 05 · <span id="ajThreadLabel">Outreach</span>
+        </span>
+        <div style="display:flex;gap:4px;padding:4px;background:#f2f4f7;border-radius:99px">
+          <button type="button" id="ajOldBtn">The old way</button>
+          <button type="button" id="ajNewBtn">On PromoSlot</button>
         </div>
-        <p data-beatcap="1" style="margin:8px 0 0 38px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">the starting point, nothing to prove yet</p>
       </div>
-      <div data-beat="1" style="margin-left:clamp(0px,2.4vw,44px)">
-        <div style="display:flex;align-items:center;gap:14px">
-          <span data-beatrule="1" style="display:block;width:44px;height:1px;background:var(--navy-acc);opacity:.5;transform-origin:left center"></span>
-          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(21px,2.6vw,31px);line-height:1.1;letter-spacing:-.022em;color:var(--navy-mut);margin:0;transition:color .5s ease">First listing live</h3>
-        </div>
-        <p data-beatcap="1" style="margin:8px 0 0 58px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">what you offer, priced and public</p>
-      </div>
-      <div data-beat="2" style="margin-left:clamp(0px,5.5vw,104px)">
-        <div style="display:flex;align-items:center;gap:14px">
-          <span data-beatrule="1" style="display:block;width:66px;height:1px;background:var(--navy-acc);opacity:.55;transform-origin:left center"></span>
-          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(23px,3.2vw,38px);line-height:1.08;letter-spacing:-.024em;color:var(--navy-mut);margin:0;transition:color .5s ease">First deal funded</h3>
-        </div>
-        <p data-beatcap="1" style="margin:9px 0 0 80px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">terms agreed, payment held</p>
-      </div>
-      <div data-beat="3" style="margin-left:clamp(0px,9vw,168px)">
-        <div style="display:flex;align-items:center;gap:14px">
-          <span data-beatrule="1" style="display:block;width:92px;height:1px;background:var(--navy-acc);opacity:.6;transform-origin:left center"></span>
-          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(25px,3.9vw,46px);line-height:1.06;letter-spacing:-.026em;color:var(--navy-mut);margin:0;transition:color .5s ease">Delivery verified</h3>
-        </div>
-        <p data-beatcap="1" style="margin:10px 0 0 106px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">evidence checked against the terms</p>
-      </div>
-      <div data-beat="4" style="margin-left:clamp(0px,13.5vw,246px)">
-        <div style="display:flex;align-items:center;gap:14px">
-          <span data-beatrule="1" style="display:block;width:120px;height:1px;background:var(--navy-acc);opacity:.7;transform-origin:left center"></span>
-          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(27px,4.6vw,55px);line-height:1.04;letter-spacing:-.028em;color:var(--navy-mut);margin:0;transition:color .5s ease">Repeat partner</h3>
-        </div>
-        <p data-beatcap="1" style="margin:11px 0 0 134px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">someone comes back on purpose</p>
-      </div>
-      <div data-beat="5" style="margin-left:clamp(0px,19vw,340px)">
-        <div style="display:flex;align-items:center;gap:14px">
-          <span data-beatrule="1" style="display:block;width:150px;height:1px;background:var(--acc);opacity:1;transform-origin:left center"></span>
-          <h3 data-beattitle="1" style="font-family:Newsreader,serif;font-style:italic;font-weight:400;font-size:clamp(30px,5.4vw,66px);line-height:1.02;letter-spacing:-.03em;color:var(--navy-mut);margin:0;transition:color .5s ease">Known in category</h3>
-        </div>
-        <p data-beatcap="1" style="margin:12px 0 0 164px;max-width:34ch;font-size:13.5px;line-height:1.6;color:var(--navy-mut);opacity:.6;transition:opacity .5s ease">the record speaks before you do</p>
-      </div>
-    </div>
-  </div>
-</section>
+      <div style="height:3px;background:#d9dfe8"><div id="ajProgBar" style="height:3px;background:#4f46e5;transition:width .4s cubic-bezier(.22,1,.36,1)"></div></div>
 
-<!-- ============ WHO'S ACTUALLY HERE: editorial run of three principles ============ -->
-<section style="background:var(--bg);color:var(--ink);padding:clamp(72px,13vh,168px) clamp(20px,5vw,72px)">
-  <div style="max-width:1320px;margin:0 auto">
-    <div data-rise="10" style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--acc2)">
-      <span style="width:34px;height:1px;background:var(--acc-border)"></span>Who's actually here
-    </div>
-    <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(34px,6vw,88px);line-height:.99;letter-spacing:-.035em;margin:clamp(18px,3vh,32px) 0 0;max-width:22ch">
-      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">Built by the people</span></span>
-      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block">who <em style="font-style:italic;font-weight:400;color:var(--acc2)">participate</em></span></span>
-    </h2>
+      <div id="ajGrid" style="display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr);align-items:stretch">
+        <div id="ajNav" style="display:flex;flex-direction:column;gap:6px;padding:14px;border-right:1px solid #d9dfe8;background:#fcfcfe"></div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(32px,5vw,80px);align-items:start;margin-top:clamp(44px,6vh,80px)">
-      <p data-rise="16" style="margin:0;font-family:Newsreader,serif;font-size:clamp(20px,2.2vw,28px);line-height:1.42;letter-spacing:-.015em;color:var(--ink2);max-width:34ch">The businesses and platform owners using PromoSlot shape it, deal by deal. Every payment model and evidence requirement exists because someone doing real promotional work needed it to.</p>
+        <div style="padding:clamp(22px,3vw,38px)">
+          <div id="ajPanel">
+            <div id="ajSideKicker" style="font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase"></div>
+            <h3 id="ajSideH" style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(24px,2.9vw,40px);line-height:1.14;letter-spacing:-.022em;margin:10px 0 0;max-width:22ch"></h3>
+            <p id="ajSideP" style="margin:14px 0 0;max-width:60ch;font-size:16px;line-height:1.7;color:#3a4658;text-wrap:pretty"></p>
+            <ul id="ajSideBullets" style="margin:22px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:11px;max-width:62ch"></ul>
+            <div id="ajSideFact" style="margin-top:24px;padding:14px 16px;border-radius:10px;max-width:64ch;font-size:14px;font-weight:600;line-height:1.6"></div>
+          </div>
 
-      <div data-rise="24" style="display:flex;flex-direction:column;gap:10px">
-        <div data-parallax="0.04" style="border-radius:14px;overflow:hidden;aspect-ratio:4/5">
-          <img src="/img/about-people.jpg" alt="A platform owner and business team working together in person and over a video call, sketching out a promotion partnership on a whiteboard." style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
+          <details style="margin-top:24px;border:1px solid #d9dfe8;border-radius:14px;background:#fcfcfe;overflow:hidden">
+            <summary style="display:flex;align-items:center;gap:12px;padding:15px 18px;font-size:13.5px;font-weight:700;color:#4338ca">
+              <span style="display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:#eef2ff;border:1px solid #c7d2fe;font-size:14px;line-height:1;color:#4338ca">+</span>
+              <span style="flex:1">Tell me more about the mechanics</span>
+            </summary>
+            <div style="padding:0 18px 20px 52px">
+              <p id="ajRevealLead" style="margin:0 0 16px;font-size:14.5px;line-height:1.7;color:#5f6e85;max-width:64ch;text-wrap:pretty"></p>
+              <div style="border:1px solid #d9dfe8;border-radius:12px;overflow:hidden;background:#fff;max-width:640px">
+                <div id="ajRevealHead" style="padding:10px 15px;background:#f2f4f7;border-bottom:1px solid #d9dfe8;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5f6e85"></div>
+                <div id="ajRevealRows"></div>
+              </div>
+            </div>
+          </details>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:24px;padding-top:18px;border-top:1px solid #e9edf2">
+            <button type="button" id="ajPrevBtn" style="border:1px solid #e9edf2;background:#fff;color:#14273f;border-radius:11px;font-weight:700;font-size:14px;padding:10px 18px;transition:all .18s cubic-bezier(.22,1,.36,1)">← Back</button>
+            <span style="font-size:12.5px;font-weight:700;color:#8291a6"><span id="ajThreadNSmall">1</span> / 05</span>
+            <button type="button" id="ajNextBtn" style="border:1px solid transparent;background:#4f46e5;color:#fff;border-radius:11px;font-weight:700;font-size:14px;padding:10px 18px;transition:all .18s cubic-bezier(.22,1,.36,1)">Next thread →</button>
+          </div>
         </div>
-      </div>
-    </div>
-
-    <div style="margin-top:clamp(56px,9vh,120px);display:flex;flex-direction:column;gap:clamp(40px,6vh,84px)">
-      <div data-rise="20" style="max-width:46ch;border-top:1px solid var(--line);padding-top:20px">
-        <h3 style="font-family:Newsreader,serif;font-weight:600;font-size:clamp(24px,2.8vw,36px);line-height:1.1;letter-spacing:-.025em;margin:0">Terms, not guesses</h3>
-        <p style="margin:12px 0 0;font-size:15px;line-height:1.7;color:var(--mut)">What a reviewer checks is always what both sides actually agreed to, nothing assumed, nothing implied.</p>
-      </div>
-      <div data-rise="20" style="max-width:38ch;margin-left:auto;margin-right:clamp(0px,6vw,110px);border-top:1px solid var(--acc-border);padding-top:20px;text-align:left">
-        <h3 style="font-family:Newsreader,serif;font-weight:600;font-size:clamp(26px,3.4vw,46px);line-height:1.08;letter-spacing:-.028em;margin:0;color:var(--acc2)">Evidence, not memory</h3>
-        <p style="margin:12px 0 0;font-size:15px;line-height:1.7;color:var(--mut)">Every figure that decides a payment is tied to a named screen it was read from.</p>
-      </div>
-      <div data-rise="20" style="max-width:60ch;margin-left:clamp(0px,10vw,190px);border-top:1px solid var(--line);padding-top:20px">
-        <h3 style="font-family:Newsreader,serif;font-style:italic;font-weight:400;font-size:clamp(28px,4.2vw,58px);line-height:1.04;letter-spacing:-.03em;margin:0">Shaped in use</h3>
-        <p style="margin:14px 0 0;font-size:15px;line-height:1.7;color:var(--mut);max-width:44ch">The fields, the models and the rules keep changing because the people relying on them keep telling us what's missing.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ============ WHY NOW: navy, headline-alongside layout, three reasons on a drawn vertical rule ============ -->
-<section style="background:var(--navy);padding:clamp(72px,13vh,168px) clamp(20px,5vw,72px);border-top:1px solid var(--navy-line)">
-  <div style="max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:clamp(40px,6vw,104px);align-items:start">
-    <div>
-      <div data-rise="10" style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--navy-acc)">
-        <span style="width:34px;height:1px;background:var(--navy-acc);opacity:.6"></span>Why now
+<section data-steps-root="1" style="background:#ffffff;border-top:1px solid #d9dfe8;padding:clamp(64px,11vh,140px) 0">
+  <div style="max-width:1320px;width:100%;margin:0 auto;padding:0 clamp(20px,5vw,72px)">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap">
+      <div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#4338ca">
+          <span style="width:34px;height:1px;background:#c7d2fe;opacity:.6"></span>From accepted terms to money moved
+        </div>
+        <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(28px,3.8vw,52px);line-height:1.03;letter-spacing:-.03em;color:#14273f;margin:16px 0 0;max-width:17ch">One deal, end to end.</h2>
       </div>
-      <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(32px,5vw,74px);line-height:1;letter-spacing:-.032em;color:#fff;margin:20px 0 0;max-width:15ch">
-        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">Early doesn't</span></span>
-        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block">mean lucky.</span></span>
-        <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="2" style="display:block">It means <em style="font-style:italic;font-weight:400;color:var(--navy-acc)">visible.</em></span></span>
-      </h2>
-      <div data-rise="16" style="margin:clamp(24px,4vh,40px) 0 0;max-width:48ch;font-size:15.5px;line-height:1.72;color:var(--navy-sub)"><p style="margin:0">Joining early can give you more time to establish your profile, complete deals and build a track record as the marketplace grows. Timing alone guarantees nothing, though. New audiences, categories and opportunities will continue to emerge, giving strong platform owners the chance to build a meaningful presence whenever they join. Starting early can create momentum; lasting success comes from what you deliver.</p></div>
+      <p style="margin:0;max-width:34ch;font-size:14.5px;line-height:1.7;color:#5f6e85">The route is faint until you scroll. The line draws itself in as you go, and each step stays lit once it is reached.</p>
     </div>
-
-    <div style="position:relative;padding-left:clamp(20px,3vw,44px)">
-      <span data-drawline="1" style="position:absolute;left:0;top:6px;bottom:6px;width:1px;background:linear-gradient(180deg,var(--navy-acc),rgba(165,180,252,.15));transform-origin:top center"></span>
-      <div style="display:flex;flex-direction:column;gap:clamp(30px,5vh,58px)">
-        <p data-rise="18" style="margin:0;font-family:Newsreader,serif;font-weight:500;font-size:clamp(21px,2.5vw,32px);line-height:1.22;letter-spacing:-.022em;color:#fff;max-width:26ch">A profile with room to be first in your niche</p>
-        <p data-rise="18" style="margin:0;font-family:Newsreader,serif;font-weight:500;font-size:clamp(21px,2.5vw,32px);line-height:1.22;letter-spacing:-.022em;color:#fff;max-width:26ch">A track record that starts counting from day one</p>
-        <p data-rise="18" style="margin:0;font-family:Newsreader,serif;font-weight:500;font-size:clamp(21px,2.5vw,32px);line-height:1.22;letter-spacing:-.022em;color:#fff;max-width:26ch">A direct hand in shaping how the marketplace works</p>
-      </div>
-    </div>
+    <div style="height:1px;background:#d9dfe8;margin:clamp(20px,3.5vh,38px) 0 clamp(20px,3vh,32px)"></div>
   </div>
-</section>
-
-<!-- ============ PRODUCT JOURNEY: real PromoSlot components, fictional demo
-     data. Every card below reuses the site's actual CSS classes (.lcard,
-     .stepper, .status-pill, .msg, .rev-item, .toast, .pfp, .ex-badge) so it
-     is styled identically to the live product — nothing here is a generic
-     invented UI. Desktop = horizontal scroll-rail (same pattern as
-     .market-rail on the homepage). Mobile = vertical timeline, not a shrunk
-     copy of the desktop layout. ============ -->
-<section style="background:var(--navy);padding:0 clamp(20px,5vw,72px) clamp(72px,12vh,150px)">
-  <div data-rise="24" class="about-journey" style="max-width:1320px;margin:0 auto">
-    <span class="aj-tag">Illustrative journey · fictional demo account</span>
-
-    <div class="aj-rail-wrap">
-      <div class="aj-rail">
-
-        <!-- 1. Listing published -->
-        <div class="aj-node rise-0">
+  <div style="max-width:1320px;width:100%;margin:0 auto;padding:0 clamp(20px,5vw,72px);display:flex">
+    <div class="about-journey" style="width:100%">
+      <span class="aj-tag">Illustrative journey · fictional demo account</span>
+      <div class="aj-const" data-trail="desk">
+        <svg class="aj-trail-svg" data-trail-svg="1" aria-hidden="true" preserveAspectRatio="none">
+          <path data-trail-ghost="1" fill="none" stroke="#4f46e5" stroke-opacity=".16" stroke-width="2" stroke-linecap="round"></path>
+          <path data-trail-live="1" fill="none" stroke="#4f46e5" stroke-opacity=".85" stroke-width="2.4" stroke-linecap="round"></path>
+          <circle data-trail-halo="1" r="13" fill="#4f46e5" opacity="0"></circle>
+          <circle data-trail-comet="1" r="4.2" fill="#4f46e5" opacity="0"></circle>
+        </svg>
+        <div class="aj-cnode" data-trail-node="0" style="--w:380px;--off:0px">
           <span class="aj-label">1 · Listing published</span>
           <span class="aj-dot"></span>
           <div class="toast" style="position:static;animation:none;box-shadow:0 14px 26px -12px rgba(0,0,0,.5)"><span class="toast-ico">✓</span><span>Listing published and live on the marketplace</span></div>
         </div>
-
-        <!-- 2. Appears on the marketplace: real .lcard -->
-        <div class="aj-node rise-2">
+        <div class="aj-cnode" data-trail-node="1" style="--w:300px;--off:210px">
           <span class="aj-label">2 · On the marketplace</span>
           <span class="aj-dot"></span>
           <article class="lcard aj-card" style="width:300px;cursor:default;animation:none">
@@ -2919,18 +2863,14 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <div class="lcard-bot"><span class="stars no-rating">No ratings yet</span><div class="price-from">From £120</div></div>
           </article>
         </div>
-
-        <!-- 3. A business reaches out: real .activity-row -->
-        <div class="aj-node rise-1">
+        <div class="aj-cnode" data-trail-node="2" style="--w:300px;--off:430px">
           <span class="aj-label">3 · A business reaches out</span>
           <span class="aj-dot"></span>
           <div class="aj-frag" style="padding:13px 16px">
             <div class="activity-row" style="padding:0;border:none"><span class="act-time">2m ago</span><span>New message from Bloom &amp; Co.</span></div>
           </div>
         </div>
-
-        <!-- 4. They connect: real .msg bubbles -->
-        <div class="aj-node rise-3">
+        <div class="aj-cnode" data-trail-node="3" style="--w:260px;--off:530px">
           <span class="aj-label">4 · They connect</span>
           <span class="aj-dot"></span>
           <div class="aj-frag" style="display:flex;flex-direction:column;gap:8px;width:240px">
@@ -2938,9 +2878,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <div class="msg me" style="align-self:flex-end">Yes! Sending terms over now.<span class="mt">10:21</span></div>
           </div>
         </div>
-
-        <!-- 5. Deal started: real .stepper + .status-pill -->
-        <div class="aj-node rise-0">
+        <div class="aj-cnode" data-trail-node="4" style="--w:580px;--off:120px">
           <span class="aj-label">5 · Deal started</span>
           <span class="aj-dot"></span>
           <div class="aj-frag" style="width:320px">
@@ -2956,11 +2894,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             </div>
           </div>
         </div>
-
-        <!-- 6. Delivery in progress: real .status-pill states (colours follow the
-             product's actual rule — funded-but-unpaid is always st-escrow,
-             regardless of which of these four statuses it's in) -->
-        <div class="aj-node rise-4">
+        <div class="aj-cnode" data-trail-node="5" style="--w:220px;--off:390px">
           <span class="aj-label">6 · Delivery in progress</span>
           <span class="aj-dot"></span>
           <div class="aj-frag" style="display:flex;flex-wrap:wrap;gap:7px;width:190px">
@@ -2970,9 +2904,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <span class="status-pill st-escrow">under_review</span>
           </div>
         </div>
-
-        <!-- 7. Verified & paid: real .stepper fully done + .status-pill paid -->
-        <div class="aj-node rise-1">
+        <div class="aj-cnode" data-trail-node="6" style="--w:580px;--off:60px">
           <span class="aj-label">7 · Verified &amp; paid</span>
           <span class="aj-dot"></span>
           <div class="aj-frag" style="width:320px">
@@ -2988,9 +2920,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             </div>
           </div>
         </div>
-
-        <!-- 8. Both leave reviews: real .rev-item -->
-        <div class="aj-node rise-3">
+        <div class="aj-cnode" data-trail-node="7" style="--w:290px;--off:440px">
           <span class="aj-label">8 · Both leave reviews</span>
           <span class="aj-dot"></span>
           <div class="aj-frag" style="width:270px;padding:8px 16px">
@@ -3004,11 +2934,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             </div>
           </div>
         </div>
-
-        <!-- 9. A track record, carried forward: real profile pattern incl. the
-             site's actual .ex-badge "EXAMPLE" marker (real component, not an
-             invented ranking/badge) -->
-        <div class="aj-node rise-4">
+        <div class="aj-cnode" data-trail-node="8" style="--w:320px;--off:190px">
           <span class="aj-label">9 · A track record, carried forward</span>
           <span class="aj-dot"></span>
           <div class="aj-card" style="background:var(--card);border-radius:14px;padding:20px;width:300px">
@@ -3020,171 +2946,312 @@ body[data-role="plat"] .role-biz-only{display:none!important}
             <div class="lcard-bot" style="border:none;padding:0"><span class="stars">★ 4.8 <span class="rc">(12)</span></span><div class="price-from">From £120</div></div>
           </div>
         </div>
-
       </div>
-    </div>
-    <p class="aj-rail-caption">Scroll to follow the journey → · a fictional test account, shown for illustration only. Not every listing will reach this outcome.</p>
-
-    <!-- Mobile: vertical timeline, same real components, not the desktop rail shrunk down -->
-    <div class="aj-mobile">
-      <div class="aj-mrow">
-        <div class="aj-mlabel">1 · Listing published</div>
-        <div class="toast" style="position:static;animation:none;box-shadow:0 14px 26px -12px rgba(0,0,0,.5)"><span class="toast-ico">✓</span><span>Listing published and live on the marketplace</span></div>
-      </div>
-      <div class="aj-mrow">
-        <div class="aj-mlabel">2 · On the marketplace</div>
-        <article class="lcard aj-card" style="cursor:default;animation:none">
-          <div class="lcard-top">
-            <div class="pfp" style="background:#d97706">TF</div>
-            <div class="who"><h4>Founders Weekly</h4><div class="handle">@foundersdigest · by Priya N.</div></div>
-            <span class="pbadge" style="background:#d9770614;color:#d97706">📰 Newsletter</span>
-          </div>
-          <div class="tagrow"><span class="tag">Startups</span><span class="tag">SaaS</span><span class="tag ind">Sponsored issue</span></div>
-          <div class="statrow">
-            <div><b>4.1k</b><span>Subs</span></div>
-            <div><b>2.6k</b><span>Opens</span></div>
-            <div><b>52%</b><span>Open rate</span></div>
-          </div>
-          <div class="lcard-bio">A weekly digest for early-stage founders, one sponsor slot per issue.</div>
-          <div class="lcard-bot"><span class="stars no-rating">No ratings yet</span><div class="price-from">From £120</div></div>
-        </article>
-      </div>
-      <div class="aj-mrow">
-        <div class="aj-mlabel">3 · A business reaches out</div>
-        <div class="aj-frag" style="padding:13px 16px">
-          <div class="activity-row" style="padding:0;border:none"><span class="act-time">2m ago</span><span>New message from Bloom &amp; Co.</span></div>
+      <p class="aj-rail-caption">A fictional test account, shown for illustration only. Not every listing will reach this outcome.</p>
+      <div class="aj-mobile" data-trail="mob">
+        <svg class="aj-mtrail" data-trail-svg="1" aria-hidden="true" preserveAspectRatio="none">
+          <path data-trail-ghost="1" fill="none" stroke="#4f46e5" stroke-opacity=".16" stroke-width="2" stroke-linecap="round"></path>
+          <path data-trail-live="1" fill="none" stroke="#4f46e5" stroke-opacity=".85" stroke-width="2.4" stroke-linecap="round"></path>
+          <circle data-trail-halo="1" r="12" fill="#4f46e5" opacity="0"></circle>
+          <circle data-trail-comet="1" r="4" fill="#4f46e5" opacity="0"></circle>
+        </svg>
+        <div class="aj-mrow"><div class="aj-mlabel">1 · Listing published</div>
+          <div class="toast" style="position:static;animation:none;box-shadow:0 14px 26px -12px rgba(0,0,0,.5)"><span class="toast-ico">✓</span><span>Listing published and live on the marketplace</span></div>
         </div>
-      </div>
-      <div class="aj-mrow">
-        <div class="aj-mlabel">4 · They connect</div>
-        <div class="aj-frag" style="display:flex;flex-direction:column;gap:8px">
-          <div class="msg them" style="align-self:flex-start">Loved your last issue, got room for a sponsor slot next month?<span class="mt">10:14</span></div>
-          <div class="msg me" style="align-self:flex-end">Yes! Sending terms over now.<span class="mt">10:21</span></div>
+        <div class="aj-mrow"><div class="aj-mlabel">2 · On the marketplace</div>
+          <article class="lcard aj-card" style="cursor:default;animation:none">
+            <div class="lcard-top">
+              <div class="pfp" style="background:#d97706">TF</div>
+              <div class="who"><h4>Founders Weekly</h4><div class="handle">@foundersdigest · by Priya N.</div></div>
+              <span class="pbadge" style="background:#d9770614;color:#d97706">📰 Newsletter</span>
+            </div>
+            <div class="tagrow"><span class="tag">Startups</span><span class="tag">SaaS</span><span class="tag ind">Sponsored issue</span></div>
+            <div class="statrow">
+              <div><b>4.1k</b><span>Subs</span></div>
+              <div><b>2.6k</b><span>Opens</span></div>
+              <div><b>52%</b><span>Open rate</span></div>
+            </div>
+            <div class="lcard-bio">A weekly digest for early-stage founders, one sponsor slot per issue.</div>
+            <div class="lcard-bot"><span class="stars no-rating">No ratings yet</span><div class="price-from">From £120</div></div>
+          </article>
         </div>
-      </div>
-      <div class="aj-mrow">
-        <div class="aj-mlabel">5 · Deal started</div>
-        <div class="aj-frag">
-          <span class="status-pill st-review" style="display:inline-block;margin-bottom:12px">approved</span>
-          <div class="stepper" style="margin-bottom:0;padding:12px 10px 10px;box-shadow:none;border:1px solid var(--line)">
-            <div class="stepper-track"><i style="width:20%"></i></div>
-            <div class="step done"><div class="dot">✓</div><span>Agreement</span></div>
-            <div class="step cur"><div class="dot">2</div><span>Approval</span></div>
-            <div class="step"><div class="dot">3</div><span>Funding</span></div>
-            <div class="step"><div class="dot">4</div><span>Delivery</span></div>
-            <div class="step"><div class="dot">5</div><span>Verification</span></div>
-            <div class="step"><div class="dot">6</div><span>Payout</span></div>
+        <div class="aj-mrow"><div class="aj-mlabel">3 · A business reaches out</div>
+          <div class="aj-frag" style="padding:13px 16px"><div class="activity-row" style="padding:0;border:none"><span class="act-time">2m ago</span><span>New message from Bloom &amp; Co.</span></div></div>
+        </div>
+        <div class="aj-mrow"><div class="aj-mlabel">4 · They connect</div>
+          <div class="aj-frag" style="display:flex;flex-direction:column;gap:8px">
+            <div class="msg them" style="align-self:flex-start">Loved your last issue, got room for a sponsor slot next month?<span class="mt">10:14</span></div>
+            <div class="msg me" style="align-self:flex-end">Yes! Sending terms over now.<span class="mt">10:21</span></div>
           </div>
         </div>
-      </div>
-      <div class="aj-mrow">
-        <div class="aj-mlabel">6 · Delivery in progress</div>
-        <div class="aj-frag" style="display:flex;flex-wrap:wrap;gap:7px">
-          <span class="status-pill st-escrow">funded</span>
-          <span class="status-pill st-escrow">in_delivery</span>
-          <span class="status-pill st-escrow">proof_submitted</span>
-          <span class="status-pill st-escrow">under_review</span>
-        </div>
-      </div>
-      <div class="aj-mrow">
-        <div class="aj-mlabel">7 · Verified &amp; paid</div>
-        <div class="aj-frag">
-          <span class="status-pill st-done" style="display:inline-block;margin-bottom:12px">paid</span>
-          <div class="stepper" style="margin-bottom:0;padding:12px 10px 10px;box-shadow:none;border:1px solid var(--line)">
-            <div class="stepper-track"><i style="width:100%"></i></div>
-            <div class="step done"><div class="dot">✓</div><span>Agreement</span></div>
-            <div class="step done"><div class="dot">✓</div><span>Approval</span></div>
-            <div class="step done"><div class="dot">✓</div><span>Funding</span></div>
-            <div class="step done"><div class="dot">✓</div><span>Delivery</span></div>
-            <div class="step done"><div class="dot">✓</div><span>Verification</span></div>
-            <div class="step cur"><div class="dot">✓</div><span>Payout</span></div>
+        <div class="aj-mrow"><div class="aj-mlabel">5 · Deal started</div>
+          <div class="aj-frag">
+            <span class="status-pill st-review" style="display:inline-block;margin-bottom:12px">approved</span>
+            <div class="stepper" style="margin-bottom:0;padding:12px 10px 10px;box-shadow:none;border:1px solid var(--line)">
+              <div class="stepper-track"><i style="width:20%"></i></div>
+              <div class="step done"><div class="dot">✓</div><span>Agreement</span></div>
+              <div class="step cur"><div class="dot">2</div><span>Approval</span></div>
+              <div class="step"><div class="dot">3</div><span>Funding</span></div>
+              <div class="step"><div class="dot">4</div><span>Delivery</span></div>
+              <div class="step"><div class="dot">5</div><span>Verification</span></div>
+              <div class="step"><div class="dot">6</div><span>Payout</span></div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="aj-mrow">
-        <div class="aj-mlabel">8 · Both leave reviews</div>
-        <div class="aj-frag" style="padding:8px 16px">
-          <div class="rev-item">
-            <div class="rvtop"><span class="rev-who"><div class="pfp rev-dot" style="background:#eef2ff;color:#4338ca">B</div><b>Bloom &amp; Co.</b></span><span class="stars">★★★★★</span></div>
-            <p>Delivered exactly as agreed, would sponsor again.</p>
-          </div>
-          <div class="rev-item" style="border:none">
-            <div class="rvtop"><span class="rev-who"><div class="pfp rev-dot" style="background:#eef2ff;color:#4338ca">P</div><b>Priya N.</b></span><span class="stars">★★★★★</span></div>
-            <p>Clear brief, paid on time. Great first partner.</p>
+        <div class="aj-mrow"><div class="aj-mlabel">6 · Delivery in progress</div>
+          <div class="aj-frag" style="display:flex;flex-wrap:wrap;gap:7px">
+            <span class="status-pill st-escrow">funded</span>
+            <span class="status-pill st-escrow">in_delivery</span>
+            <span class="status-pill st-escrow">proof_submitted</span>
+            <span class="status-pill st-escrow">under_review</span>
           </div>
         </div>
-      </div>
-      <div class="aj-mrow">
-        <div class="aj-mlabel">9 · A track record, carried forward</div>
-        <div class="aj-card" style="background:var(--card);border-radius:14px;padding:18px">
-          <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-            <div class="pfp-wrap"><div class="pfp" style="background:#d97706">TF</div><span class="ex-badge">Example</span></div>
-            <div class="who"><h4 style="margin:0">Founders Weekly</h4><div class="handle">@foundersdigest · by Priya N.</div></div>
+        <div class="aj-mrow"><div class="aj-mlabel">7 · Verified &amp; paid</div>
+          <div class="aj-frag">
+            <span class="status-pill st-done" style="display:inline-block;margin-bottom:12px">paid</span>
+            <div class="stepper" style="margin-bottom:0;padding:12px 10px 10px;box-shadow:none;border:1px solid var(--line)">
+              <div class="stepper-track"><i style="width:100%"></i></div>
+              <div class="step done"><div class="dot">✓</div><span>Agreement</span></div>
+              <div class="step done"><div class="dot">✓</div><span>Approval</span></div>
+              <div class="step done"><div class="dot">✓</div><span>Funding</span></div>
+              <div class="step done"><div class="dot">✓</div><span>Delivery</span></div>
+              <div class="step done"><div class="dot">✓</div><span>Verification</span></div>
+              <div class="step cur"><div class="dot">✓</div><span>Payout</span></div>
+            </div>
           </div>
-          <div class="tagrow" style="margin-bottom:10px"><span class="tag">Startups</span><span class="tag">SaaS</span></div>
-          <div class="lcard-bot" style="border:none;padding:0"><span class="stars">★ 4.8 <span class="rc">(12)</span></span><div class="price-from">From £120</div></div>
         </div>
+        <div class="aj-mrow"><div class="aj-mlabel">8 · Both leave reviews</div>
+          <div class="aj-frag" style="padding:8px 16px">
+            <div class="rev-item">
+              <div class="rvtop"><span class="rev-who"><div class="pfp rev-dot" style="background:#eef2ff;color:#4338ca">B</div><b>Bloom &amp; Co.</b></span><span class="stars">★★★★★</span></div>
+              <p>Delivered exactly as agreed, would sponsor again.</p>
+            </div>
+            <div class="rev-item" style="border:none">
+              <div class="rvtop"><span class="rev-who"><div class="pfp rev-dot" style="background:#eef2ff;color:#4338ca">P</div><b>Priya N.</b></span><span class="stars">★★★★★</span></div>
+              <p>Clear brief, paid on time. Great first partner.</p>
+            </div>
+          </div>
+        </div>
+        <div class="aj-mrow"><div class="aj-mlabel">9 · A track record, carried forward</div>
+          <div class="aj-card" style="background:var(--card);border-radius:14px;padding:18px">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+              <div class="pfp-wrap"><div class="pfp" style="background:#d97706">TF</div><span class="ex-badge">Example</span></div>
+              <div class="who"><h4 style="margin:0">Founders Weekly</h4><div class="handle">@foundersdigest · by Priya N.</div></div>
+            </div>
+            <div class="tagrow" style="margin-bottom:10px"><span class="tag">Startups</span><span class="tag">SaaS</span></div>
+            <div class="lcard-bot" style="border:none;padding:0"><span class="stars">★ 4.8 <span class="rc">(12)</span></span><div class="price-from">From £120</div></div>
+          </div>
+        </div>
+        <p class="aj-rail-caption" style="display:block;margin-top:18px">A fictional test account, shown for illustration only. Not every listing will reach this outcome.</p>
       </div>
-      <p class="aj-rail-caption" style="display:block;margin-top:18px">A fictional test account, shown for illustration only. Not every listing will reach this outcome.</p>
     </div>
   </div>
 </section>
 
-<!-- ============ CLOSING ============ -->
-<section style="background:var(--navy3);border-top:1px solid var(--navy-line);padding:clamp(80px,15vh,190px) clamp(20px,5vw,72px)">
+<section style="background:var(--bg);padding:clamp(64px,12vh,150px) clamp(20px,5vw,72px);border-top:1px solid #d9dfe8">
   <div style="max-width:1320px;margin:0 auto">
-    <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(36px,6.6vw,98px);line-height:.99;letter-spacing:-.035em;color:#fff;margin:0;max-width:17ch">
-      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="0" style="display:block">The marketplace starts</span></span>
-      <span style="display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em"><span data-line="1" style="display:block">with the <em style="font-style:italic;font-weight:400;color:var(--navy-acc)">people</em> in it.</span></span>
-    </h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(28px,4vw,64px);align-items:end;margin-top:clamp(40px,6vh,76px);border-top:1px solid rgba(255,255,255,.09);padding-top:clamp(24px,3vh,40px)">
-      <p data-rise="16" style="margin:0;max-width:44ch;font-size:15.5px;line-height:1.7;color:var(--navy-sub)">Create a profile, list what you offer, or post the first campaign in your category.</p>
-      <div data-rise="16" style="display:flex;flex-wrap:wrap;gap:12px">
-        <a href="/marketplace" class="btn btn-p btn-lg" data-magnetic="1"data-act="market-platforms">Find promotion</a>
-        <button class="btn btn-o btn-lg final-cta-o" data-magnetic="1" data-act="wiz-plat" type="button">Monetise your audience</button>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:clamp(32px,5vw,80px);align-items:end;padding-bottom:clamp(48px,8vh,96px)">
+      <div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#4338ca">
+          <span style="width:34px;height:1px;background:#c7d2fe;opacity:.6"></span>What you build here
+        </div>
+        <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(32px,5vw,72px);line-height:1;letter-spacing:-.032em;color:#14273f;margin:20px 0 0;max-width:14ch">Reputation becomes <em style="font-style:italic;font-weight:400;color:#4338ca">opportunity</em></h2>
+      </div>
+      <p style="margin:0;max-width:50ch;font-size:15.5px;line-height:1.72;color:#5f6e85;text-wrap:pretty">A follower count resets the moment you stop posting. A record doesn't. Every completed deal stays attached to the profile that did it.</p>
+    </div>
+    <div id="ajBeats" style="display:flex;flex-direction:column;gap:clamp(26px,4vh,52px)"></div>
+  </div>
+</section>
+
+<section style="background:var(--bg);padding:clamp(64px,11vh,140px) clamp(20px,5vw,72px)">
+  <div style="max-width:1080px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#4338ca">
+      <span style="width:34px;height:1px;background:#c7d2fe"></span>Honest scope
+    </div>
+    <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(30px,4.4vw,60px);line-height:1.03;letter-spacing:-.03em;margin:20px 0 0;max-width:20ch">What we verify, and what we <em style="font-style:italic;font-weight:400;color:#5f6e85">don't</em> promise</h2>
+    <p style="margin:20px 0 0;max-width:60ch;font-size:16px;line-height:1.72;color:#5f6e85;text-wrap:pretty">A protection system is only worth anything if it is clear about its edges. Here are ours.</p>
+
+    <div data-verify-root="1" style="position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(20px,3vw,28px);margin-top:clamp(32px,5vh,52px)">
+      <div data-spot="1" style="position:absolute;width:520px;height:520px;left:0;top:0;margin:-260px 0 0 -260px;border-radius:50%;pointer-events:none;opacity:0;transition:opacity .4s ease;background:radial-gradient(circle,rgba(99,102,241,.16) 0%,rgba(99,102,241,.07) 42%,rgba(99,102,241,0) 70%);z-index:0"></div>
+
+      <div style="position:relative;z-index:1;background:#fff;border:1px solid #d9dfe8;border-radius:14px;padding:clamp(24px,3vw,32px)">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:18px">
+          <h4 style="font-size:14px;font-weight:800;letter-spacing:.02em;margin:0;color:#14273f">Checked before money moves</h4>
+          <span id="ajLockLabel" style="font-size:11.5px;font-weight:700;letter-spacing:.06em;color:#4338ca">0 / 5 confirmed</span>
+        </div>
+        <ul id="ajYesList" style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:14px"></ul>
+      </div>
+
+      <div style="position:relative;z-index:1;background:#fbfcfd;border:1px solid #e4e9f0;border-radius:14px;padding:clamp(24px,3vw,32px)">
+        <h4 style="font-size:14px;font-weight:800;letter-spacing:.02em;margin:0 0 18px;color:#5f6e85">Not guaranteed</h4>
+        <ul id="ajNoList" style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:14px"></ul>
+      </div>
+    </div>
+
+    <div style="margin-top:clamp(28px,4vh,44px);display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+      <div style="background:#fff;border:1px solid #d9dfe8;border-radius:10px;padding:28px;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#4338ca">Run a deal through it</div>
+          <div style="font-size:12px;font-weight:700;color:#8291a6">Drag the slider</div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin:18px 0 4px">
+          <span style="font-family:Newsreader,serif;font-size:clamp(38px,5vw,58px);line-height:1;font-weight:500;color:#14273f">£<span id="ajFeeDeal">750</span></span>
+          <span style="font-size:13.5px;font-weight:600;color:#5f6e85">deal value</span>
+        </div>
+        <input type="range" id="ajFeeSlider" min="50" max="5000" step="50" value="750" style="width:100%;margin:14px 0 6px;accent-color:#4f46e5;height:22px;cursor:pointer">
+        <div id="ajFeePresets" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px"></div>
+        <div style="display:flex;height:12px;border-radius:99px;overflow:hidden;background:#eef2ff;margin-bottom:8px">
+          <span style="width:90%;background:#4f46e5;transition:width .4s cubic-bezier(.22,1,.36,1)"></span>
+          <span style="width:10%;background:#c7d2fe;transition:width .4s cubic-bezier(.22,1,.36,1)"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#8291a6;margin-bottom:20px">
+          <span>Seller keeps 90%</span><span>Fees 10%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:14px;font-size:14px;line-height:1.65;color:#5f6e85;border-top:1px solid #e9edf2;padding-top:12px"><span>Buyer pays</span><b style="color:#14273f;font-weight:700">£<span id="ajFeeBuyerPays">788</span></b></div>
+        <div style="display:flex;justify-content:space-between;gap:14px;font-size:14px;line-height:1.65;color:#5f6e85;border-top:1px solid #e9edf2;padding-top:12px;margin-top:12px"><span>Buyer protection fee (5%)</span><b style="color:#14273f;font-weight:700">£<span id="ajFeeBuyerFee">38</span></b></div>
+        <div style="display:flex;justify-content:space-between;gap:14px;font-size:14px;line-height:1.65;color:#5f6e85;border-top:1px solid #e9edf2;padding-top:12px;margin-top:12px"><span>Seller fee (10%)</span><b style="color:#14273f;font-weight:700">£<span id="ajFeeSellerFee">75</span></b></div>
+        <div style="display:flex;justify-content:space-between;gap:14px;font-size:15px;line-height:1.65;color:#4338ca;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:13px 15px;margin-top:16px"><span style="font-weight:600">Seller receives</span><b style="font-weight:800">£<span id="ajFeeSellerGets">675</span></b></div>
+        <div style="margin-top:14px;font-size:12.5px;line-height:1.6;color:#8291a6">Subscription £0 · Listing fee £0 · charged only when the deal completes</div>
+      </div>
+      <div style="background:#fff;border:1px solid #d9dfe8;border-radius:10px;padding:32px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#4f46e5">Why it's charged that way</div>
+        <div style="font-family:Newsreader,serif;font-size:25px;font-weight:500;line-height:1.22;color:#14273f">We only get paid when the deal completes</div>
+        <div style="font-size:14.5px;color:#5f6e85;line-height:1.6;text-wrap:pretty">No subscription means nobody pays to sit on the platform waiting. Fees apply per completed deal, so we are paid at the same moment you are.</div>
+        <a href="/pricing" data-act="pricing" style="font-size:13.5px;font-weight:700;color:#4338ca;margin-top:4px">Full pricing and worked examples →</a>
       </div>
     </div>
   </div>
 </section>
 
-  <footer class="footer-v3">
-    <div class="footer-v3-in">
-      <div class="footer-v3-grid">
-        <div>
-          <h4>PromoSlot</h4>
-          <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+<section style="background:#fff;border-top:1px solid #d9dfe8;padding:clamp(64px,11vh,140px) clamp(20px,5vw,72px)">
+  <div style="max-width:900px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:12px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#4338ca">
+      <span style="width:34px;height:1px;background:#c7d2fe"></span>Go deeper
+    </div>
+    <h2 style="font-family:Newsreader,serif;font-weight:500;font-size:clamp(30px,4.4vw,60px);line-height:1.03;letter-spacing:-.03em;margin:20px 0 clamp(24px,4vh,40px);max-width:18ch">The parts people ask about <em style="font-style:italic;font-weight:400;color:#5f6e85">second</em></h2>
+
+    <details style="border-bottom:1px solid #e9edf2">
+      <summary style="display:flex;gap:16px;align-items:flex-start;padding:20px 2px">
+        <span style="flex-shrink:0;font-size:12px;font-weight:800;letter-spacing:.08em;color:#8291a6;padding-top:5px">01</span>
+        <span style="min-width:0;flex:1">
+          <b style="display:block;font-family:Newsreader,serif;font-size:19px;font-weight:600;letter-spacing:-.015em;color:#14273f;line-height:1.25">Where the money actually sits</b>
+          <small style="display:block;margin-top:5px;font-size:13.5px;font-weight:500;color:#5f6e85;line-height:1.5">Funded, held, and what "held" means in practice</small>
+        </span>
+        <span style="font-size:23px;font-weight:300;color:#8291a6;line-height:1;padding-top:2px">+</span>
+      </summary>
+      <div style="padding:2px 2px 34px 38px">
+        <p style="color:#3a4658;font-size:16px;line-height:1.7;margin:0 0 18px;max-width:68ch;text-wrap:pretty">When a buyer funds a deal, the money leaves their account and enters escrow. It does not reach the seller. It sits there, unavailable to both sides, until a reviewer has checked submitted evidence against the terms both parties accepted before funding.</p>
+        <div style="border:1px solid #d9dfe8;border-radius:14px;overflow:hidden;max-width:640px;background:#fff">
+          <div style="padding:10px 15px;background:#f2f4f7;border-bottom:1px solid #d9dfe8;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8291a6">The three states funds can be in</div>
+          <div style="padding:13px 15px;font-size:14px;color:#3a4658;line-height:1.6"><b>Held</b>: funded, in escrow, unavailable to either side</div>
+          <div style="padding:13px 15px;font-size:14px;color:#3a4658;line-height:1.6;border-top:1px solid #e9edf2"><b>Released</b>: evidence checked and matched, funds move to the seller</div>
+          <div style="padding:13px 15px;font-size:14px;color:#3a4658;line-height:1.6;border-top:1px solid #e9edf2"><b>Returned</b>: terms not met, funds go back to the buyer</div>
         </div>
-        <div>
-          <h4>Explore</h4>
-          <div class="footer-v3-links">
-            <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
-            <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
-            <a href="/how-it-works" data-act="how">How it works</a>
-            <a href="/payment-protection" data-act="protect">Payment Protection</a>
-            <a href="/pricing" data-act="pricing">Pricing</a>
-            <a href="/resources" data-act="resources">Resources</a>
+        <p style="color:#5f6e85;font-size:14.5px;line-height:1.7;margin:18px 0 0;max-width:68ch">There is no fourth state. Nothing sits in limbo indefinitely and nothing is settled by whoever argues hardest.</p>
+      </div>
+    </details>
+
+    <details style="border-bottom:1px solid #e9edf2">
+      <summary style="display:flex;gap:16px;align-items:flex-start;padding:20px 2px">
+        <span style="flex-shrink:0;font-size:12px;font-weight:800;letter-spacing:.08em;color:#8291a6;padding-top:5px">02</span>
+        <span style="min-width:0;flex:1">
+          <b style="display:block;font-family:Newsreader,serif;font-size:19px;font-weight:600;letter-spacing:-.015em;color:#14273f;line-height:1.25">What a reviewer is actually looking at</b>
+          <small style="display:block;margin-top:5px;font-size:13.5px;font-weight:500;color:#5f6e85;line-height:1.5">A person reading the evidence against the agreed terms</small>
+        </span>
+        <span style="font-size:23px;font-weight:300;color:#8291a6;line-height:1;padding-top:2px">+</span>
+      </summary>
+      <div style="padding:2px 2px 34px 38px">
+        <p style="color:#3a4658;font-size:16px;line-height:1.7;margin:0 0 20px;max-width:68ch;text-wrap:pretty">Review is a person reading two documents side by side: what was agreed, and what was submitted as proof it happened. The question they answer is whether the second matches the first.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:28px">
+          <div>
+            <h4 style="font-size:14px;font-weight:800;margin:0 0 12px;color:#14273f">What counts as evidence</h4>
+            <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+              <li style="position:relative;padding-left:22px;font-size:14.5px;line-height:1.55;color:#3a4658"><span style="position:absolute;left:0;color:#4338ca;font-weight:700">✓</span>A live link to the placement</li>
+              <li style="position:relative;padding-left:22px;font-size:14.5px;line-height:1.55;color:#3a4658"><span style="position:absolute;left:0;color:#4338ca;font-weight:700">✓</span>A dated screenshot of the named analytics screen</li>
+              <li style="position:relative;padding-left:22px;font-size:14.5px;line-height:1.55;color:#3a4658"><span style="position:absolute;left:0;color:#4338ca;font-weight:700">✓</span>Figures tied to the specific term they prove</li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="font-size:14px;font-weight:800;margin:0 0 12px;color:#14273f">What doesn't</h4>
+            <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+              <li style="position:relative;padding-left:22px;font-size:14.5px;line-height:1.55;color:#3a4658"><span style="position:absolute;left:0;color:#8291a6;font-weight:700">–</span>A description of what was posted</li>
+              <li style="position:relative;padding-left:22px;font-size:14.5px;line-height:1.55;color:#3a4658"><span style="position:absolute;left:0;color:#8291a6;font-weight:700">–</span>A number with no screen behind it</li>
+              <li style="position:relative;padding-left:22px;font-size:14.5px;line-height:1.55;color:#3a4658"><span style="position:absolute;left:0;color:#8291a6;font-weight:700">–</span>Anything agreed verbally after funding</li>
+            </ul>
           </div>
         </div>
-        <div>
-          <h4>Company</h4>
-          <div class="footer-v3-links">
-            <a href="/about" data-act="about">About</a>
-            <a href="mailto:support@usepromoslot.com">Support</a>
-            <a href="/pricing" data-act="pricing">Fees</a>
-            <a href="/terms" data-act="terms">Terms</a>
-            <a href="/privacy" data-act="privacy">Privacy</a>
-            <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
-          </div>
-          <div class="footer-support"></div>
+        <div style="margin-top:22px;padding:14px 16px;border-radius:10px;background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;font-size:13.5px;font-weight:600;line-height:1.55;max-width:64ch">If the evidence looks incomplete, the seller gets 24 hours to complete it before anything is decided.</div>
+      </div>
+    </details>
+
+    <details style="border-bottom:1px solid #e9edf2">
+      <summary style="display:flex;gap:16px;align-items:flex-start;padding:20px 2px">
+        <span style="flex-shrink:0;font-size:12px;font-weight:800;letter-spacing:.08em;color:#8291a6;padding-top:5px">03</span>
+        <span style="min-width:0;flex:1">
+          <b style="display:block;font-family:Newsreader,serif;font-size:19px;font-weight:600;letter-spacing:-.015em;color:#14273f;line-height:1.25">Who is on the other side of a listing</b>
+          <small style="display:block;margin-top:5px;font-size:13.5px;font-weight:500;color:#5f6e85;line-height:1.5">Ownership verification, and why it happens before pricing</small>
+        </span>
+        <span style="font-size:23px;font-weight:300;color:#8291a6;line-height:1;padding-top:2px">+</span>
+      </summary>
+      <div style="padding:2px 2px 34px 38px">
+        <p style="color:#3a4658;font-size:16px;line-height:1.7;margin:0 0 18px;max-width:68ch;text-wrap:pretty">A platform owner verifies that they control the audience they're listing before the listing can transact. Checking any later would mean checking after someone has already paid.</p>
+        <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;max-width:64ch">
+          <li style="display:flex;gap:16px;padding:18px 0;border-bottom:1px solid #e9edf2">
+            <span style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:#eef2ff;color:#4338ca;display:grid;place-items:center;font-size:13px;font-weight:800">1</span>
+            <span><b style="display:block;font-size:15px;margin-bottom:4px;color:#14273f">Ownership is proven</b><span style="font-size:14px;color:#5f6e85;line-height:1.6">Control of the channel, newsletter or account is demonstrated.</span></span>
+          </li>
+          <li style="display:flex;gap:16px;padding:18px 0;border-bottom:1px solid #e9edf2">
+            <span style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:#eef2ff;color:#4338ca;display:grid;place-items:center;font-size:13px;font-weight:800">2</span>
+            <span><b style="display:block;font-size:15px;margin-bottom:4px;color:#14273f">Then the listing can transact</b><span style="font-size:14px;color:#5f6e85;line-height:1.6">Until that's done, the listing cannot take a funded deal.</span></span>
+          </li>
+          <li style="display:flex;gap:16px;padding:18px 0">
+            <span style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:#eef2ff;color:#4338ca;display:grid;place-items:center;font-size:13px;font-weight:800">3</span>
+            <span><b style="display:block;font-size:15px;margin-bottom:4px;color:#14273f">The record starts counting</b><span style="font-size:14px;color:#5f6e85;line-height:1.6">Every completed deal after that attaches to the same verified profile.</span></span>
+          </li>
+        </ol>
+      </div>
+    </details>
+  </div>
+</section>
+
+<footer class="footer-v3">
+  <div class="footer-v3-in">
+    <div class="footer-v3-grid">
+      <div>
+        <h4>PromoSlot</h4>
+        <p>A marketplace where businesses and platform owners agree promotional work, fund it through Payment Protection and settle it on documented delivery.</p>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <div class="footer-v3-links">
+          <a href="/marketplace" data-act="market-platforms">Browse platform listings</a>
+          <a href="/marketplace" data-act="market-campaigns">Browse business campaigns</a>
+          <a href="/how-it-works" data-act="how">How it works</a>
+          <a href="/payment-protection" data-act="protect">Payment Protection</a>
+          <a href="/pricing" data-act="pricing">Pricing</a>
+          <a href="/resources" data-act="resources">Resources</a>
         </div>
       </div>
-      <div class="footer-v3-bottom">
-        <span>© 2026 PromoSlot Ltd</span>
-        <span>All amounts shown in GBP.</span>
-        <span>Some photography on this site is AI-generated, used for illustration only.</span>
+      <div>
+        <h4>Company</h4>
+        <div class="footer-v3-links">
+          <a href="/about" data-act="about">About</a>
+          <a href="mailto:support@usepromoslot.com">Support</a>
+          <a href="/pricing" data-act="pricing">Fees</a>
+          <a href="/terms" data-act="terms">Terms</a>
+          <a href="/privacy" data-act="privacy">Privacy</a>
+          <a href="/refund-policy" data-act="refund-policy">Refund policy</a>
+        </div>
+        <div class="footer-support"></div>
       </div>
     </div>
-  </footer>
+    <div class="footer-v3-bottom">
+      <span>© 2026 PromoSlot Ltd</span>
+      <span>All amounts shown in GBP.</span>
+      <span>Some photography on this site is AI-generated, used for illustration only.</span>
+    </div>
+  </div>
+</footer>
 </div>
 
 <div class="view" id="view-terms" data-screen-label="Terms of Service">
@@ -3641,6 +3708,7 @@ body[data-role="plat"] .role-biz-only{display:none!important}
      this page is served (backend/assets.py). Leave these srcs plain. -->
 <script src="api.js" defer></script>
 <script src="promoslot-app.js" defer></script>
+<script src="about-page.js" defer></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   function wire() {
